@@ -40,6 +40,7 @@ import reportRoutes from './routes/reports.js';
 import marketTrendsRoutes from './routes/marketTrends.js';
 import notificationRoutes from './routes/notifications.js';
 import privacyRoutes from './routes/privacy.js';
+import featureFlagsRoutes from './routes/featureFlags.js';
 export const app = express();
 // Render (and Cloudflare) sit behind a reverse proxy — required for rate limiting and client IP.
 if (process.env.RENDER === 'true' || env.isProduction) {
@@ -153,6 +154,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/market-trends', marketTrendsRoutes);
 app.use('/api/privacy', privacyRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/feature-flags', featureFlagsRoutes);
 app.use((err, _req, res, _next) => {
     console.error(err);
     const prismaConnCodes = new Set(['P1000', 'P1001', 'P1002', 'P1008', 'P1011', 'P1017']);
