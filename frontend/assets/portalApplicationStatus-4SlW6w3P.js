@@ -1,0 +1,1 @@
+const e=new Set(["CLOSED","ON_HOLD","CANCELLED"]);function S(r,E,t){return t==="JOINED"||t==="HIRED"||!E||e.has(r)?"CLOSED":"ACTIVE"}function n(r){return r==="CLOSED"?"Closed":"Active"}export{n as p,S as r};

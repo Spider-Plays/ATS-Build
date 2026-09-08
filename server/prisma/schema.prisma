@@ -1,0 +1,527 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  /// Null for Google-only accounts (no local password).
+  passwordHash    String?
+  name            String
+  role            String
+  department      String?
+  status          String   @default("ACTIVE")
+  themePreference String   @default("light")
+  permissions     String   @default("[]")
+  avatar          String?
+  phoneNumber     String?
+  address         String?
+  resumeUrl       String?
+  resumeStorageKey String?
+  authProvider    String   @default("local")
+  /// Google OAuth subject (`sub`) when signed in with Google.
+  googleId        String?  @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastLogin            DateTime?
+  mustChangePassword   Boolean  @default(false)
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  /// Incremented on password change / disable to invalidate access JWTs.
+  tokenVersion         Int      @default(0)
+  vendorId             String?
+  referralCode         String?  @unique
+  loginHistory         LoginHistory[]
+  refreshTokens        RefreshToken[]
+}
+
+model RefreshToken {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String    @unique
+  familyId     String
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  userAgent    String?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model LoginHistory {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loggedInAt DateTime @default(now())
+  ipAddress  String?
+  userAgent  String?
+
+  @@index([userId, loggedInAt])
+}
+
+model Vendor {
+  id          String   @id @default(cuid())
+  name        String
+  code        String?  @unique
+  email       String
+  phone       String?
+  website     String?
+  address     String?
+  contactName String?
+  status      String   @default("ACTIVE")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  onboarding  VendorOnboarding?
+}
+
+/// Vendor self-onboarding + evaluation packet awaiting HR approval.
+model VendorOnboarding {
+  id        String @id @default(cuid())
+  vendorId  String @unique
+  vendor    Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  /// NOT_STARTED | ONBOARDING | EVALUATION | SUBMITTED | APPROVED | REJECTED
+  status    String @default("NOT_STARTED")
+
+  onboardingJson        String    @default("{}")
+  onboardingCompletedAt DateTime?
+  evaluationJson        String    @default("{}")
+  evaluationCompletedAt DateTime?
+
+  submittedAt DateTime?
+  submittedBy String?
+
+  /// Scoring snapshot (JSON). Visible only to HR Manager / HR Head / Admin.
+  scoringJson       String?
+  overallPercentage Float?
+  /// PREFERRED | APPROVED | CONDITIONAL | NOT_RECOMMENDED
+  category          String?
+
+  evaluatorStrengths       String?
+  evaluatorImprovements    String?
+  evaluatorRisks           String?
+  evaluatorRecommendation  String?
+  decisionReason           String?
+  decidedBy                String?
+  decidedByName            String?
+  decidedByRole            String?
+  decidedAt                DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+model VendorRequirement {
+  id            String   @id @default(cuid())
+  vendorId      String
+  requirementId String
+  assignedAt    DateTime @default(now())
+  assignedBy    String?
+
+  @@unique([vendorId, requirementId])
+}
+
+model ClientDeal {
+  id              String   @id @default(cuid())
+  client          String
+  accountManager  String
+  hiringManager   String
+  notes           String?
+  businessStage      String   @default("INITIAL_DISCUSSION")
+  stagePercentage    Int      @default(10)
+  sowGatewayReached  Boolean  @default(false)
+  status             String   @default("ACTIVE")
+  stageHistory    String   @default("[]")
+  createdBy       String?
+  createdByRole   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model BusinessRequirement {
+  id                     String   @id @default(cuid())
+  clientDealId           String?
+  title                  String
+  client                 String?
+  department             String
+  accountManager         String
+  hiringManager          String
+  businessStage          String   @default("INITIAL_DISCUSSION")
+  stagePercentage        Int      @default(10)
+  status                 String   @default("ACTIVE")
+  publishedRequirementId String?
+  stageHistory           String   @default("[]")
+  openings               Int
+  priority               String?
+  location               String?
+  locationCity           String?
+  isRemote               Boolean  @default(false)
+  workMode               String?
+  employmentType         String?
+  seniorityLevel         String?
+  experienceMinYears     Int?
+  experienceMaxYears     Int?
+  salaryBand             String?
+  targetStartDate        DateTime?
+  hiringDeadline         DateTime?
+  description            String?
+  jobDescription         String?
+  primarySkills          String   @default("[]")
+  secondarySkills        String   @default("[]")
+  createdBy              String?
+  createdByRole          String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+model Requirement {
+  id              String   @id @default(cuid())
+  jobCode         String?  @unique
+  parentJobCode   String?
+  client          String?
+  title           String
+  department      String
+  projectName     String?
+  orgUnit         String?
+  quarter         String?
+  reqMonth        String?
+  hiringManager   String
+  accountManager  String?
+  status          String
+  hiringStage     String   @default("SOURCING")
+  liveAt          DateTime?
+  onHoldAt        DateTime?
+  openings        Int
+  filled          Int      @default(0)
+  priority        String?
+  location        String?
+  locationCity      String?
+  isRemote          Boolean  @default(false)
+  workMode          String?
+  employmentType    String?
+  hireType          String?
+  seniorityLevel    String?
+  globalJobType     String?
+  businessType      String?
+  domain            String?
+  jobType           String?
+  employmentChannel String?
+  requirementFor    String?
+  replacementDueTo  String?
+  replacementEmployeeName String?
+  joinedEmployeeName String?
+  joinedEmployeeId   String?
+  education         String   @default("[]")
+  hireCategory      String?
+  holdStartDate     DateTime?
+  holdEndDate       DateTime?
+  holdDays          Int?
+  agingDays         Int?
+  positionSlots     String   @default("[]")
+  experienceMinYears Int?
+  experienceMaxYears Int?
+  experienceLabel    String?
+  salaryBand        String?
+  targetStartDate   DateTime?
+  hiringDeadline    DateTime?
+  description     String?
+  jobDescription  String?
+  primarySkills   String   @default("[]")
+  secondarySkills String   @default("[]")
+  createdBy       String?
+  createdByRole   String?
+  recruiters      String   @default("[]")
+  /** Invited recruiter user IDs awaiting accept/reject (JSON string[]). */
+  pendingRecruiters String @default("[]")
+  assignedVendorName String?
+  approvalStatus     String?
+  cancellationStatus String?
+  onboardSource      String?
+  referrerName       String?
+  joiningDate        DateTime?
+  joinedMonth        String?
+  joinedQuarter      String?
+  approval        String?
+  approvalHistory String   @default("[]")
+  versions        String   @default("[]")
+  currentVersion        Int      @default(1)
+  visibleToCandidates   Boolean  @default(true)
+  visibleToVendors      Boolean  @default(false)
+  visibleToReferrals    Boolean  @default(true)
+  referralBonusAmount   Int?
+  closureReason         String?
+  closedAt              DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Candidate {
+  id               String   @id @default(cuid())
+  name             String
+  email            String
+  role             String
+  status           String
+  matchScore       Float    @default(0)
+  source           String
+  appliedDate      DateTime @default(now())
+  requirementId    String?
+  jobTitle         String?
+  createdBy        String?
+  avatar           String?
+  resumeUrl        String?
+  resumeFileName   String?
+  resumeMimeType   String?
+  resumeStorageKey String?
+  phone            String?
+  location         String?
+  preferredLocation String?
+  linkedIn         String?
+  portfolio        String?
+  totalExperience  String?
+  currentCompany   String?
+  currentCTC       String?
+  expectedCTC      String?
+  noticePeriod     String?
+  pan              String?
+  primarySkills    String   @default("[]")
+  secondarySkills  String   @default("[]")
+  resumeText       String?
+  /** Derived helpers for Naukri-style candidate search (not recruiter-entered). */
+  experienceYears     Float?
+  currentCtcLakhs     Float?
+  expectedCtcLakhs    Float?
+  noticePeriodDays    Int?
+  searchText          String?
+  vendorId              String?
+  submittedByUserId     String?
+  referredByUserId      String?
+  referralRelationship  String?
+  referralNotes         String?
+  partnerName           String?
+  hireCategory          String?
+  quarter               String?
+  reqMonth              String?
+  reqReceiptDate        DateTime?
+  legacyResumeId        String?
+  sourceMonth           String?
+  sourceWeek            String?
+  offerDate              DateTime?
+  offerMonth             String?
+  offerWeek              String?
+  offerQuarter           String?
+  expectedJoiningDate    DateTime?
+  joiningDate            DateTime?
+  joiningMonth           String?
+  joiningQuarter         String?
+  submittedAt            DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model InterviewPlan {
+  id            String   @id @default(cuid())
+  requirementId String   @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  stages        InterviewPlanStage[]
+}
+
+model InterviewPlanStage {
+  id                    String   @id @default(cuid())
+  planId                String
+  order                 Int
+  name                  String
+  interviewType         String   @default("TECHNICAL")
+  defaultDuration       Int      @default(60)
+  defaultInterviewerIds String   @default("[]")
+  plan                  InterviewPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  interviews            Interview[]
+
+  @@unique([planId, order])
+}
+
+model Interview {
+  id             String   @id @default(cuid())
+  candidateId    String
+  requirementId  String
+  planStageId    String?
+  scheduledAt    DateTime
+  scheduledBy    String?
+  interviewerIds String   @default("[]")
+  type           String
+  status         String
+  meetingLink       String?
+  duration          Int?
+  location          String?
+  description       String?
+  calendarEventId   String?
+  calendarSequence  Int      @default(0)
+  createdAt         DateTime @default(now())
+  planStage      InterviewPlanStage? @relation(fields: [planStageId], references: [id], onDelete: SetNull)
+}
+
+model Feedback {
+  id                  String   @id @default(cuid())
+  interviewId         String
+  interviewerId       String
+  candidateId         String
+  rating              Int
+  technicalRating     Int?
+  communicationRating Int?
+  comments            String
+  recommendation      String
+  formData            String   @default("{}")
+  createdAt           DateTime @default(now())
+}
+
+model Offer {
+  id                String    @id @default(cuid())
+  candidateId       String
+  requirementId     String
+  baseSalary        Float
+  annualCtc         Float?
+  equity            Float?
+  bonus             Float?
+  status            String
+  history           String    @default("[]")
+  letterContent     String?
+  compensationJson  String    @default("{}")
+  letterMetaJson    String    @default("{}")
+  letterHtml        String?
+  letterPdfKey      String?
+  approval          String    @default("{}")
+  approvalHistory   String    @default("[]")
+  approvalChainJson String    @default("[]")
+  approvalStep      String?
+  rejectionReason   String?
+  validUntil        DateTime?
+  sentAt            DateTime?
+  respondedAt       DateTime?
+  respondedBy       String?
+  createdBy         String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model SkillCatalog {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  category  String   @default("General")
+  createdAt DateTime @default(now())
+}
+
+model DepartmentCatalog {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
+model ClientCatalog {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
+model CityCatalog {
+  id        String   @id @default(cuid())
+  city      String
+  state     String?
+  createdAt DateTime @default(now())
+
+  @@unique([city])
+}
+
+/** CRISTO skill pay row — bands JSON: [{ experience, minCtc, maxCtc }, ...] */
+model SkillMarketRow {
+  id                String   @id @default(cuid())
+  capabilityArea    String
+  framework         String
+  scriptingLanguage String
+  toolsTechnologies String
+  sortOrder         Int      @default(0)
+  bands             Json
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model LocationMultiplier {
+  id         String @id @default(cuid())
+  location   String @unique
+  multiplier Float
+  sortOrder  Int    @default(0)
+}
+
+model InterviewPanelLevel {
+  id               String   @id @default(cuid())
+  order            Int      @unique
+  name             String
+  interviewerIds   String   @default("[]")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model ActivityLog {
+  id            String   @id @default(cuid())
+  entityType    String
+  entityId      String
+  action        String
+  performedBy   String
+  performerName String?
+  performerRole String?
+  details       String?
+  timestamp     DateTime @default(now())
+  /** True for logs created by the demo seed script — excluded from notifications. */
+  seed          Boolean  @default(false)
+}
+
+model RolePageAccess {
+  role      String   @id
+  pages     String
+  updatedAt DateTime @updatedAt
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
+model ChangeRequest {
+  id                String    @id @default(cuid())
+  title             String
+  module            String
+  page              String?
+  description       String
+  status            String    @default("PENDING_HR")
+  requestedBy       String
+  requestedByName   String
+  requestedByRole   String
+  hrReviewedBy      String?
+  hrReviewedByName  String?
+  hrReviewedAt      DateTime?
+  hrComment         String?
+  adminReviewedBy   String?
+  adminReviewedByName String?
+  adminReviewedAt   DateTime?
+  closureComment    String?
+  closedBy          String?
+  closedByName      String?
+  closedAt          DateTime?
+  history           String    @default("[]")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([requestedBy, createdAt])
+}

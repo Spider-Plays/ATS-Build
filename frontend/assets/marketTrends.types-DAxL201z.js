@@ -1,0 +1,1 @@
+const u=["1-3 yrs","3-4 yrs","4-5 yrs","5-6 yrs","7-8 yrs","9-10 yrs"];function s(n){return Math.round(n*10)/10}function f(n,e,r){const t=n.find(a=>a.experience===e);if(!t||!Number.isFinite(r)||r<=0)return null;const c=s((t.minCtc+t.maxCtc)/2);return s(c*r)}function m(){return u.map(n=>({experience:n,minCtc:0,maxCtc:0}))}export{u as E,m as e,f};

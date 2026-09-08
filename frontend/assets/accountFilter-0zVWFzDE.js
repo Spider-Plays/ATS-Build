@@ -1,0 +1,1 @@
+function s(e){const n=new Set;for(const t of e){const o=t==null?void 0:t.trim();o&&n.add(o)}return[...n].sort((t,o)=>t.localeCompare(o,void 0,{sensitivity:"base"})).map(t=>({value:t,label:t}))}function i(e,n){const t=Array.isArray(n)?n.filter(Boolean):n?[n]:[];if(t.length===0)return!0;const o=(e==null?void 0:e.trim())??"";return t.includes(o)}export{s as b,i as m};

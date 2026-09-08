@@ -1,0 +1,1 @@
+.business-req-list .business-req-card{border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;background:var(--card);transition:border-color .15s ease,box-shadow .15s ease}.business-req-list .business-req-card:hover{border-color:color-mix(in srgb,var(--primary) 40%,var(--border));box-shadow:0 2px 8px #0000000f}

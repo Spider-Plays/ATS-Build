@@ -1,0 +1,1 @@
+.business-req-detail-grid{display:grid;gap:1rem}@media(min-width:768px){.business-req-detail-grid{grid-template-columns:1fr 1fr}}.business-req-detail .detail-card{border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;background:var(--card)}.business-req-detail .detail-card-title{font-size:.875rem;font-weight:600;margin-bottom:1rem}
