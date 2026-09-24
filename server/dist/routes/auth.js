@@ -11,6 +11,7 @@ import { recordUserLogin } from '../lib/recordLogin.js';
 import { issuePasswordResetLink } from '../lib/passwordReset.js';
 import { applyNoStoreAuth } from '../lib/authResponse.js';
 import { verifyGoogleAccessToken, verifyGoogleIdToken } from '../lib/googleAuth.js';
+import { verifyMicrosoftIdToken } from '../lib/microsoftAuth.js';
 import { bumpTokenVersionAndRevoke, issueSession, revokeRefreshToken, rotateRefreshToken, signAccessToken, } from '../lib/sessionTokens.js';
 const router = Router();
 router.use((_req, res, next) => {
@@ -36,6 +37,9 @@ const googleSignInSchema = z
 })
     .refine((v) => Boolean(v.credential || v.accessToken), {
     message: 'Google credential or accessToken is required',
+});
+const microsoftSignInSchema = z.object({
+    idToken: z.string().min(1),
 });
 async function issueAppSession(userId, req) {
     await recordUserLogin(userId, req);
@@ -181,6 +185,53 @@ router.post('/google', authRateLimiter, async (req, res, next) => {
                     avatar: profile.picture ?? null,
                     mustChangePassword: false,
                 },
+            });
+        }
+        const session = await issueAppSession(user.id, req);
+        res.json(session);
+    }
+    catch (err) {
+        next(err);
+    }
+});
+/** Microsoft Entra SSO for all existing ATS users except candidates. */
+router.post('/microsoft', authRateLimiter, async (req, res, next) => {
+    try {
+        delete req.headers.authorization;
+        if (!env.microsoftClientId || !env.microsoftTenantId) {
+            return res.status(503).json({
+                error: 'Microsoft SSO is not configured. Set MICROSOFT_CLIENT_ID and MICROSOFT_TENANT_ID on the server.',
+            });
+        }
+        const parsed = microsoftSignInSchema.safeParse(req.body);
+        if (!parsed.success)
+            return res.status(400).json({ error: 'Invalid Microsoft sign-in request' });
+        let profile;
+        try {
+            profile = await verifyMicrosoftIdToken(parsed.data.idToken);
+        }
+        catch {
+            return res.status(401).json({ error: 'Microsoft sign-in failed. Please try again.' });
+        }
+        let user = await prisma.user.findFirst({
+            where: {
+                OR: [{ microsoftId: profile.microsoftId }, { email: profile.email }],
+            },
+        });
+        if (!user) {
+            return res.status(403).json({
+                error: 'Your Microsoft account is not linked to an active ATS user. Contact an administrator.',
+            });
+        }
+        if (user.role === 'CANDIDATE') {
+            return res.status(403).json({ error: 'Candidates must use the candidate portal Google sign-in.' });
+        }
+        if (user.status === 'DISABLED')
+            return res.status(403).json({ error: 'Account disabled' });
+        if (user.microsoftId !== profile.microsoftId) {
+            user = await prisma.user.update({
+                where: { id: user.id },
+                data: { microsoftId: profile.microsoftId, authProvider: user.passwordHash ? user.authProvider : 'microsoft' },
             });
         }
         const session = await issueAppSession(user.id, req);

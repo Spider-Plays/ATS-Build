@@ -17,20 +17,20 @@ async function main() {
         preferredEmailsByOrder: {
             0: [
                 devUserEmail('INTERVIEWER'),
-                'nisha.kamath@stitch-ats.in',
-                'pradeep.naidu@stitch-ats.in',
+                'nisha.kamath@ats.igsglobal.co',
+                'pradeep.naidu@ats.igsglobal.co',
                 devUserEmail('TEAM_LEAD'),
             ],
             1: [
                 devUserEmail('HIRING_MANAGER'),
-                'preeti.gowda@stitch-ats.in',
-                'harish.kulkarni@stitch-ats.in',
+                'preeti.gowda@ats.igsglobal.co',
+                'harish.kulkarni@ats.igsglobal.co',
                 devUserEmail('ACCOUNT_MANAGER'),
             ],
             2: [
                 devUserEmail('HR_MANAGER'),
-                'gautam.mehta@stitch-ats.in',
-                'shalini.verma@stitch-ats.in',
+                'gautam.mehta@ats.igsglobal.co',
+                'shalini.verma@ats.igsglobal.co',
                 devUserEmail('HR_HEAD'),
             ],
         },

@@ -7,7 +7,6 @@ import { resolveApiBuildId } from './config/buildId.js';
 import { prisma } from './lib/prisma.js';
 import { isEmailConfigured } from './services/email.js';
 import { databaseHostLabel } from './config/loadEnv.js';
-import { isProductionNeonDatabaseUrl, isStagingRuntime } from './config/databaseEnv.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import businessRequirementRoutes from './routes/businessRequirements.js';
@@ -42,10 +41,6 @@ import notificationRoutes from './routes/notifications.js';
 import privacyRoutes from './routes/privacy.js';
 import featureFlagsRoutes from './routes/featureFlags.js';
 export const app = express();
-// Render (and Cloudflare) sit behind a reverse proxy — required for rate limiting and client IP.
-if (process.env.RENDER === 'true' || env.isProduction) {
-    app.set('trust proxy', 1);
-}
 const devOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
@@ -62,12 +57,7 @@ function isAllowedOrigin(origin) {
     const normalized = origin.replace(/\/$/, '');
     if (devOrigins.includes(normalized) || env.clientOrigins.includes(normalized))
         return true;
-    if (!env.isProduction)
-        return false;
-    return (/^https:\/\/(www\.)?stitch-ats\.in$/.test(normalized) ||
-        /^https:\/\/[\w-]+\.stitch-ats\.in$/.test(normalized) ||
-        /^https:\/\/([\w-]+\.)*[\w-]+\.pages\.dev$/.test(normalized) ||
-        /^https:\/\/ats\.[\w-]+\.workers\.dev$/.test(normalized));
+    return false;
 }
 app.use(cors({
     origin(origin, callback) {
@@ -84,7 +74,7 @@ app.get('/', (_req, res) => {
     res.json({
         service: 'Stitch ATS',
         health: '/api/health',
-        hint: 'Open your Cloudflare Pages site for the app UI — this URL is the API only.',
+        hint: 'Open the Vite app at http://localhost:3000.',
     });
 });
 app.get('/api/health', async (_req, res) => {
@@ -98,19 +88,7 @@ app.get('/api/health', async (_req, res) => {
             database: 'connected',
             buildId,
             email: isEmailConfigured() ? 'configured' : 'not_configured',
-            atsEnv: process.env.ATS_ENV === 'local'
-                ? 'local'
-                : process.env.ATS_ENV === 'igs'
-                    ? 'igs'
-                    : isStagingRuntime()
-                        ? 'staging'
-                        : 'production',
             databaseHost,
-            databaseTier: databaseHost
-                ? isProductionNeonDatabaseUrl(process.env.DATABASE_URL)
-                    ? 'production-neon'
-                    : 'non-production-neon'
-                : undefined,
         });
     }
     catch {

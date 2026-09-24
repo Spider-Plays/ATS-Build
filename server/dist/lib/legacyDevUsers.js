@@ -1,7 +1,7 @@
 import { DEV_USERS } from '../config/devUsers.js';
 function legacyDevEmail(canonicalEmail) {
     const [local] = canonicalEmail.toLowerCase().split('@');
-    return `dev-${local}@stitch-ats.in`;
+    return `dev-${local}@ats.igsglobal.co`;
 }
 async function reassignUserReferences(prisma, fromUserId, toUserId) {
     if (fromUserId === toUserId)
@@ -64,7 +64,7 @@ async function reassignUserReferences(prisma, fromUserId, toUserId) {
         }
     }
 }
-/** Merge or remove legacy dev-*@stitch-ats.in and @local.test accounts before seeding. */
+/** Merge or remove legacy dev-*@ats.igsglobal.co and @local.test accounts before seeding. */
 export async function removeLegacyDevUsers(prisma) {
     let merged = 0;
     let deleted = 0;
@@ -108,7 +108,7 @@ export async function removeLegacyDevUsers(prisma) {
                             OR: [
                                 { email: { endsWith: '@stitch.com' } },
                                 { email: { endsWith: '@Stitch.com' } },
-                                { email: { endsWith: '@stitch-ats.in' } },
+                                { email: { endsWith: '@ats.igsglobal.co' } },
                             ],
                         },
                     ],

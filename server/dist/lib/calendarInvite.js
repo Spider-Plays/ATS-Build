@@ -53,7 +53,7 @@ export function buildInterviewIcs(event) {
     return `${lines.join('\r\n')}\r\n`;
 }
 export function interviewCalendarUid(interviewId) {
-    return `interview-${interviewId}@stitch-ats.in`;
+    return `interview-${interviewId}@ats.igsglobal.co`;
 }
 export function interviewEndTime(scheduledAt, durationMinutes) {
     const end = new Date(scheduledAt);

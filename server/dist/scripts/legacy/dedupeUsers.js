@@ -1,6 +1,6 @@
 /**
  * Merge duplicate users (name variants, cross-role) into one account per person,
- * remap references, and normalize emails to firstname.lastinitial@stitch-ats.in.
+ * remap references, and normalize emails to firstname.lastinitial@ats.igsglobal.co.
  *
  *   npm run db:legacy -- dedupe-users --dry-run
  *   npm run db:legacy -- dedupe-users
@@ -285,7 +285,7 @@ async function applyCanonicalProfile(keeper, group, dryRun, reserved) {
     if (!protectedEmail) {
         desiredEmail = stitchEmailFromName(canonicalName).toLowerCase();
         if (reserved.has(desiredEmail) && desiredEmail !== keeper.email.toLowerCase()) {
-            desiredEmail = `${slugFromName(canonicalName)}.${keeper.id.slice(-4).toLowerCase()}@stitch-ats.in`;
+            desiredEmail = `${slugFromName(canonicalName)}.${keeper.id.slice(-4).toLowerCase()}@ats.igsglobal.co`;
         }
     }
     const nameChanged = normalizePersonName(keeper.name) !== canonicalName;
@@ -307,7 +307,7 @@ async function applyCanonicalProfile(keeper, group, dryRun, reserved) {
             select: { id: true },
         });
         if (clash && clash.id !== keeper.id) {
-            desiredEmail = `${slugFromName(canonicalName)}.${keeper.id.slice(-4).toLowerCase()}@stitch-ats.in`;
+            desiredEmail = `${slugFromName(canonicalName)}.${keeper.id.slice(-4).toLowerCase()}@ats.igsglobal.co`;
         }
     }
     await prisma.user.update({
@@ -398,7 +398,7 @@ export async function run(argv = []) {
         }
         let nextEmail = desired;
         if (reserved.has(nextEmail)) {
-            nextEmail = `${slugFromName(u.name)}.${u.id.slice(-4).toLowerCase()}@stitch-ats.in`;
+            nextEmail = `${slugFromName(u.name)}.${u.id.slice(-4).toLowerCase()}@ats.igsglobal.co`;
         }
         profileUpdates++;
         if (profileUpdates <= 40) {
@@ -410,7 +410,7 @@ export async function run(argv = []) {
                 select: { id: true },
             });
             if (clash && clash.id !== u.id) {
-                nextEmail = `${slugFromName(u.name)}.${u.id.slice(-4).toLowerCase()}@stitch-ats.in`;
+                nextEmail = `${slugFromName(u.name)}.${u.id.slice(-4).toLowerCase()}@ats.igsglobal.co`;
             }
             await prisma.user.update({
                 where: { id: u.id },

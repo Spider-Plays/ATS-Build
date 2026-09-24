@@ -1466,7 +1466,7 @@ function cand(b) {
 /** Dense pipeline coverage across bulk requirements. */
 export const DEMO_BULK_CANDIDATES = [
     cand({
-        email: 'ananya.bansal@stitch-ats.in',
+        email: 'ananya.bansal@ats.igsglobal.co',
         name: 'Ananya Bansal',
         role: 'React Native Engineer',
         status: 'TO_BE_SCREENED',
@@ -1478,7 +1478,7 @@ export const DEMO_BULK_CANDIDATES = [
         secondary: ['Android', 'GraphQL'],
     }),
     cand({
-        email: 'harsh.malik@stitch-ats.in',
+        email: 'harsh.malik@ats.igsglobal.co',
         name: 'Harsh Malik',
         role: 'Mobile Engineer',
         status: 'SCREEN_SELECT',
@@ -1491,7 +1491,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-scheduled',
     }),
     cand({
-        email: 'ishita.gupta@stitch-ats.in',
+        email: 'ishita.gupta@ats.igsglobal.co',
         name: 'Ishita Gupta',
         role: 'Senior Mobile Engineer',
         status: 'L1_INTERVIEW',
@@ -1504,7 +1504,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-done-l2-scheduled',
     }),
     cand({
-        email: 'kunal.agarwal@stitch-ats.in',
+        email: 'kunal.agarwal@ats.igsglobal.co',
         name: 'Kunal Agarwal',
         role: 'Data Engineer',
         status: 'TO_BE_SCREENED',
@@ -1516,7 +1516,7 @@ export const DEMO_BULK_CANDIDATES = [
         secondary: ['Airflow', 'Snowflake'],
     }),
     cand({
-        email: 'megha.saxena@stitch-ats.in',
+        email: 'megha.saxena@ats.igsglobal.co',
         name: 'Megha Saxena',
         role: 'Analytics Engineer',
         status: 'SCREEN_SELECT',
@@ -1529,7 +1529,7 @@ export const DEMO_BULK_CANDIDATES = [
         vendor: true,
     }),
     cand({
-        email: 'naveen.prakash@stitch-ats.in',
+        email: 'naveen.prakash@ats.igsglobal.co',
         name: 'Naveen Prakash',
         role: 'Data Engineer',
         status: 'TO_BE_OFFERED',
@@ -1543,7 +1543,7 @@ export const DEMO_BULK_CANDIDATES = [
         offerStatus: 'SENT',
     }),
     cand({
-        email: 'olivia.fernandes@stitch-ats.in',
+        email: 'olivia.fernandes@ats.igsglobal.co',
         name: 'Olivia Fernandes',
         role: 'Product Analyst',
         status: 'TO_BE_SCREENED',
@@ -1555,7 +1555,7 @@ export const DEMO_BULK_CANDIDATES = [
         secondary: ['Tableau', 'Excel'],
     }),
     cand({
-        email: 'pranav.jain@stitch-ats.in',
+        email: 'pranav.jain@ats.igsglobal.co',
         name: 'Pranav Jain',
         role: 'Claims Analyst',
         status: 'L1_INTERVIEW',
@@ -1568,7 +1568,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-scheduled',
     }),
     cand({
-        email: 'qamar.siddiqui@stitch-ats.in',
+        email: 'qamar.siddiqui@ats.igsglobal.co',
         name: 'Qamar Siddiqui',
         role: 'Network Reliability Engineer',
         status: 'SCREEN_SELECT',
@@ -1581,7 +1581,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-awaiting-feedback',
     }),
     cand({
-        email: 'riya.chopra@stitch-ats.in',
+        email: 'riya.chopra@ats.igsglobal.co',
         name: 'Riya Chopra',
         role: 'Telecom SRE',
         status: 'TO_BE_SCREENED',
@@ -1594,7 +1594,7 @@ export const DEMO_BULK_CANDIDATES = [
         vendor: true,
     }),
     cand({
-        email: 'sahil.mehra@stitch-ats.in',
+        email: 'sahil.mehra@ats.igsglobal.co',
         name: 'Sahil Mehra',
         role: 'Full Stack Engineer',
         status: 'TO_BE_SCREENED',
@@ -1606,7 +1606,7 @@ export const DEMO_BULK_CANDIDATES = [
         secondary: ['PostgreSQL', 'Redis'],
     }),
     cand({
-        email: 'tanya.bhatt@stitch-ats.in',
+        email: 'tanya.bhatt@ats.igsglobal.co',
         name: 'Tanya Bhatt',
         role: 'Full Stack Developer',
         status: 'SCREEN_SELECT',
@@ -1619,7 +1619,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-scheduled',
     }),
     cand({
-        email: 'uday.kiran@stitch-ats.in',
+        email: 'uday.kiran@ats.igsglobal.co',
         name: 'Uday Kiran',
         role: 'Integration Engineer',
         status: 'TO_BE_SCREENED',
@@ -1631,7 +1631,7 @@ export const DEMO_BULK_CANDIDATES = [
         secondary: ['Mirth Connect', 'PostgreSQL'],
     }),
     cand({
-        email: 'vaishnavi.s@stitch-ats.in',
+        email: 'vaishnavi.s@ats.igsglobal.co',
         name: 'Vaishnavi Subramanian',
         role: 'Healthcare Integration Engineer',
         status: 'L1_INTERVIEW',
@@ -1645,7 +1645,7 @@ export const DEMO_BULK_CANDIDATES = [
         vendor: true,
     }),
     cand({
-        email: 'wasim.khan@stitch-ats.in',
+        email: 'wasim.khan@ats.igsglobal.co',
         name: 'Wasim Khan',
         role: 'Embedded Software Engineer',
         status: 'TO_BE_SCREENED',
@@ -1657,7 +1657,7 @@ export const DEMO_BULK_CANDIDATES = [
         secondary: ['Embedded Linux', 'MISRA'],
     }),
     cand({
-        email: 'xavier.dsouza@stitch-ats.in',
+        email: 'xavier.dsouza@ats.igsglobal.co',
         name: 'Xavier Dsouza',
         role: 'Automotive Software Engineer',
         status: 'SCREEN_SELECT',
@@ -1670,7 +1670,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-scheduled',
     }),
     cand({
-        email: 'yamini.rao@stitch-ats.in',
+        email: 'yamini.rao@ats.igsglobal.co',
         name: 'Yamini Rao',
         role: 'Backend Engineer',
         status: 'TO_BE_SCREENED',
@@ -1682,7 +1682,7 @@ export const DEMO_BULK_CANDIDATES = [
         secondary: ['AWS', 'System Design'],
     }),
     cand({
-        email: 'zaid.ansari@stitch-ats.in',
+        email: 'zaid.ansari@ats.igsglobal.co',
         name: 'Zaid Ansari',
         role: 'Platform Backend Engineer',
         status: 'TO_BE_OFFERED',
@@ -1696,7 +1696,7 @@ export const DEMO_BULK_CANDIDATES = [
         offerStatus: 'SENT',
     }),
     cand({
-        email: 'aarti.nayak@stitch-ats.in',
+        email: 'aarti.nayak@ats.igsglobal.co',
         name: 'Aarti Nayak',
         role: 'Platform SRE',
         status: 'SCREEN_SELECT',
@@ -1709,7 +1709,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-scheduled',
     }),
     cand({
-        email: 'bhavya.iyer@stitch-ats.in',
+        email: 'bhavya.iyer@ats.igsglobal.co',
         name: 'Bhavya Iyer',
         role: 'SRE',
         status: 'TO_BE_SCREENED',
@@ -1721,7 +1721,7 @@ export const DEMO_BULK_CANDIDATES = [
         secondary: ['Chaos Engineering', 'Python'],
     }),
     cand({
-        email: 'chirag.patel@stitch-ats.in',
+        email: 'chirag.patel@ats.igsglobal.co',
         name: 'Chirag Patel',
         role: 'Ops Analyst',
         status: 'TO_BE_SCREENED',
@@ -1733,7 +1733,7 @@ export const DEMO_BULK_CANDIDATES = [
         secondary: ['Tableau', 'Stakeholder Management'],
     }),
     cand({
-        email: 'devika.nair@stitch-ats.in',
+        email: 'devika.nair@ats.igsglobal.co',
         name: 'Devika Nair',
         role: 'City Ops Analyst',
         status: 'SCREEN_SELECT',
@@ -1746,7 +1746,7 @@ export const DEMO_BULK_CANDIDATES = [
         vendor: true,
     }),
     cand({
-        email: 'ekta.shah@stitch-ats.in',
+        email: 'ekta.shah@ats.igsglobal.co',
         name: 'Ekta Shah',
         role: 'Backend Engineer',
         status: 'L1_INTERVIEW',
@@ -1759,7 +1759,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-done-l2-scheduled',
     }),
     cand({
-        email: 'farhan.ali@stitch-ats.in',
+        email: 'farhan.ali@ats.igsglobal.co',
         name: 'Farhan Ali',
         role: 'Fintech Backend Engineer',
         status: 'TO_BE_SCREENED',
@@ -1771,7 +1771,7 @@ export const DEMO_BULK_CANDIDATES = [
         secondary: ['Mutual Funds', 'PostgreSQL'],
     }),
     cand({
-        email: 'gita.krishnan@stitch-ats.in',
+        email: 'gita.krishnan@ats.igsglobal.co',
         name: 'Gita Krishnan',
         role: 'QA Engineer',
         status: 'TO_BE_SCREENED',
@@ -1784,7 +1784,7 @@ export const DEMO_BULK_CANDIDATES = [
         vendor: true,
     }),
     cand({
-        email: 'hemant.joshi@stitch-ats.in',
+        email: 'hemant.joshi@ats.igsglobal.co',
         name: 'Hemant Joshi',
         role: 'QA Engineer',
         status: 'SCREEN_SELECT',
@@ -1796,7 +1796,7 @@ export const DEMO_BULK_CANDIDATES = [
         secondary: ['Selenium', 'API Testing'],
     }),
     cand({
-        email: 'isha.verma@stitch-ats.in',
+        email: 'isha.verma@ats.igsglobal.co',
         name: 'Isha Verma',
         role: 'Graduate Software Engineer',
         status: 'TO_BE_SCREENED',
@@ -1812,7 +1812,7 @@ export const DEMO_BULK_CANDIDATES = [
         source: 'Campus Drive',
     }),
     cand({
-        email: 'jatin.mehta@stitch-ats.in',
+        email: 'jatin.mehta@ats.igsglobal.co',
         name: 'Jatin Mehta',
         role: 'Graduate Engineer Trainee',
         status: 'TO_BE_SCREENED',
@@ -1828,7 +1828,7 @@ export const DEMO_BULK_CANDIDATES = [
         source: 'Campus Drive',
     }),
     cand({
-        email: 'kavya.menon@stitch-ats.in',
+        email: 'kavya.menon@ats.igsglobal.co',
         name: 'Kavya Menon',
         role: 'Salesforce Consultant',
         status: 'TO_BE_SCREENED',
@@ -1840,7 +1840,7 @@ export const DEMO_BULK_CANDIDATES = [
         secondary: ['Lightning', 'SOQL'],
     }),
     cand({
-        email: 'lokesh.yadav@stitch-ats.in',
+        email: 'lokesh.yadav@ats.igsglobal.co',
         name: 'Lokesh Yadav',
         role: 'Salesforce Developer',
         status: 'L1_INTERVIEW',
@@ -1854,7 +1854,7 @@ export const DEMO_BULK_CANDIDATES = [
         vendor: true,
     }),
     cand({
-        email: 'mohit.singh@stitch-ats.in',
+        email: 'mohit.singh@ats.igsglobal.co',
         name: 'Mohit Singh',
         role: 'Security Engineer',
         status: 'SCREEN_SELECT',
@@ -1867,7 +1867,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-awaiting-feedback',
     }),
     cand({
-        email: 'nidhi.kapoor@stitch-ats.in',
+        email: 'nidhi.kapoor@ats.igsglobal.co',
         name: 'Nidhi Kapoor',
         role: 'AppSec Engineer',
         status: 'TO_BE_SCREENED',
@@ -1880,7 +1880,7 @@ export const DEMO_BULK_CANDIDATES = [
     }),
     // Talent pool (no req) — still fully filled profiles
     cand({
-        email: 'omkar.deshmukh@stitch-ats.in',
+        email: 'omkar.deshmukh@ats.igsglobal.co',
         name: 'Omkar Deshmukh',
         role: 'Staff Engineer',
         status: 'TO_BE_SCREENED',
@@ -1893,7 +1893,7 @@ export const DEMO_BULK_CANDIDATES = [
         source: 'LinkedIn Recruiter',
     }),
     cand({
-        email: 'pallavi.rao@stitch-ats.in',
+        email: 'pallavi.rao@ats.igsglobal.co',
         name: 'Pallavi Rao',
         role: 'Product Designer',
         status: 'TO_BE_SCREENED',
@@ -1905,7 +1905,7 @@ export const DEMO_BULK_CANDIDATES = [
         secondary: ['Prototyping', 'Accessibility'],
     }),
     cand({
-        email: 'rakesh.nair@stitch-ats.in',
+        email: 'rakesh.nair@ats.igsglobal.co',
         name: 'Rakesh Nair',
         role: 'ML Engineer',
         status: 'TO_BE_SCREENED',
@@ -1918,7 +1918,7 @@ export const DEMO_BULK_CANDIDATES = [
     }),
     // —— Interview rejects (L1 / Managerial / Client / HR) across live reqs ——
     cand({
-        email: 'suresh.iyengar@stitch-ats.in',
+        email: 'suresh.iyengar@ats.igsglobal.co',
         name: 'Suresh Iyengar',
         role: 'Full Stack Developer',
         status: 'L1_INTERVIEW_REJECT',
@@ -1932,7 +1932,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-awaiting-feedback',
     }),
     cand({
-        email: 'madhuri.pai@stitch-ats.in',
+        email: 'madhuri.pai@ats.igsglobal.co',
         name: 'Madhuri Pai',
         role: 'Backend Engineer',
         status: 'L1_INTERVIEW_REJECT',
@@ -1946,7 +1946,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-awaiting-feedback',
     }),
     cand({
-        email: 'aravind.nair@stitch-ats.in',
+        email: 'aravind.nair@ats.igsglobal.co',
         name: 'Aravind Nair',
         role: 'DevOps Engineer',
         status: 'L1_INTERVIEW_REJECT',
@@ -1960,7 +1960,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-awaiting-feedback',
     }),
     cand({
-        email: 'pooja.venkatesh@stitch-ats.in',
+        email: 'pooja.venkatesh@ats.igsglobal.co',
         name: 'Pooja Venkatesh',
         role: 'React Native Engineer',
         status: 'MANAGERIAL_INTERVIEW_REJECT',
@@ -1974,7 +1974,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-done-l2-scheduled',
     }),
     cand({
-        email: 'ravi.teja@stitch-ats.in',
+        email: 'ravi.teja@ats.igsglobal.co',
         name: 'Ravi Teja',
         role: 'SDET',
         status: 'MANAGERIAL_INTERVIEW_REJECT',
@@ -1989,7 +1989,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-done-l2-scheduled',
     }),
     cand({
-        email: 'snehal.joshi@stitch-ats.in',
+        email: 'snehal.joshi@ats.igsglobal.co',
         name: 'Snehal Joshi',
         role: 'Product Manager',
         status: 'CLIENT_INTERVIEW_REJECT',
@@ -2003,7 +2003,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-done-l2-scheduled',
     }),
     cand({
-        email: 'karthik.bhat@stitch-ats.in',
+        email: 'karthik.bhat@ats.igsglobal.co',
         name: 'Karthik Bhat',
         role: 'Platform Engineer',
         status: 'CLIENT_INTERVIEW_REJECT',
@@ -2017,7 +2017,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'l1-done-l2-scheduled',
     }),
     cand({
-        email: 'lavanya.reddy@stitch-ats.in',
+        email: 'lavanya.reddy@ats.igsglobal.co',
         name: 'Lavanya Reddy',
         role: 'UX Designer',
         status: 'HR_INTERVIEW_REJECT',
@@ -2031,7 +2031,7 @@ export const DEMO_BULK_CANDIDATES = [
         interviewProgress: 'all-rounds-complete',
     }),
     cand({
-        email: 'imran.shaikh@stitch-ats.in',
+        email: 'imran.shaikh@ats.igsglobal.co',
         name: 'Imran Shaikh',
         role: 'Data Engineer',
         status: 'HR_INTERVIEW_REJECT',
@@ -2047,132 +2047,132 @@ export const DEMO_BULK_CANDIDATES = [
     // =========== COMPREHENSIVE CANDIDATES — All Stages Per Requirement ===========
     // --- REQ20082026025: Razorpay Backend Engineer Payment Gateway ---
     // 3 candidates covering: TO_BE_SCREENED, L1_INTERVIEW, OFFERED
-    cand({ email: 'rohan.kapoor@stitch-ats.in', name: 'Rohan Kapoor', role: 'Backend Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026025', location: 'Bangalore', years: 5, company: 'Razorpay', skills: ['Node.js', 'PostgreSQL', 'Redis'], secondary: ['Docker', 'AWS'] }),
-    cand({ email: 'aakash.sharma@stitch-ats.in', name: 'Aakash Sharma', role: 'Senior Backend Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026025', location: 'Pune', years: 6, company: 'CRED', skills: ['Node.js', 'TypeScript', 'PostgreSQL'], secondary: ['Redis', 'Kubernetes'], interviewProgress: 'l1-done-l2-scheduled' }),
-    cand({ email: 'meera.bhatt@stitch-ats.in', name: 'Meera Bhatt', role: 'Backend Engineer', status: 'JOINED', jobCode: 'REQ20082026025', location: 'Bangalore', years: 5, company: 'PhonePe', skills: ['Node.js', 'PostgreSQL', 'Kafka'], secondary: ['Redis', 'AWS'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
+    cand({ email: 'rohan.kapoor@ats.igsglobal.co', name: 'Rohan Kapoor', role: 'Backend Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026025', location: 'Bangalore', years: 5, company: 'Razorpay', skills: ['Node.js', 'PostgreSQL', 'Redis'], secondary: ['Docker', 'AWS'] }),
+    cand({ email: 'aakash.sharma@ats.igsglobal.co', name: 'Aakash Sharma', role: 'Senior Backend Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026025', location: 'Pune', years: 6, company: 'CRED', skills: ['Node.js', 'TypeScript', 'PostgreSQL'], secondary: ['Redis', 'Kubernetes'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'meera.bhatt@ats.igsglobal.co', name: 'Meera Bhatt', role: 'Backend Engineer', status: 'JOINED', jobCode: 'REQ20082026025', location: 'Bangalore', years: 5, company: 'PhonePe', skills: ['Node.js', 'PostgreSQL', 'Kafka'], secondary: ['Redis', 'AWS'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
     // --- REQ20082026026: Razorpay Frontend Engineer Dashboard UI ---
-    cand({ email: 'kavya.singh@stitch-ats.in', name: 'Kavya Singh', role: 'Frontend Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026026', location: 'Bangalore', years: 4, company: 'Razorpay', skills: ['React', 'TypeScript', 'Redux'], secondary: ['CSS', 'Jest'] }),
-    cand({ email: 'tarun.verma@stitch-ats.in', name: 'Tarun Verma', role: 'Senior Frontend Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026026', location: 'Gurgaon', years: 5, company: 'Paytm', skills: ['React', 'TypeScript', 'Web Performance'], secondary: ['Webpack', 'Storybook'], interviewProgress: 'l1-scheduled' }),
-    cand({ email: 'aishwarya.menon@stitch-ats.in', name: 'Aishwarya Menon', role: 'Frontend Engineer', status: 'OFFERED', jobCode: 'REQ20082026026', location: 'Hyderabad', years: 4, company: 'Flipkart', skills: ['React', 'TypeScript', 'CSS'], secondary: ['Redux', 'Jest'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
+    cand({ email: 'kavya.singh@ats.igsglobal.co', name: 'Kavya Singh', role: 'Frontend Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026026', location: 'Bangalore', years: 4, company: 'Razorpay', skills: ['React', 'TypeScript', 'Redux'], secondary: ['CSS', 'Jest'] }),
+    cand({ email: 'tarun.verma@ats.igsglobal.co', name: 'Tarun Verma', role: 'Senior Frontend Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026026', location: 'Gurgaon', years: 5, company: 'Paytm', skills: ['React', 'TypeScript', 'Web Performance'], secondary: ['Webpack', 'Storybook'], interviewProgress: 'l1-scheduled' }),
+    cand({ email: 'aishwarya.menon@ats.igsglobal.co', name: 'Aishwarya Menon', role: 'Frontend Engineer', status: 'OFFERED', jobCode: 'REQ20082026026', location: 'Hyderabad', years: 4, company: 'Flipkart', skills: ['React', 'TypeScript', 'CSS'], secondary: ['Redux', 'Jest'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
     // --- REQ20082026027: Amazon SDE AWS Services ---
-    cand({ email: 'shashi.kant@stitch-ats.in', name: 'Shashi Kant', role: 'SDE', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026027', location: 'Bangalore', years: 5, company: 'Amazon India', skills: ['Java', 'AWS', 'Microservices'], secondary: ['DynamoDB', 'Lambda'] }),
-    cand({ email: 'aarav.patel@stitch-ats.in', name: 'Aarav Patel', role: 'SDE II', status: 'MANAGERIAL_INTERVIEW', jobCode: 'REQ20082026027', location: 'Bangalore', years: 5, company: 'Microsoft India', skills: ['Java', 'Python', 'AWS'], secondary: ['SQS', 'ECS'], interviewProgress: 'l1-done-l2-scheduled' }),
-    cand({ email: 'priya.varma@stitch-ats.in', name: 'Priya Varma', role: 'SDE', status: 'JOINED', jobCode: 'REQ20082026027', location: 'Hyderabad', years: 6, company: 'Google India', skills: ['Java', 'AWS', 'System Design'], secondary: ['Kubernetes', 'Terraform'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
+    cand({ email: 'shashi.kant@ats.igsglobal.co', name: 'Shashi Kant', role: 'SDE', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026027', location: 'Bangalore', years: 5, company: 'Amazon India', skills: ['Java', 'AWS', 'Microservices'], secondary: ['DynamoDB', 'Lambda'] }),
+    cand({ email: 'aarav.patel@ats.igsglobal.co', name: 'Aarav Patel', role: 'SDE II', status: 'MANAGERIAL_INTERVIEW', jobCode: 'REQ20082026027', location: 'Bangalore', years: 5, company: 'Microsoft India', skills: ['Java', 'Python', 'AWS'], secondary: ['SQS', 'ECS'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'priya.varma@ats.igsglobal.co', name: 'Priya Varma', role: 'SDE', status: 'JOINED', jobCode: 'REQ20082026027', location: 'Hyderabad', years: 6, company: 'Google India', skills: ['Java', 'AWS', 'System Design'], secondary: ['Kubernetes', 'Terraform'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
     // --- REQ20082026028: Amazon ML Engineer Recommendations ---
-    cand({ email: 'karan.malhotra@stitch-ats.in', name: 'Karan Malhotra', role: 'ML Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026028', location: 'Bangalore', years: 6, company: 'Amazon India', skills: ['Python', 'TensorFlow', 'ML'], secondary: ['PyTorch', 'AWS'] }),
-    cand({ email: 'neha.saxena@stitch-ats.in', name: 'Neha Saxena', role: 'Senior ML Engineer', status: 'CLIENT_INTERVIEW', jobCode: 'REQ20082026028', location: 'Bangalore', years: 7, company: 'Flipkart', skills: ['Python', 'Machine Learning', 'TensorFlow'], secondary: ['Spark', 'A/B Testing'], interviewProgress: 'l1-done-l2-scheduled' }),
-    cand({ email: 'yash.chopra@stitch-ats.in', name: 'Yash Chopra', role: 'ML Engineer', status: 'TO_BE_OFFERED', jobCode: 'REQ20082026028', location: 'Bangalore', years: 6, company: 'Ola', skills: ['Python', 'PyTorch', 'MLOps'], secondary: ['AWS SageMaker', 'SQL'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
+    cand({ email: 'karan.malhotra@ats.igsglobal.co', name: 'Karan Malhotra', role: 'ML Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026028', location: 'Bangalore', years: 6, company: 'Amazon India', skills: ['Python', 'TensorFlow', 'ML'], secondary: ['PyTorch', 'AWS'] }),
+    cand({ email: 'neha.saxena@ats.igsglobal.co', name: 'Neha Saxena', role: 'Senior ML Engineer', status: 'CLIENT_INTERVIEW', jobCode: 'REQ20082026028', location: 'Bangalore', years: 7, company: 'Flipkart', skills: ['Python', 'Machine Learning', 'TensorFlow'], secondary: ['Spark', 'A/B Testing'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'yash.chopra@ats.igsglobal.co', name: 'Yash Chopra', role: 'ML Engineer', status: 'TO_BE_OFFERED', jobCode: 'REQ20082026028', location: 'Bangalore', years: 6, company: 'Ola', skills: ['Python', 'PyTorch', 'MLOps'], secondary: ['AWS SageMaker', 'SQL'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
     // --- REQ20082026029: Uber Backend Trip Matching ---
-    cand({ email: 'rohit.bansal@stitch-ats.in', name: 'Rohit Bansal', role: 'Backend Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026029', location: 'Hyderabad', years: 5, company: 'Uber India', skills: ['Java', 'Go', 'PostgreSQL'], secondary: ['Redis', 'gRPC'] }),
-    cand({ email: 'divya.krishnan@stitch-ats.in', name: 'Divya Krishnan', role: 'Senior Backend Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026029', location: 'Bangalore', years: 6, company: 'Ola', skills: ['Java', 'Go', 'Kafka'], secondary: ['Redis', 'Kubernetes'], interviewProgress: 'l1-scheduled' }),
-    cand({ email: 'rajat.gupta@stitch-ats.in', name: 'Rajat Gupta', role: 'Backend Engineer', status: 'HR_INTERVIEW', jobCode: 'REQ20082026029', location: 'Pune', years: 5, company: 'Swiggy', skills: ['Go', 'PostgreSQL', 'Microservices'], secondary: ['gRPC', 'Docker'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'rohit.bansal@ats.igsglobal.co', name: 'Rohit Bansal', role: 'Backend Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026029', location: 'Hyderabad', years: 5, company: 'Uber India', skills: ['Java', 'Go', 'PostgreSQL'], secondary: ['Redis', 'gRPC'] }),
+    cand({ email: 'divya.krishnan@ats.igsglobal.co', name: 'Divya Krishnan', role: 'Senior Backend Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026029', location: 'Bangalore', years: 6, company: 'Ola', skills: ['Java', 'Go', 'Kafka'], secondary: ['Redis', 'Kubernetes'], interviewProgress: 'l1-scheduled' }),
+    cand({ email: 'rajat.gupta@ats.igsglobal.co', name: 'Rajat Gupta', role: 'Backend Engineer', status: 'HR_INTERVIEW', jobCode: 'REQ20082026029', location: 'Pune', years: 5, company: 'Swiggy', skills: ['Go', 'PostgreSQL', 'Microservices'], secondary: ['gRPC', 'Docker'], interviewProgress: 'l1-done-l2-scheduled' }),
     // --- REQ20082026030: Uber PM Eats ---
-    cand({ email: 'pallavi.kapoor@stitch-ats.in', name: 'Pallavi Kapoor', role: 'Product Manager', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026030', location: 'Mumbai', years: 5, company: 'Zomato', skills: ['Product Management', 'Analytics', 'Agile'], secondary: ['SQL', 'A/B Testing'] }),
-    cand({ email: 'sidharth.rao@stitch-ats.in', name: 'Sidharth Rao', role: 'Senior PM', status: 'CLIENT_INTERVIEW', jobCode: 'REQ20082026030', location: 'Bangalore', years: 6, company: 'Swiggy', skills: ['Product Strategy', 'Roadmapping', 'Analytics'], secondary: ['SQL', 'Growth'], interviewProgress: 'l1-done-l2-scheduled' }),
-    cand({ email: 'sneha.jain@stitch-ats.in', name: 'Sneha Jain', role: 'Product Manager', status: 'TO_BE_OFFERED', jobCode: 'REQ20082026030', location: 'Mumbai', years: 5, company: 'Meesho', skills: ['Product Management', 'Stakeholder Management', 'Agile'], secondary: ['Analytics', 'SQL'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
+    cand({ email: 'pallavi.kapoor@ats.igsglobal.co', name: 'Pallavi Kapoor', role: 'Product Manager', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026030', location: 'Mumbai', years: 5, company: 'Zomato', skills: ['Product Management', 'Analytics', 'Agile'], secondary: ['SQL', 'A/B Testing'] }),
+    cand({ email: 'sidharth.rao@ats.igsglobal.co', name: 'Sidharth Rao', role: 'Senior PM', status: 'CLIENT_INTERVIEW', jobCode: 'REQ20082026030', location: 'Bangalore', years: 6, company: 'Swiggy', skills: ['Product Strategy', 'Roadmapping', 'Analytics'], secondary: ['SQL', 'Growth'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'sneha.jain@ats.igsglobal.co', name: 'Sneha Jain', role: 'Product Manager', status: 'TO_BE_OFFERED', jobCode: 'REQ20082026030', location: 'Mumbai', years: 5, company: 'Meesho', skills: ['Product Management', 'Stakeholder Management', 'Agile'], secondary: ['Analytics', 'SQL'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
     // --- REQ20082026031: Meesho Android Engineer ---
-    cand({ email: 'abhishek.tiwari@stitch-ats.in', name: 'Abhishek Tiwari', role: 'Android Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026031', location: 'Bangalore', years: 4, company: 'Meesho', skills: ['Kotlin', 'Android', 'MVVM'], secondary: ['Jetpack Compose', 'Dagger'] }),
-    cand({ email: 'ramya.sundaram@stitch-ats.in', name: 'Ramya Sundaram', role: 'Senior Android Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026031', location: 'Chennai', years: 5, company: 'Paytm', skills: ['Kotlin', 'Android', 'Java'], secondary: ['RxJava', 'Dagger'], interviewProgress: 'l1-done-l2-scheduled' }),
-    cand({ email: 'karthik.rao@stitch-ats.in', name: 'Karthik Rao', role: 'Android Engineer', status: 'JOINED', jobCode: 'REQ20082026031', location: 'Bangalore', years: 4, company: 'PhonePe', skills: ['Kotlin', 'Android', 'Coroutines'], secondary: ['Jetpack Compose', 'Hilt'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
+    cand({ email: 'abhishek.tiwari@ats.igsglobal.co', name: 'Abhishek Tiwari', role: 'Android Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026031', location: 'Bangalore', years: 4, company: 'Meesho', skills: ['Kotlin', 'Android', 'MVVM'], secondary: ['Jetpack Compose', 'Dagger'] }),
+    cand({ email: 'ramya.sundaram@ats.igsglobal.co', name: 'Ramya Sundaram', role: 'Senior Android Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026031', location: 'Chennai', years: 5, company: 'Paytm', skills: ['Kotlin', 'Android', 'Java'], secondary: ['RxJava', 'Dagger'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'karthik.rao@ats.igsglobal.co', name: 'Karthik Rao', role: 'Android Engineer', status: 'JOINED', jobCode: 'REQ20082026031', location: 'Bangalore', years: 4, company: 'PhonePe', skills: ['Kotlin', 'Android', 'Coroutines'], secondary: ['Jetpack Compose', 'Hilt'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
     // --- REQ20082026032: Meesho iOS Engineer ---
-    cand({ email: 'siddharth.iyer@stitch-ats.in', name: 'Siddharth Iyer', role: 'iOS Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026032', location: 'Bangalore', years: 4, company: 'Meesho', skills: ['Swift', 'iOS', 'UIKit'], secondary: ['SwiftUI', 'Combine'] }),
-    cand({ email: 'tanvi.kulkarni@stitch-ats.in', name: 'Tanvi Kulkarni', role: 'iOS Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026032', location: 'Pune', years: 5, company: 'PhonePe', skills: ['Swift', 'iOS', 'SwiftUI'], secondary: ['CoreData', 'XCTest'], interviewProgress: 'l1-scheduled' }),
-    cand({ email: 'varun.shah@stitch-ats.in', name: 'Varun Shah', role: 'Senior iOS Engineer', status: 'TO_BE_OFFERED', jobCode: 'REQ20082026032', location: 'Bangalore', years: 6, company: 'CRED', skills: ['Swift', 'iOS', 'Architecture'], secondary: ['SwiftUI', 'Combine'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
+    cand({ email: 'siddharth.iyer@ats.igsglobal.co', name: 'Siddharth Iyer', role: 'iOS Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026032', location: 'Bangalore', years: 4, company: 'Meesho', skills: ['Swift', 'iOS', 'UIKit'], secondary: ['SwiftUI', 'Combine'] }),
+    cand({ email: 'tanvi.kulkarni@ats.igsglobal.co', name: 'Tanvi Kulkarni', role: 'iOS Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026032', location: 'Pune', years: 5, company: 'PhonePe', skills: ['Swift', 'iOS', 'SwiftUI'], secondary: ['CoreData', 'XCTest'], interviewProgress: 'l1-scheduled' }),
+    cand({ email: 'varun.shah@ats.igsglobal.co', name: 'Varun Shah', role: 'Senior iOS Engineer', status: 'TO_BE_OFFERED', jobCode: 'REQ20082026032', location: 'Bangalore', years: 6, company: 'CRED', skills: ['Swift', 'iOS', 'Architecture'], secondary: ['SwiftUI', 'Combine'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
     // --- REQ20082026033: Nykaa Fashion Platform Engineer ---
-    cand({ email: 'rashmi.nair@stitch-ats.in', name: 'Rashmi Nair', role: 'Full Stack Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026033', location: 'Mumbai', years: 6, company: 'Nykaa', skills: ['React', 'Node.js', 'MongoDB'], secondary: ['TypeScript', 'AWS'] }),
-    cand({ email: 'aakash.gupta@stitch-ats.in', name: 'Aakash Gupta', role: 'Senior Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026033', location: 'Bangalore', years: 7, company: 'Myntra', skills: ['React', 'Node.js', 'Elasticsearch'], secondary: ['GraphQL', 'AWS'], interviewProgress: 'l1-done-l2-scheduled' }),
-    cand({ email: 'pavithra.s@stitch-ats.in', name: 'Pavithra S', role: 'Full Stack Engineer', status: 'JOINED', jobCode: 'REQ20082026033', location: 'Mumbai', years: 6, company: 'Myntra', skills: ['React', 'Node.js', 'TypeScript'], secondary: ['MongoDB', 'AWS'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
+    cand({ email: 'rashmi.nair@ats.igsglobal.co', name: 'Rashmi Nair', role: 'Full Stack Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026033', location: 'Mumbai', years: 6, company: 'Nykaa', skills: ['React', 'Node.js', 'MongoDB'], secondary: ['TypeScript', 'AWS'] }),
+    cand({ email: 'aakash.gupta@ats.igsglobal.co', name: 'Aakash Gupta', role: 'Senior Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026033', location: 'Bangalore', years: 7, company: 'Myntra', skills: ['React', 'Node.js', 'Elasticsearch'], secondary: ['GraphQL', 'AWS'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'pavithra.s@ats.igsglobal.co', name: 'Pavithra S', role: 'Full Stack Engineer', status: 'JOINED', jobCode: 'REQ20082026033', location: 'Mumbai', years: 6, company: 'Myntra', skills: ['React', 'Node.js', 'TypeScript'], secondary: ['MongoDB', 'AWS'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
     // --- REQ20082026034: Nykaa Data Engineer Analytics ---
-    cand({ email: 'sandeep.reddy@stitch-ats.in', name: 'Sandeep Reddy', role: 'Data Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026034', location: 'Hyderabad', years: 5, company: 'Nykaa', skills: ['Python', 'SQL', 'Airflow'], secondary: ['Spark', 'Snowflake'] }),
-    cand({ email: 'archana.menon@stitch-ats.in', name: 'Archana Menon', role: 'Senior Data Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026034', location: 'Bangalore', years: 6, company: 'Flipkart', skills: ['Python', 'SQL', 'Spark'], secondary: ['dbt', 'Looker'], interviewProgress: 'l1-scheduled' }),
-    cand({ email: 'manish.rao@stitch-ats.in', name: 'Manish Rao', role: 'Data Engineer', status: 'HR_INTERVIEW', jobCode: 'REQ20082026034', location: 'Mumbai', years: 5, company: 'Amazon India', skills: ['Python', 'SQL', 'Airflow'], secondary: ['Spark', 'AWS'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'sandeep.reddy@ats.igsglobal.co', name: 'Sandeep Reddy', role: 'Data Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026034', location: 'Hyderabad', years: 5, company: 'Nykaa', skills: ['Python', 'SQL', 'Airflow'], secondary: ['Spark', 'Snowflake'] }),
+    cand({ email: 'archana.menon@ats.igsglobal.co', name: 'Archana Menon', role: 'Senior Data Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026034', location: 'Bangalore', years: 6, company: 'Flipkart', skills: ['Python', 'SQL', 'Spark'], secondary: ['dbt', 'Looker'], interviewProgress: 'l1-scheduled' }),
+    cand({ email: 'manish.rao@ats.igsglobal.co', name: 'Manish Rao', role: 'Data Engineer', status: 'HR_INTERVIEW', jobCode: 'REQ20082026034', location: 'Mumbai', years: 5, company: 'Amazon India', skills: ['Python', 'SQL', 'Airflow'], secondary: ['Spark', 'AWS'], interviewProgress: 'l1-done-l2-scheduled' }),
     // --- REQ20082026035: Swiggy Backend Order Tracking ---
-    cand({ email: 'amit.kapoor@stitch-ats.in', name: 'Amit Kapoor', role: 'Backend Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026035', location: 'Bangalore', years: 5, company: 'Swiggy', skills: ['Java', 'Spring Boot', 'PostgreSQL'], secondary: ['Redis', 'Kafka'] }),
-    cand({ email: 'jyoti.sharma@stitch-ats.in', name: 'Jyoti Sharma', role: 'Senior Backend Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026035', location: 'Bangalore', years: 6, company: 'Zomato', skills: ['Java', 'Spring Boot', 'Microservices'], secondary: ['Kafka', 'Redis'], interviewProgress: 'l1-done-l2-scheduled' }),
-    cand({ email: 'prashant.tiwari@stitch-ats.in', name: 'Prashant Tiwari', role: 'Backend Engineer', status: 'TO_BE_OFFERED', jobCode: 'REQ20082026035', location: 'Hyderabad', years: 5, company: 'PhonePe', skills: ['Java', 'Spring Boot', 'Kafka'], secondary: ['PostgreSQL', 'Redis'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
+    cand({ email: 'amit.kapoor@ats.igsglobal.co', name: 'Amit Kapoor', role: 'Backend Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026035', location: 'Bangalore', years: 5, company: 'Swiggy', skills: ['Java', 'Spring Boot', 'PostgreSQL'], secondary: ['Redis', 'Kafka'] }),
+    cand({ email: 'jyoti.sharma@ats.igsglobal.co', name: 'Jyoti Sharma', role: 'Senior Backend Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026035', location: 'Bangalore', years: 6, company: 'Zomato', skills: ['Java', 'Spring Boot', 'Microservices'], secondary: ['Kafka', 'Redis'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'prashant.tiwari@ats.igsglobal.co', name: 'Prashant Tiwari', role: 'Backend Engineer', status: 'TO_BE_OFFERED', jobCode: 'REQ20082026035', location: 'Hyderabad', years: 5, company: 'PhonePe', skills: ['Java', 'Spring Boot', 'Kafka'], secondary: ['PostgreSQL', 'Redis'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
     // --- REQ20082026036: HDFC Bank Security Engineer ---
-    cand({ email: 'rajesh.kumar@stitch-ats.in', name: 'Rajesh Kumar', role: 'Security Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026036', location: 'Mumbai', years: 6, company: 'HDFC Bank', skills: ['Application Security', 'OWASP', 'Penetration Testing'], secondary: ['SAST', 'DAST'] }),
-    cand({ email: 'pooja.malhotra@stitch-ats.in', name: 'Pooja Malhotra', role: 'Senior Security Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026036', location: 'Bangalore', years: 7, company: 'ICICI Bank', skills: ['AppSec', 'Threat Modeling', 'OWASP'], secondary: ['AWS Security', 'SIEM'], interviewProgress: 'l1-scheduled' }),
-    cand({ email: 'vivek.saxena@stitch-ats.in', name: 'Vivek Saxena', role: 'Security Engineer', status: 'CLIENT_INTERVIEW', jobCode: 'REQ20082026036', location: 'Mumbai', years: 6, company: 'Axis Bank', skills: ['Application Security', 'OWASP', 'RBI Compliance'], secondary: ['Pen Testing', 'SAST'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'rajesh.kumar@ats.igsglobal.co', name: 'Rajesh Kumar', role: 'Security Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026036', location: 'Mumbai', years: 6, company: 'HDFC Bank', skills: ['Application Security', 'OWASP', 'Penetration Testing'], secondary: ['SAST', 'DAST'] }),
+    cand({ email: 'pooja.malhotra@ats.igsglobal.co', name: 'Pooja Malhotra', role: 'Senior Security Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026036', location: 'Bangalore', years: 7, company: 'ICICI Bank', skills: ['AppSec', 'Threat Modeling', 'OWASP'], secondary: ['AWS Security', 'SIEM'], interviewProgress: 'l1-scheduled' }),
+    cand({ email: 'vivek.saxena@ats.igsglobal.co', name: 'Vivek Saxena', role: 'Security Engineer', status: 'CLIENT_INTERVIEW', jobCode: 'REQ20082026036', location: 'Mumbai', years: 6, company: 'Axis Bank', skills: ['Application Security', 'OWASP', 'RBI Compliance'], secondary: ['Pen Testing', 'SAST'], interviewProgress: 'l1-done-l2-scheduled' }),
     // --- REQ20082026037: PhonePe Data Engineer Pulse Analytics ---
-    cand({ email: 'arun.kumar@stitch-ats.in', name: 'Arun Kumar', role: 'Data Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026037', location: 'Bangalore', years: 5, company: 'PhonePe', skills: ['Python', 'SQL', 'Spark'], secondary: ['Airflow', 'AWS'] }),
-    cand({ email: 'meenakshi.iyer@stitch-ats.in', name: 'Meenakshi Iyer', role: 'Senior Data Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026037', location: 'Bangalore', years: 6, company: 'Paytm', skills: ['Python', 'SQL', 'Airflow'], secondary: ['dbt', 'PostgreSQL'], interviewProgress: 'l1-done-l2-scheduled' }),
-    cand({ email: 'santosh.patel@stitch-ats.in', name: 'Santosh Patel', role: 'Data Engineer', status: 'TO_BE_OFFERED', jobCode: 'REQ20082026037', location: 'Hyderabad', years: 5, company: 'CRED', skills: ['Python', 'SQL', 'Spark'], secondary: ['Airflow', 'Data Visualization'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
+    cand({ email: 'arun.kumar@ats.igsglobal.co', name: 'Arun Kumar', role: 'Data Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026037', location: 'Bangalore', years: 5, company: 'PhonePe', skills: ['Python', 'SQL', 'Spark'], secondary: ['Airflow', 'AWS'] }),
+    cand({ email: 'meenakshi.iyer@ats.igsglobal.co', name: 'Meenakshi Iyer', role: 'Senior Data Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026037', location: 'Bangalore', years: 6, company: 'Paytm', skills: ['Python', 'SQL', 'Airflow'], secondary: ['dbt', 'PostgreSQL'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'santosh.patel@ats.igsglobal.co', name: 'Santosh Patel', role: 'Data Engineer', status: 'TO_BE_OFFERED', jobCode: 'REQ20082026037', location: 'Hyderabad', years: 5, company: 'CRED', skills: ['Python', 'SQL', 'Spark'], secondary: ['Airflow', 'Data Visualization'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
     // --- REQ20082026038: Freshworks Customer Success Engineer ---
-    cand({ email: 'shweta.gupta@stitch-ats.in', name: 'Shweta Gupta', role: 'CS Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026038', location: 'Chennai', years: 4, company: 'Freshworks', skills: ['REST APIs', 'JavaScript', 'CRM'], secondary: ['Integration', 'JSON'] }),
-    cand({ email: 'ashish.jain@stitch-ats.in', name: 'Ashish Jain', role: 'Senior CS Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026038', location: 'Bangalore', years: 5, company: 'Zoho', skills: ['REST APIs', 'Integration', 'CRM'], secondary: ['JavaScript', 'Webhooks'], interviewProgress: 'l1-scheduled' }),
-    cand({ email: 'ritu.sharma@stitch-ats.in', name: 'Ritu Sharma', role: 'CS Engineer', status: 'JOINED', jobCode: 'REQ20082026038', location: 'Chennai', years: 4, company: 'Freshworks', skills: ['REST APIs', 'CRM', 'Customer Success'], secondary: ['JavaScript', 'Integration'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
+    cand({ email: 'shweta.gupta@ats.igsglobal.co', name: 'Shweta Gupta', role: 'CS Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026038', location: 'Chennai', years: 4, company: 'Freshworks', skills: ['REST APIs', 'JavaScript', 'CRM'], secondary: ['Integration', 'JSON'] }),
+    cand({ email: 'ashish.jain@ats.igsglobal.co', name: 'Ashish Jain', role: 'Senior CS Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026038', location: 'Bangalore', years: 5, company: 'Zoho', skills: ['REST APIs', 'Integration', 'CRM'], secondary: ['JavaScript', 'Webhooks'], interviewProgress: 'l1-scheduled' }),
+    cand({ email: 'ritu.sharma@ats.igsglobal.co', name: 'Ritu Sharma', role: 'CS Engineer', status: 'JOINED', jobCode: 'REQ20082026038', location: 'Chennai', years: 4, company: 'Freshworks', skills: ['REST APIs', 'CRM', 'Customer Success'], secondary: ['JavaScript', 'Integration'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
     // --- REQ20082026039: Paytm QA Automation Engineer ---
-    cand({ email: 'gaurav.singh@stitch-ats.in', name: 'Gaurav Singh', role: 'QA Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026039', location: 'Noida', years: 4, company: 'Paytm', skills: ['Selenium', 'API Testing', 'Java'], secondary: ['TestNG', 'Jenkins'] }),
-    cand({ email: 'nikita.verma@stitch-ats.in', name: 'Nikita Verma', role: 'Senior QA Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026039', location: 'Gurgaon', years: 5, company: 'PhonePe', skills: ['Selenium', 'API Testing', 'TestNG'], secondary: ['JIRA', 'Jenkins'], interviewProgress: 'l1-done-l2-scheduled' }),
-    cand({ email: 'sandeep.kumar@stitch-ats.in', name: 'Sandeep Kumar', role: 'QA Automation Engineer', status: 'TO_BE_OFFERED', jobCode: 'REQ20082026039', location: 'Bangalore', years: 4, company: 'Razorpay', skills: ['Selenium', 'API Testing', 'Java'], secondary: ['Appium', 'CI/CD'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
+    cand({ email: 'gaurav.singh@ats.igsglobal.co', name: 'Gaurav Singh', role: 'QA Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ20082026039', location: 'Noida', years: 4, company: 'Paytm', skills: ['Selenium', 'API Testing', 'Java'], secondary: ['TestNG', 'Jenkins'] }),
+    cand({ email: 'nikita.verma@ats.igsglobal.co', name: 'Nikita Verma', role: 'Senior QA Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ20082026039', location: 'Gurgaon', years: 5, company: 'PhonePe', skills: ['Selenium', 'API Testing', 'TestNG'], secondary: ['JIRA', 'Jenkins'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'sandeep.kumar@ats.igsglobal.co', name: 'Sandeep Kumar', role: 'QA Automation Engineer', status: 'TO_BE_OFFERED', jobCode: 'REQ20082026039', location: 'Bangalore', years: 4, company: 'Razorpay', skills: ['Selenium', 'API Testing', 'Java'], secondary: ['Appium', 'CI/CD'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
     // === ADDITIONAL CANDIDATES TO COVER MORE STAGES ACROSS EXISTING REQUIREMENTS ===
     // REQ28062026001: Senior SWE Razorpay
-    cand({ email: 'aditi.nair@stitch-ats.in', name: 'Aditi Nair', role: 'Senior Software Engineer', status: 'OFFER_ACCEPTED', jobCode: 'REQ28062026001', location: 'Bangalore', years: 8, company: 'CRED', skills: ['TypeScript', 'React', 'Node.js'], secondary: ['AWS', 'PostgreSQL'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
-    cand({ email: 'bhavesh.patel@stitch-ats.in', name: 'Bhavesh Patel', role: 'Software Engineer', status: 'HR_INTERVIEW', jobCode: 'REQ28062026001', location: 'Pune', years: 6, company: 'Infosys', skills: ['TypeScript', 'React', 'Node.js'], secondary: ['Docker', 'AWS'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'aditi.nair@ats.igsglobal.co', name: 'Aditi Nair', role: 'Senior Software Engineer', status: 'OFFER_ACCEPTED', jobCode: 'REQ28062026001', location: 'Bangalore', years: 8, company: 'CRED', skills: ['TypeScript', 'React', 'Node.js'], secondary: ['AWS', 'PostgreSQL'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
+    cand({ email: 'bhavesh.patel@ats.igsglobal.co', name: 'Bhavesh Patel', role: 'Software Engineer', status: 'HR_INTERVIEW', jobCode: 'REQ28062026001', location: 'Pune', years: 6, company: 'Infosys', skills: ['TypeScript', 'React', 'Node.js'], secondary: ['Docker', 'AWS'], interviewProgress: 'l1-done-l2-scheduled' }),
     // REQ28062026002: PM Freshworks
-    cand({ email: 'chitra.menon@stitch-ats.in', name: 'Chitra Menon', role: 'Senior PM', status: 'TO_BE_SCREENED', jobCode: 'REQ28062026002', location: 'Chennai', years: 7, company: 'Freshworks', skills: ['Product Strategy', 'B2B SaaS', 'Analytics'], secondary: ['SQL', 'Roadmapping'] }),
-    cand({ email: 'manish.gupta@stitch-ats.in', name: 'Manish Gupta', role: 'PM', status: 'CLIENT_INTERVIEW', jobCode: 'REQ28062026002', location: 'Bangalore', years: 6, company: 'Zoho', skills: ['Product Strategy', 'Agile', 'Stakeholder Management'], secondary: ['SQL', 'B2B SaaS'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'chitra.menon@ats.igsglobal.co', name: 'Chitra Menon', role: 'Senior PM', status: 'TO_BE_SCREENED', jobCode: 'REQ28062026002', location: 'Chennai', years: 7, company: 'Freshworks', skills: ['Product Strategy', 'B2B SaaS', 'Analytics'], secondary: ['SQL', 'Roadmapping'] }),
+    cand({ email: 'manish.gupta@ats.igsglobal.co', name: 'Manish Gupta', role: 'PM', status: 'CLIENT_INTERVIEW', jobCode: 'REQ28062026002', location: 'Bangalore', years: 6, company: 'Zoho', skills: ['Product Strategy', 'Agile', 'Stakeholder Management'], secondary: ['SQL', 'B2B SaaS'], interviewProgress: 'l1-done-l2-scheduled' }),
     // REQ28062026003: DevOps PhonePe
-    cand({ email: 'aakash.verma@stitch-ats.in', name: 'Aakash Verma', role: 'DevOps Engineer', status: 'L1_INTERVIEW_REJECT', jobCode: 'REQ28062026003', location: 'Bangalore', years: 4, company: 'Mindtree', skills: ['AWS', 'Terraform', 'Jenkins'], secondary: ['Docker', 'Linux'], interviewProgress: 'l1-awaiting-feedback' }),
-    cand({ email: 'sunita.r@stitch-ats.in', name: 'Sunita R', role: 'SRE', status: 'HR_INTERVIEW', jobCode: 'REQ28062026003', location: 'Chennai', years: 6, company: 'Paytm', skills: ['Kubernetes', 'AWS', 'Prometheus'], secondary: ['Grafana', 'Terraform'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'aakash.verma@ats.igsglobal.co', name: 'Aakash Verma', role: 'DevOps Engineer', status: 'L1_INTERVIEW_REJECT', jobCode: 'REQ28062026003', location: 'Bangalore', years: 4, company: 'Mindtree', skills: ['AWS', 'Terraform', 'Jenkins'], secondary: ['Docker', 'Linux'], interviewProgress: 'l1-awaiting-feedback' }),
+    cand({ email: 'sunita.r@ats.igsglobal.co', name: 'Sunita R', role: 'SRE', status: 'HR_INTERVIEW', jobCode: 'REQ28062026003', location: 'Chennai', years: 6, company: 'Paytm', skills: ['Kubernetes', 'AWS', 'Prometheus'], secondary: ['Grafana', 'Terraform'], interviewProgress: 'l1-done-l2-scheduled' }),
     // REQ28062026004: UX Paytm
-    cand({ email: 'aishwarya.p@stitch-ats.in', name: 'Aishwarya P', role: 'Senior UX Designer', status: 'TO_BE_SCREENED', jobCode: 'REQ28062026004', location: 'Bangalore', years: 6, company: 'PhonePe', skills: ['Figma', 'User Research', 'Wireframing'], secondary: ['Design Systems', 'Prototyping'] }),
-    cand({ email: 'kunal.s@stitch-ats.in', name: 'Kunal S', role: 'UX Designer', status: 'L1_INTERVIEW', jobCode: 'REQ28062026004', location: 'Mumbai', years: 5, company: 'CRED', skills: ['Figma', 'User Research', 'Design Systems'], secondary: ['Prototyping', 'Accessibility'], interviewProgress: 'l1-scheduled' }),
+    cand({ email: 'aishwarya.p@ats.igsglobal.co', name: 'Aishwarya P', role: 'Senior UX Designer', status: 'TO_BE_SCREENED', jobCode: 'REQ28062026004', location: 'Bangalore', years: 6, company: 'PhonePe', skills: ['Figma', 'User Research', 'Wireframing'], secondary: ['Design Systems', 'Prototyping'] }),
+    cand({ email: 'kunal.s@ats.igsglobal.co', name: 'Kunal S', role: 'UX Designer', status: 'L1_INTERVIEW', jobCode: 'REQ28062026004', location: 'Mumbai', years: 5, company: 'CRED', skills: ['Figma', 'User Research', 'Design Systems'], secondary: ['Prototyping', 'Accessibility'], interviewProgress: 'l1-scheduled' }),
     // REQ28062026005: Data Analyst Stitch Internal
-    cand({ email: 'revathi.s@stitch-ats.in', name: 'Revathi S', role: 'Data Analyst', status: 'TO_BE_SCREENED', jobCode: 'REQ28062026005', location: 'Chennai', years: 5, company: 'Paytm', skills: ['SQL', 'Python', 'Tableau'], secondary: ['Excel', 'Statistics'] }),
-    cand({ email: 'arvind.kumar@stitch-ats.in', name: 'Arvind Kumar', role: 'Senior Data Analyst', status: 'L1_INTERVIEW', jobCode: 'REQ28062026005', location: 'Bangalore', years: 6, company: 'Razorpay', skills: ['SQL', 'Python', 'dbt'], secondary: ['Snowflake', 'Tableau'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'revathi.s@ats.igsglobal.co', name: 'Revathi S', role: 'Data Analyst', status: 'TO_BE_SCREENED', jobCode: 'REQ28062026005', location: 'Chennai', years: 5, company: 'Paytm', skills: ['SQL', 'Python', 'Tableau'], secondary: ['Excel', 'Statistics'] }),
+    cand({ email: 'arvind.kumar@ats.igsglobal.co', name: 'Arvind Kumar', role: 'Senior Data Analyst', status: 'L1_INTERVIEW', jobCode: 'REQ28062026005', location: 'Bangalore', years: 6, company: 'Razorpay', skills: ['SQL', 'Python', 'dbt'], secondary: ['Snowflake', 'Tableau'], interviewProgress: 'l1-done-l2-scheduled' }),
     // REQ28062026007: SDET Swiggy
-    cand({ email: 'preethi.r@stitch-ats.in', name: 'Preethi R', role: 'SDET', status: 'L1_INTERVIEW', jobCode: 'REQ28062026007', location: 'Bangalore', years: 5, company: 'Swiggy', skills: ['Selenium', 'Cypress', 'Java'], secondary: ['API Testing', 'Postman'], interviewProgress: 'l1-scheduled' }),
-    cand({ email: 'arun.p@stitch-ats.in', name: 'Arun P', role: 'Senior SDET', status: 'JOINED', jobCode: 'REQ28062026007', location: 'Pune', years: 6, company: 'Myntra', skills: ['Selenium', 'Java', 'CI/CD'], secondary: ['Cypress', 'API Testing'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
+    cand({ email: 'preethi.r@ats.igsglobal.co', name: 'Preethi R', role: 'SDET', status: 'L1_INTERVIEW', jobCode: 'REQ28062026007', location: 'Bangalore', years: 5, company: 'Swiggy', skills: ['Selenium', 'Cypress', 'Java'], secondary: ['API Testing', 'Postman'], interviewProgress: 'l1-scheduled' }),
+    cand({ email: 'arun.p@ats.igsglobal.co', name: 'Arun P', role: 'Senior SDET', status: 'JOINED', jobCode: 'REQ28062026007', location: 'Pune', years: 6, company: 'Myntra', skills: ['Selenium', 'Java', 'CI/CD'], secondary: ['Cypress', 'API Testing'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
     // REQ28062026008: Senior Java HDFC
-    cand({ email: 'suresh.r@stitch-ats.in', name: 'Suresh R', role: 'Senior Java Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ28062026008', location: 'Bangalore', years: 7, company: 'HDFC Bank', skills: ['Java', 'Spring Boot', 'Microservices'], secondary: ['PostgreSQL', 'Kafka'], interviewProgress: 'l1-done-l2-scheduled' }),
-    cand({ email: 'kavitha.p@stitch-ats.in', name: 'Kavitha P', role: 'Senior Java Engineer', status: 'HR_INTERVIEW', jobCode: 'REQ28062026008', location: 'Mumbai', years: 8, company: 'ICICI Bank', skills: ['Java', 'Spring Boot', 'Microservices'], secondary: ['PostgreSQL', 'Redis'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'suresh.r@ats.igsglobal.co', name: 'Suresh R', role: 'Senior Java Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ28062026008', location: 'Bangalore', years: 7, company: 'HDFC Bank', skills: ['Java', 'Spring Boot', 'Microservices'], secondary: ['PostgreSQL', 'Kafka'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'kavitha.p@ats.igsglobal.co', name: 'Kavitha P', role: 'Senior Java Engineer', status: 'HR_INTERVIEW', jobCode: 'REQ28062026008', location: 'Mumbai', years: 8, company: 'ICICI Bank', skills: ['Java', 'Spring Boot', 'Microservices'], secondary: ['PostgreSQL', 'Redis'], interviewProgress: 'l1-done-l2-scheduled' }),
     // REQ16072026009: Senior React Native Flipkart
-    cand({ email: 'pradeep.k@stitch-ats.in', name: 'Pradeep K', role: 'React Native Engineer', status: 'HR_INTERVIEW', jobCode: 'REQ16072026009', location: 'Bangalore', years: 6, company: 'Flipkart', skills: ['React Native', 'TypeScript', 'Redux'], secondary: ['iOS', 'Android'], interviewProgress: 'l1-done-l2-scheduled' }),
-    cand({ email: 'vidya.s@stitch-ats.in', name: 'Vidya S', role: 'Senior Mobile Engineer', status: 'JOINED', jobCode: 'REQ16072026009', location: 'Bangalore', years: 7, company: 'Meesho', skills: ['React Native', 'TypeScript', 'System Design'], secondary: ['GraphQL', 'CI/CD'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
+    cand({ email: 'pradeep.k@ats.igsglobal.co', name: 'Pradeep K', role: 'React Native Engineer', status: 'HR_INTERVIEW', jobCode: 'REQ16072026009', location: 'Bangalore', years: 6, company: 'Flipkart', skills: ['React Native', 'TypeScript', 'Redux'], secondary: ['iOS', 'Android'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'vidya.s@ats.igsglobal.co', name: 'Vidya S', role: 'Senior Mobile Engineer', status: 'JOINED', jobCode: 'REQ16072026009', location: 'Bangalore', years: 7, company: 'Meesho', skills: ['React Native', 'TypeScript', 'System Design'], secondary: ['GraphQL', 'CI/CD'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
     // REQ16072026010: Data Engineer Swiggy
-    cand({ email: 'rajesh.p@stitch-ats.in', name: 'Rajesh P', role: 'Data Engineer', status: 'MANAGERIAL_INTERVIEW', jobCode: 'REQ16072026010', location: 'Bangalore', years: 5, company: 'Swiggy', skills: ['Spark', 'dbt', 'SQL'], secondary: ['Python', 'Airflow'], interviewProgress: 'l1-done-l2-scheduled' }),
-    cand({ email: 'divya.r@stitch-ats.in', name: 'Divya R', role: 'Senior Data Engineer', status: 'JOINED', jobCode: 'REQ16072026010', location: 'Bangalore', years: 6, company: 'Zomato', skills: ['Spark', 'dbt', 'SQL'], secondary: ['Python', 'Snowflake'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
+    cand({ email: 'rajesh.p@ats.igsglobal.co', name: 'Rajesh P', role: 'Data Engineer', status: 'MANAGERIAL_INTERVIEW', jobCode: 'REQ16072026010', location: 'Bangalore', years: 5, company: 'Swiggy', skills: ['Spark', 'dbt', 'SQL'], secondary: ['Python', 'Airflow'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'divya.r@ats.igsglobal.co', name: 'Divya R', role: 'Senior Data Engineer', status: 'JOINED', jobCode: 'REQ16072026010', location: 'Bangalore', years: 6, company: 'Zomato', skills: ['Spark', 'dbt', 'SQL'], secondary: ['Python', 'Snowflake'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
     // REQ16072026011: Insurance Product Analyst
-    cand({ email: 'asha.k@stitch-ats.in', name: 'Asha K', role: 'Product Analyst', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026011', location: 'Gurgaon', years: 4, company: 'PolicyBazaar', skills: ['SQL', 'Product Analytics', 'Insurance'], secondary: ['Tableau', 'Excel'] }),
-    cand({ email: 'manoj.s@stitch-ats.in', name: 'Manoj S', role: 'Senior Claims Analyst', status: 'TO_BE_OFFERED', jobCode: 'REQ16072026011', location: 'Noida', years: 5, company: 'Acko', skills: ['Insurance', 'SQL', 'Analytics'], secondary: ['Excel', 'Tableau'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
+    cand({ email: 'asha.k@ats.igsglobal.co', name: 'Asha K', role: 'Product Analyst', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026011', location: 'Gurgaon', years: 4, company: 'PolicyBazaar', skills: ['SQL', 'Product Analytics', 'Insurance'], secondary: ['Tableau', 'Excel'] }),
+    cand({ email: 'manoj.s@ats.igsglobal.co', name: 'Manoj S', role: 'Senior Claims Analyst', status: 'TO_BE_OFFERED', jobCode: 'REQ16072026011', location: 'Noida', years: 5, company: 'Acko', skills: ['Insurance', 'SQL', 'Analytics'], secondary: ['Excel', 'Tableau'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT' }),
     // REQ16072026012: Network Reliability Airtel
-    cand({ email: 'arun.k@stitch-ats.in', name: 'Arun K', role: 'Network Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026012', location: 'Gurgaon', years: 7, company: 'Airtel', skills: ['5G Core', 'Kubernetes', 'Linux'], secondary: ['Networking', 'Ansible'] }),
-    cand({ email: 'prakash.j@stitch-ats.in', name: 'Prakash J', role: 'Senior Network Engineer', status: 'JOINED', jobCode: 'REQ16072026012', location: 'Gurgaon', years: 8, company: 'Jio', skills: ['5G Core', 'Kubernetes', 'Prometheus'], secondary: ['Networking', 'Python'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
+    cand({ email: 'arun.k@ats.igsglobal.co', name: 'Arun K', role: 'Network Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026012', location: 'Gurgaon', years: 7, company: 'Airtel', skills: ['5G Core', 'Kubernetes', 'Linux'], secondary: ['Networking', 'Ansible'] }),
+    cand({ email: 'prakash.j@ats.igsglobal.co', name: 'Prakash J', role: 'Senior Network Engineer', status: 'JOINED', jobCode: 'REQ16072026012', location: 'Gurgaon', years: 8, company: 'Jio', skills: ['5G Core', 'Kubernetes', 'Prometheus'], secondary: ['Networking', 'Python'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
     // REQ16072026013: Full Stack Unacademy
-    cand({ email: 'kiran.r@stitch-ats.in', name: 'Kiran R', role: 'Full Stack Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026013', location: 'Bangalore', years: 4, company: 'Unacademy', skills: ['React', 'Node.js', 'TypeScript'], secondary: ['WebRTC', 'PostgreSQL'] }),
-    cand({ email: 'arun.s@stitch-ats.in', name: 'Arun S', role: 'Senior Full Stack Engineer', status: 'HR_INTERVIEW', jobCode: 'REQ16072026013', location: 'Bangalore', years: 5, company: 'Byjus', skills: ['React', 'Node.js', 'WebRTC'], secondary: ['Redis', 'AWS'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'kiran.r@ats.igsglobal.co', name: 'Kiran R', role: 'Full Stack Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026013', location: 'Bangalore', years: 4, company: 'Unacademy', skills: ['React', 'Node.js', 'TypeScript'], secondary: ['WebRTC', 'PostgreSQL'] }),
+    cand({ email: 'arun.s@ats.igsglobal.co', name: 'Arun S', role: 'Senior Full Stack Engineer', status: 'HR_INTERVIEW', jobCode: 'REQ16072026013', location: 'Bangalore', years: 5, company: 'Byjus', skills: ['React', 'Node.js', 'WebRTC'], secondary: ['Redis', 'AWS'], interviewProgress: 'l1-done-l2-scheduled' }),
     // REQ16072026014: Healthcare Integration Apollo
-    cand({ email: 'rajesh.k@stitch-ats.in', name: 'Rajesh K', role: 'Integration Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026014', location: 'Chennai', years: 6, company: 'Apollo Hospitals', skills: ['HL7', 'FHIR', 'Java'], secondary: ['Integration', 'Mirth Connect'] }),
-    cand({ email: 'suma.p@stitch-ats.in', name: 'Suma P', role: 'Senior Integration Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ16072026014', location: 'Hyderabad', years: 7, company: 'Manipal Hospitals', skills: ['HL7', 'FHIR', 'API Design'], secondary: ['Mirth Connect', 'Kafka'], interviewProgress: 'l1-scheduled' }),
+    cand({ email: 'rajesh.k@ats.igsglobal.co', name: 'Rajesh K', role: 'Integration Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026014', location: 'Chennai', years: 6, company: 'Apollo Hospitals', skills: ['HL7', 'FHIR', 'Java'], secondary: ['Integration', 'Mirth Connect'] }),
+    cand({ email: 'suma.p@ats.igsglobal.co', name: 'Suma P', role: 'Senior Integration Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ16072026014', location: 'Hyderabad', years: 7, company: 'Manipal Hospitals', skills: ['HL7', 'FHIR', 'API Design'], secondary: ['Mirth Connect', 'Kafka'], interviewProgress: 'l1-scheduled' }),
     // REQ16072026015: Automotive Embedded Mahindra
-    cand({ email: 'karthik.n@stitch-ats.in', name: 'Karthik N', role: 'Embedded Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026015', location: 'Chennai', years: 5, company: 'Mahindra', skills: ['C', 'C++', 'AUTOSAR'], secondary: ['Embedded Linux', 'CAN'] }),
-    cand({ email: 'pradeep.r@stitch-ats.in', name: 'Pradeep R', role: 'Senior Embedded Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ16072026015', location: 'Bangalore', years: 6, company: 'Tata Motors', skills: ['C', 'C++', 'AUTOSAR'], secondary: ['Embedded Linux', 'MISRA'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'karthik.n@ats.igsglobal.co', name: 'Karthik N', role: 'Embedded Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026015', location: 'Chennai', years: 5, company: 'Mahindra', skills: ['C', 'C++', 'AUTOSAR'], secondary: ['Embedded Linux', 'CAN'] }),
+    cand({ email: 'pradeep.r@ats.igsglobal.co', name: 'Pradeep R', role: 'Senior Embedded Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ16072026015', location: 'Bangalore', years: 6, company: 'Tata Motors', skills: ['C', 'C++', 'AUTOSAR'], secondary: ['Embedded Linux', 'MISRA'], interviewProgress: 'l1-done-l2-scheduled' }),
     // REQ16072026016: Backend Dream11
-    cand({ email: 'rohit.s@stitch-ats.in', name: 'Rohit S', role: 'Backend Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026016', location: 'Mumbai', years: 6, company: 'Dream11', skills: ['Java', 'Kafka', 'Redis'], secondary: ['PostgreSQL', 'System Design'] }),
-    cand({ email: 'manish.p@stitch-ats.in', name: 'Manish P', role: 'Senior Backend Engineer', status: 'JOINED', jobCode: 'REQ16072026016', location: 'Bangalore', years: 7, company: 'Razorpay', skills: ['Java', 'Kafka', 'System Design'], secondary: ['PostgreSQL', 'Redis'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
+    cand({ email: 'rohit.s@ats.igsglobal.co', name: 'Rohit S', role: 'Backend Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026016', location: 'Mumbai', years: 6, company: 'Dream11', skills: ['Java', 'Kafka', 'Redis'], secondary: ['PostgreSQL', 'System Design'] }),
+    cand({ email: 'manish.p@ats.igsglobal.co', name: 'Manish P', role: 'Senior Backend Engineer', status: 'JOINED', jobCode: 'REQ16072026016', location: 'Bangalore', years: 7, company: 'Razorpay', skills: ['Java', 'Kafka', 'System Design'], secondary: ['PostgreSQL', 'Redis'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
     // REQ16072026017: OTT Platform SRE Hotstar
-    cand({ email: 'vivek.r@stitch-ats.in', name: 'Vivek R', role: 'Platform SRE', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026017', location: 'Bangalore', years: 6, company: 'Hotstar', skills: ['Kubernetes', 'AWS', 'CDN'], secondary: ['Python', 'Terraform'] }),
-    cand({ email: 'anand.k@stitch-ats.in', name: 'Anand K', role: 'Senior SRE', status: 'L1_INTERVIEW', jobCode: 'REQ16072026017', location: 'Bangalore', years: 7, company: 'SonyLIV', skills: ['Kubernetes', 'AWS', 'Observability'], secondary: ['Python', 'Grafana'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'vivek.r@ats.igsglobal.co', name: 'Vivek R', role: 'Platform SRE', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026017', location: 'Bangalore', years: 6, company: 'Hotstar', skills: ['Kubernetes', 'AWS', 'CDN'], secondary: ['Python', 'Terraform'] }),
+    cand({ email: 'anand.k@ats.igsglobal.co', name: 'Anand K', role: 'Senior SRE', status: 'L1_INTERVIEW', jobCode: 'REQ16072026017', location: 'Bangalore', years: 7, company: 'SonyLIV', skills: ['Kubernetes', 'AWS', 'Observability'], secondary: ['Python', 'Grafana'], interviewProgress: 'l1-done-l2-scheduled' }),
     // REQ16072026018: Logistics Ops Ola
-    cand({ email: 'rahul.j@stitch-ats.in', name: 'Rahul J', role: 'Ops Analyst', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026018', location: 'Bangalore', years: 3, company: 'Ola', skills: ['Excel', 'SQL', 'Operations'], secondary: ['Tableau', 'Python'] }),
-    cand({ email: 'neha.k@stitch-ats.in', name: 'Neha K', role: 'Senior Ops Analyst', status: 'L1_INTERVIEW', jobCode: 'REQ16072026018', location: 'Mumbai', years: 4, company: 'Uber India', skills: ['SQL', 'Excel', 'Operations'], secondary: ['Tableau', 'Stakeholder Management'], interviewProgress: 'l1-scheduled' }),
+    cand({ email: 'rahul.j@ats.igsglobal.co', name: 'Rahul J', role: 'Ops Analyst', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026018', location: 'Bangalore', years: 3, company: 'Ola', skills: ['Excel', 'SQL', 'Operations'], secondary: ['Tableau', 'Python'] }),
+    cand({ email: 'neha.k@ats.igsglobal.co', name: 'Neha K', role: 'Senior Ops Analyst', status: 'L1_INTERVIEW', jobCode: 'REQ16072026018', location: 'Mumbai', years: 4, company: 'Uber India', skills: ['SQL', 'Excel', 'Operations'], secondary: ['Tableau', 'Stakeholder Management'], interviewProgress: 'l1-scheduled' }),
     // REQ16072026019: Wealth Platform Groww
-    cand({ email: 'amit.s@stitch-ats.in', name: 'Amit S', role: 'Backend Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026019', location: 'Bangalore', years: 5, company: 'Groww', skills: ['Java', 'Spring Boot', 'PostgreSQL'], secondary: ['Kafka', 'AWS'] }),
-    cand({ email: 'kavita.s@stitch-ats.in', name: 'Kavita S', role: 'Senior Backend Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ16072026019', location: 'Mumbai', years: 6, company: 'Zerodha', skills: ['Java', 'Spring Boot', 'Kafka'], secondary: ['PostgreSQL', 'Redis'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'amit.s@ats.igsglobal.co', name: 'Amit S', role: 'Backend Engineer', status: 'TO_BE_SCREENED', jobCode: 'REQ16072026019', location: 'Bangalore', years: 5, company: 'Groww', skills: ['Java', 'Spring Boot', 'PostgreSQL'], secondary: ['Kafka', 'AWS'] }),
+    cand({ email: 'kavita.s@ats.igsglobal.co', name: 'Kavita S', role: 'Senior Backend Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ16072026019', location: 'Mumbai', years: 6, company: 'Zerodha', skills: ['Java', 'Spring Boot', 'Kafka'], secondary: ['PostgreSQL', 'Redis'], interviewProgress: 'l1-done-l2-scheduled' }),
     // REQ16072026021: Contract QA Reliance Retail
-    cand({ email: 'raj.k@stitch-ats.in', name: 'Raj K', role: 'QA Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ16072026021', location: 'Mumbai', years: 4, company: 'Reliance Retail', skills: ['Manual Testing', 'API Testing', 'Jira'], secondary: ['Selenium', 'SQL'], interviewProgress: 'l1-scheduled' }),
-    cand({ email: 'pooja.s@stitch-ats.in', name: 'Pooja S', role: 'QA Engineer', status: 'JOINED', jobCode: 'REQ16072026021', location: 'Mumbai', years: 3, company: 'Tata CLiQ', skills: ['Manual Testing', 'POS', 'API Testing'], secondary: ['Jira', 'Postman'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
+    cand({ email: 'raj.k@ats.igsglobal.co', name: 'Raj K', role: 'QA Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ16072026021', location: 'Mumbai', years: 4, company: 'Reliance Retail', skills: ['Manual Testing', 'API Testing', 'Jira'], secondary: ['Selenium', 'SQL'], interviewProgress: 'l1-scheduled' }),
+    cand({ email: 'pooja.s@ats.igsglobal.co', name: 'Pooja S', role: 'QA Engineer', status: 'JOINED', jobCode: 'REQ16072026021', location: 'Mumbai', years: 3, company: 'Tata CLiQ', skills: ['Manual Testing', 'POS', 'API Testing'], secondary: ['Jira', 'Postman'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
     // REQ16072026022: Graduate Zoho
-    cand({ email: 'avinash.s@stitch-ats.in', name: 'Avinash S', role: 'Graduate Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ16072026022', location: 'Chennai', years: 0, company: 'Campus Hire', skills: ['Java', 'Data Structures', 'SQL'], secondary: ['Problem Solving', 'Git'], interviewProgress: 'l1-scheduled', currentCTC: '0 LPA', expectedCTC: '6 LPA', noticePeriod: 'Immediate' }),
-    cand({ email: 'deepa.r@stitch-ats.in', name: 'Deepa R', role: 'Graduate Engineer', status: 'TO_BE_OFFERED', jobCode: 'REQ16072026022', location: 'Coimbatore', years: 0, company: 'Fresher', skills: ['Java', 'SQL', 'Problem Solving'], secondary: ['Git', 'Linux'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT', currentCTC: '0 LPA', expectedCTC: '7 LPA', noticePeriod: 'Immediate' }),
+    cand({ email: 'avinash.s@ats.igsglobal.co', name: 'Avinash S', role: 'Graduate Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ16072026022', location: 'Chennai', years: 0, company: 'Campus Hire', skills: ['Java', 'Data Structures', 'SQL'], secondary: ['Problem Solving', 'Git'], interviewProgress: 'l1-scheduled', currentCTC: '0 LPA', expectedCTC: '6 LPA', noticePeriod: 'Immediate' }),
+    cand({ email: 'deepa.r@ats.igsglobal.co', name: 'Deepa R', role: 'Graduate Engineer', status: 'TO_BE_OFFERED', jobCode: 'REQ16072026022', location: 'Coimbatore', years: 0, company: 'Fresher', skills: ['Java', 'SQL', 'Problem Solving'], secondary: ['Git', 'Linux'], interviewProgress: 'all-rounds-complete', offerStatus: 'SENT', currentCTC: '0 LPA', expectedCTC: '7 LPA', noticePeriod: 'Immediate' }),
     // REQ16072026023: Salesforce Accenture
-    cand({ email: 'rajesh.s@stitch-ats.in', name: 'Rajesh S', role: 'Salesforce Consultant', status: 'HR_INTERVIEW', jobCode: 'REQ16072026023', location: 'Pune', years: 5, company: 'Accenture', skills: ['Salesforce', 'Sales Cloud', 'Apex'], secondary: ['Lightning', 'SOQL'], interviewProgress: 'l1-done-l2-scheduled' }),
-    cand({ email: 'kavita.r@stitch-ats.in', name: 'Kavita R', role: 'Senior Salesforce Consultant', status: 'JOINED', jobCode: 'REQ16072026023', location: 'Bangalore', years: 6, company: 'Deloitte India', skills: ['Salesforce', 'Apex', 'Lightning'], secondary: ['Integration', 'LWC'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
+    cand({ email: 'rajesh.s@ats.igsglobal.co', name: 'Rajesh S', role: 'Salesforce Consultant', status: 'HR_INTERVIEW', jobCode: 'REQ16072026023', location: 'Pune', years: 5, company: 'Accenture', skills: ['Salesforce', 'Sales Cloud', 'Apex'], secondary: ['Lightning', 'SOQL'], interviewProgress: 'l1-done-l2-scheduled' }),
+    cand({ email: 'kavita.r@ats.igsglobal.co', name: 'Kavita R', role: 'Senior Salesforce Consultant', status: 'JOINED', jobCode: 'REQ16072026023', location: 'Bangalore', years: 6, company: 'Deloitte India', skills: ['Salesforce', 'Apex', 'Lightning'], secondary: ['Integration', 'LWC'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
     // REQ16072026024: Security CRED
-    cand({ email: 'vinod.k@stitch-ats.in', name: 'Vinod K', role: 'Security Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ16072026024', location: 'Bangalore', years: 6, company: 'CRED', skills: ['AppSec', 'OWASP', 'AWS'], secondary: ['SAST', 'Penetration Testing'], interviewProgress: 'l1-scheduled' }),
-    cand({ email: 'asha.r@stitch-ats.in', name: 'Asha R', role: 'Senior AppSec Engineer', status: 'JOINED', jobCode: 'REQ16072026024', location: 'Bangalore', years: 7, company: 'Razorpay', skills: ['AppSec', 'OWASP', 'Threat Modeling'], secondary: ['AWS', 'Kubernetes'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
+    cand({ email: 'vinod.k@ats.igsglobal.co', name: 'Vinod K', role: 'Security Engineer', status: 'L1_INTERVIEW', jobCode: 'REQ16072026024', location: 'Bangalore', years: 6, company: 'CRED', skills: ['AppSec', 'OWASP', 'AWS'], secondary: ['SAST', 'Penetration Testing'], interviewProgress: 'l1-scheduled' }),
+    cand({ email: 'asha.r@ats.igsglobal.co', name: 'Asha R', role: 'Senior AppSec Engineer', status: 'JOINED', jobCode: 'REQ16072026024', location: 'Bangalore', years: 7, company: 'Razorpay', skills: ['AppSec', 'OWASP', 'Threat Modeling'], secondary: ['AWS', 'Kubernetes'], interviewProgress: 'all-rounds-complete', offerStatus: 'ACCEPTED' }),
 ];
 export const DEMO_BULK_BUSINESS_REQUIREMENTS = [
     {

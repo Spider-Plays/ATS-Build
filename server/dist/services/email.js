@@ -158,7 +158,7 @@ function emailShell(params) {
             <td style="padding:24px 16px 0;text-align:center;">
               <p style="margin:0;font-size:12px;color:${EMAIL_BRAND.textMuted};line-height:1.6;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
                 ${appName} · Talent Acquisition Platform<br/>
-                <a href="mailto:talentacquisition@stitch-ats.in" style="color:${EMAIL_BRAND.primary};text-decoration:none;font-weight:600;">talentacquisition@stitch-ats.in</a>
+                <a href="mailto:talentacquisition@ats.igsglobal.co" style="color:${EMAIL_BRAND.primary};text-decoration:none;font-weight:600;">talentacquisition@ats.igsglobal.co</a>
               </p>
             </td>
           </tr>

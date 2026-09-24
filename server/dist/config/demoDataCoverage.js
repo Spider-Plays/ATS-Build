@@ -143,87 +143,87 @@ function covCandidate(partial) {
 export const DEMO_COVERAGE_CANDIDATES = [
     // —— Missing / thin pipeline stages ——
     covCandidate({
-        email: 'cov.screen.select@stitch-ats.in',
+        email: 'cov.screen.select@ats.igsglobal.co',
         name: 'Ananya Krishnan',
         status: 'SCREEN_SELECT',
         source: 'LinkedIn',
     }),
     covCandidate({
-        email: 'cov.l1.reject@stitch-ats.in',
+        email: 'cov.l1.reject@ats.igsglobal.co',
         name: 'Bharath Menon',
         status: 'L1_INTERVIEW_REJECT',
         interviewProgress: 'l1-awaiting-feedback',
     }),
     covCandidate({
-        email: 'cov.managerial@stitch-ats.in',
+        email: 'cov.managerial@ats.igsglobal.co',
         name: 'Chitra Nambiar',
         status: 'MANAGERIAL_INTERVIEW',
         interviewProgress: 'l1-done-l2-scheduled',
     }),
     covCandidate({
-        email: 'cov.managerial.reject@stitch-ats.in',
+        email: 'cov.managerial.reject@ats.igsglobal.co',
         name: 'Deepak Hegde',
         status: 'MANAGERIAL_INTERVIEW_REJECT',
         interviewProgress: 'l1-done-l2-scheduled',
     }),
     covCandidate({
-        email: 'cov.client.interview@stitch-ats.in',
+        email: 'cov.client.interview@ats.igsglobal.co',
         name: 'Esha Balakrishnan',
         status: 'CLIENT_INTERVIEW',
         interviewProgress: 'l1-done-l2-scheduled',
     }),
     covCandidate({
-        email: 'cov.client.reject@stitch-ats.in',
+        email: 'cov.client.reject@ats.igsglobal.co',
         name: 'Farhan Qureshi',
         status: 'CLIENT_INTERVIEW_REJECT',
         interviewProgress: 'l1-done-l2-scheduled',
     }),
     covCandidate({
-        email: 'cov.hr.interview@stitch-ats.in',
+        email: 'cov.hr.interview@ats.igsglobal.co',
         name: 'Gayatri Rao',
         status: 'HR_INTERVIEW',
         interviewProgress: 'l1-done-l2-scheduled',
     }),
     covCandidate({
-        email: 'cov.hr.select@stitch-ats.in',
+        email: 'cov.hr.select@ats.igsglobal.co',
         name: 'Harsha Shetty',
         status: 'HR_INTERVIEW_SELECT',
         interviewProgress: 'all-rounds-complete',
     }),
     covCandidate({
-        email: 'cov.hr.reject@stitch-ats.in',
+        email: 'cov.hr.reject@ats.igsglobal.co',
         name: 'Ishita Banerjee',
         status: 'HR_INTERVIEW_REJECT',
         interviewProgress: 'all-rounds-complete',
     }),
     covCandidate({
-        email: 'cov.offered@stitch-ats.in',
+        email: 'cov.offered@ats.igsglobal.co',
         name: 'Jatin Malhotra',
         status: 'OFFERED',
         interviewProgress: 'all-rounds-complete',
         offerStatus: 'SENT',
     }),
     covCandidate({
-        email: 'cov.offer.accepted@stitch-ats.in',
+        email: 'cov.offer.accepted@ats.igsglobal.co',
         name: 'Kavya Srinivasan',
         status: 'OFFER_ACCEPTED',
         interviewProgress: 'all-rounds-complete',
         offerStatus: 'ACCEPTED',
     }),
     covCandidate({
-        email: 'cov.position.abort@stitch-ats.in',
+        email: 'cov.position.abort@ats.igsglobal.co',
         name: 'Lakshmi Venkatesh',
         status: 'POSITION_ABORT',
         interviewProgress: 'all-rounds-complete',
     }),
     covCandidate({
-        email: 'cov.candidate.abort@stitch-ats.in',
+        email: 'cov.candidate.abort@ats.igsglobal.co',
         name: 'Mohan Das',
         status: 'CANDIDATE_ABORT',
         source: 'LinkedIn',
     }),
     covCandidate({
-        email: 'cov.bank@stitch-ats.in',
+        email: 'cov.bank@ats.igsglobal.co',
         name: 'Nisha Kulkarni',
         status: 'BANK',
         source: 'Referral',
@@ -232,7 +232,7 @@ export const DEMO_COVERAGE_CANDIDATES = [
         referralNotes: 'Strong backend hire — park for next opening.',
     }),
     covCandidate({
-        email: 'cov.onhold@stitch-ats.in',
+        email: 'cov.onhold@ats.igsglobal.co',
         name: 'Omkar Patil',
         status: 'ON_HOLD',
         source: 'Employee Referral',
@@ -242,7 +242,7 @@ export const DEMO_COVERAGE_CANDIDATES = [
     }),
     // —— Offer approval ladder (≤3 TO_BE_OFFERED + ≤3 OFFERED) ——
     covCandidate({
-        email: 'cov.offer.draft@stitch-ats.in',
+        email: 'cov.offer.draft@ats.igsglobal.co',
         name: 'Pooja Agarwal',
         status: 'TO_BE_OFFERED',
         jobCode: 'REQCOV17072026005',
@@ -250,7 +250,7 @@ export const DEMO_COVERAGE_CANDIDATES = [
         offerStatus: 'DRAFT',
     }),
     covCandidate({
-        email: 'cov.offer.hr.approval@stitch-ats.in',
+        email: 'cov.offer.hr.approval@ats.igsglobal.co',
         name: 'Qasim Ansari',
         status: 'TO_BE_OFFERED',
         jobCode: 'REQCOV17072026005',
@@ -258,7 +258,7 @@ export const DEMO_COVERAGE_CANDIDATES = [
         offerStatus: 'PENDING_HR_APPROVAL',
     }),
     covCandidate({
-        email: 'cov.offer.exec.approval@stitch-ats.in',
+        email: 'cov.offer.exec.approval@ats.igsglobal.co',
         name: 'Ritu Chopra',
         status: 'TO_BE_OFFERED',
         jobCode: 'REQCOV17072026005',
@@ -266,7 +266,7 @@ export const DEMO_COVERAGE_CANDIDATES = [
         offerStatus: 'PENDING_EXEC_APPROVAL',
     }),
     covCandidate({
-        email: 'cov.offer.approved@stitch-ats.in',
+        email: 'cov.offer.approved@ats.igsglobal.co',
         name: 'Tanvi Deshmukh',
         status: 'OFFERED',
         jobCode: 'REQCOV17072026005',
@@ -274,7 +274,7 @@ export const DEMO_COVERAGE_CANDIDATES = [
         offerStatus: 'APPROVED',
     }),
     covCandidate({
-        email: 'cov.offer.negotiation@stitch-ats.in',
+        email: 'cov.offer.negotiation@ats.igsglobal.co',
         name: 'Uday Bhatia',
         status: 'OFFERED',
         jobCode: 'REQCOV17072026005',
@@ -283,7 +283,7 @@ export const DEMO_COVERAGE_CANDIDATES = [
     }),
     // —— Referral portal showcase (≤3) ——
     covCandidate({
-        email: 'cov.referral.screen@stitch-ats.in',
+        email: 'cov.referral.screen@ats.igsglobal.co',
         name: 'Waseem Khan',
         status: 'TO_BE_SCREENED',
         source: 'Employee Referral',
@@ -293,7 +293,7 @@ export const DEMO_COVERAGE_CANDIDATES = [
         referralNotes: 'Referred via employee portal for coverage role.',
     }),
     covCandidate({
-        email: 'cov.referral.l1@stitch-ats.in',
+        email: 'cov.referral.l1@ats.igsglobal.co',
         name: 'Aditi Saxena',
         status: 'L1_INTERVIEW',
         source: 'Employee Referral',
@@ -304,7 +304,7 @@ export const DEMO_COVERAGE_CANDIDATES = [
         referralNotes: 'Strong React skills — referral bonus role.',
     }),
     covCandidate({
-        email: 'cov.referral.joined@stitch-ats.in',
+        email: 'cov.referral.joined@ats.igsglobal.co',
         name: 'Yash Thakur',
         status: 'JOINED',
         source: 'Employee Referral',

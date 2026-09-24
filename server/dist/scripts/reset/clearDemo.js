@@ -12,7 +12,7 @@ import { refuseProductionUnlessForced, requireEnvConfirm, targetDbLabel } from '
 export async function run(argv = []) {
     refuseProductionUnlessForced(argv, 'clear demo data');
     requireEnvConfirm('CONFIRM_DEMO_CLEAR');
-    const keepEmails = new Set((process.env.KEEP_DEMO_CLEAR_EMAILS ?? 'superadmin@stitch-ats.in,qa-admin@stitch-ats.in')
+    const keepEmails = new Set((process.env.KEEP_DEMO_CLEAR_EMAILS ?? 'superadmin@ats.igsglobal.co,qa-admin@ats.igsglobal.co')
         .split(',')
         .map((e) => e.trim().toLowerCase())
         .filter(Boolean));
@@ -24,7 +24,7 @@ export async function run(argv = []) {
     await ensureClientDealTable();
     const stitchUsers = await prisma.user.findMany({
         where: {
-            email: { endsWith: '@stitch-ats.in' },
+            email: { endsWith: '@ats.igsglobal.co' },
             NOT: { email: { in: [...keepEmails] } },
         },
         select: { id: true, email: true },
@@ -49,7 +49,7 @@ export async function run(argv = []) {
         }),
         prisma.user.deleteMany({
             where: {
-                email: { endsWith: '@stitch-ats.in' },
+                email: { endsWith: '@ats.igsglobal.co' },
                 NOT: { email: { in: [...keepEmails] } },
             },
         }),
@@ -57,17 +57,17 @@ export async function run(argv = []) {
     ]);
     const [users, stitchUsersLeft, requirements, candidates, businessReqs, vendors] = await Promise.all([
         prisma.user.count(),
-        prisma.user.count({ where: { email: { endsWith: '@stitch-ats.in' } } }),
+        prisma.user.count({ where: { email: { endsWith: '@ats.igsglobal.co' } } }),
         prisma.requirement.count(),
         prisma.candidate.count(),
         prisma.businessRequirement.count(),
         prisma.vendor.count(),
     ]);
     console.log('\nDemo data cleared.');
-    console.log(`  Users remaining: ${users} (${stitchUsersLeft} @stitch-ats.in kept)`);
+    console.log(`  Users remaining: ${users} (${stitchUsersLeft} @ats.igsglobal.co kept)`);
     console.log(`  Requirements: ${requirements}`);
     console.log(`  Candidates: ${candidates}`);
     console.log(`  Business requirements: ${businessReqs}`);
     console.log(`  Vendors: ${vendors}`);
-    console.log(`  Removed ${stitchUsers.length} demo @stitch-ats.in user(s).`);
+    console.log(`  Removed ${stitchUsers.length} demo @ats.igsglobal.co user(s).`);
 }

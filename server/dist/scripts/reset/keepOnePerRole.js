@@ -41,7 +41,7 @@ function primaryEmailForRole(role) {
     return any?.email.toLowerCase();
 }
 function fallbackEmailForRole(role) {
-    return `${role.toLowerCase().replace(/_/g, '')}@stitch-ats.in`;
+    return `${role.toLowerCase().replace(/_/g, '')}@ats.igsglobal.co`;
 }
 async function resolveKeepUserIds() {
     const keepByRole = new Map();

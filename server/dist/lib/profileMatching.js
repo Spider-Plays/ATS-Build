@@ -1,275 +1,151 @@
-import { parseJobProfile } from './jdAnalysis.js';
-import { parseResumeProfile } from './resumeAnalysis.js';
-import { deserializeSkills, extractSkillsFromText, normalizeSkillToken } from './skills.js';
+import { deserializeSkills, rankSkillsInText, skillMatchPattern } from './skills.js';
 import { extractResumeText } from './resumeParse.js';
 import { loadCandidateResume } from './candidateResume.js';
-const STOP_WORDS = new Set([
-    'about',
-    'after',
-    'also',
-    'and',
-    'are',
-    'been',
-    'being',
-    'both',
-    'but',
-    'can',
-    'for',
-    'from',
-    'have',
-    'into',
-    'more',
-    'must',
-    'not',
-    'our',
-    'that',
-    'the',
-    'their',
-    'them',
-    'they',
-    'this',
-    'through',
-    'using',
-    'with',
-    'will',
-    'work',
-    'your',
-    'role',
-    'team',
-    'years',
-    'year',
-    'experience',
-    'skills',
-    'ability',
-    'strong',
-    'good',
-    'hands',
-    'production',
-    'professional',
-    'required',
-    'preferred',
-    'looking',
-    'seeking',
-    'hiring',
-]);
-function tokenize(text) {
-    const tokens = new Set();
-    for (const word of text
-        .toLowerCase()
-        .replace(/[^a-z0-9+#.\s-]/g, ' ')
-        .split(/\s+/)) {
-        const w = word.replace(/^-+|-+$/g, '');
-        if (w.length >= 3 && w.length <= 24 && !STOP_WORDS.has(w))
-            tokens.add(w);
+import { parseExperienceYears } from './candidateFieldNormalize.js';
+/**
+ * Job match = weighted coverage of what the requirement asks for:
+ *   primary skills 60% · secondary skills 25% · experience fit 15%.
+ * A part the requirement doesn't specify is left out and the rest re-weighted,
+ * so the percentage is always "share of the stated requirement this candidate meets".
+ */
+const WEIGHTS = { primary: 0.6, secondary: 0.25, experience: 0.15 };
+/**
+ * Stored/returned as the match score when a candidate has no readable resume and ≤2 skills:
+ * there is too little evidence for a percentage. Sorts below every real score; UIs show "Not enough data".
+ */
+export const INSUFFICIENT_MATCH_SCORE = -1;
+const INSUFFICIENT_MAX_SKILLS = 2;
+const patternCache = new Map();
+/** Non-global (stateless) whole-word pattern, cached per skill. */
+function pattern(skill) {
+    const key = skill.toLowerCase();
+    let re = patternCache.get(key);
+    if (!re) {
+        re = new RegExp(skillMatchPattern(skill).source, 'i');
+        patternCache.set(key, re);
     }
-    return tokens;
+    return re;
 }
-function jaccard(a, b) {
-    if (!a.size || !b.size)
-        return 0;
-    let intersection = 0;
-    for (const token of a) {
-        if (b.has(token))
-            intersection++;
+const innerSkillCache = new Map();
+/** Catalog skills named inside a longer requirement phrase ("Containers (Kubernetes)" → Kubernetes). */
+function catalogSkillsInPhrase(skill, catalogNames) {
+    const key = `${catalogNames.length}:${skill.toLowerCase()}`;
+    let inner = innerSkillCache.get(key);
+    if (!inner) {
+        const lower = skill.toLowerCase();
+        inner = catalogNames.filter((name) => name.length >= 3 && name.toLowerCase() !== lower && pattern(name).test(lower));
+        innerSkillCache.set(key, inner);
     }
-    const union = a.size + b.size - intersection;
-    return union > 0 ? intersection / union : 0;
+    return inner;
 }
-function corpusContainsSkill(corpus, skill) {
-    const token = normalizeSkillToken(skill);
-    if (!token || token.length < 2)
-        return false;
-    if (corpus.includes(token))
+/** A requirement skill is met when it (or every catalog skill named inside it) appears as a whole word. */
+function skillIsMet(skill, evidence, catalogNames) {
+    if (pattern(skill).test(evidence))
         return true;
-    const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(escaped, 'i').test(corpus);
+    const inner = catalogSkillsInPhrase(skill, catalogNames);
+    return inner.length > 0 && inner.every((name) => pattern(name).test(evidence));
 }
-function scoreSkillList(required, corpora) {
-    if (!required.length)
-        return { score: 1, matched: [] };
+function scoreSkills(required, evidence, catalogNames) {
     const matched = [];
-    for (const skill of required) {
-        if (corpora.some((corpus) => corpusContainsSkill(corpus, skill))) {
-            matched.push(skill);
-        }
+    const missing = [];
+    for (const skill of required)
+        (skillIsMet(skill, evidence, catalogNames) ? matched : missing).push(skill);
+    return { ratio: required.length ? matched.length / required.length : 0, matched, missing };
+}
+/** 1 inside the range; loses 20% per year short, 10% per year over (floor 0 / 0.5). */
+function experienceFit(years, min, max) {
+    if (min != null && years < min)
+        return Math.max(0, 1 - (min - years) * 0.2);
+    if (max != null && years > max)
+        return Math.max(0.5, 1 - (years - max) * 0.1);
+    return 1;
+}
+function requirementSkills(requirement, catalogNames) {
+    let primary = deserializeSkills(requirement.primarySkills);
+    let secondary = deserializeSkills(requirement.secondarySkills);
+    if (!primary.length && !secondary.length) {
+        // No skills entered: fall back to the skills the JD names.
+        const jd = requirement.jobDescription?.trim() || requirement.description?.trim() || '';
+        const ranked = rankSkillsInText(jd, catalogNames);
+        primary = ranked.slice(0, 8);
+        secondary = ranked.slice(8, 20);
     }
-    return { score: matched.length / required.length, matched };
+    return { primary, secondary };
 }
-function bestBulletMatchScore(requirementBullets, resumeBullets) {
-    if (!requirementBullets.length || !resumeBullets.length)
-        return 0;
-    let total = 0;
-    for (const requirementBullet of requirementBullets) {
-        const reqTokens = tokenize(requirementBullet);
-        let best = 0;
-        for (const resumeBullet of resumeBullets) {
-            best = Math.max(best, jaccard(reqTokens, tokenize(resumeBullet)));
-        }
-        total += best;
-    }
-    return total / requirementBullets.length;
-}
-function scoreNarrativeOverlap(requirementText, resumeText) {
-    if (!requirementText.trim() || !resumeText.trim())
-        return 0;
-    const reqTokens = tokenize(requirementText);
-    const resumeTokens = tokenize(resumeText);
-    if (!reqTokens.size)
-        return 0;
-    let hits = 0;
-    for (const token of reqTokens) {
-        if (resumeTokens.has(token))
-            hits++;
-    }
-    return hits / reqTokens.size;
-}
-function topMatchingHighlights(requirementBullets, resumeBullets, limit = 3) {
-    if (!requirementBullets.length || !resumeBullets.length)
-        return [];
-    const scored = resumeBullets.map((resumeBullet) => {
-        const resumeTokens = tokenize(resumeBullet);
-        let best = 0;
-        for (const requirementBullet of requirementBullets) {
-            best = Math.max(best, jaccard(resumeTokens, tokenize(requirementBullet)));
-        }
-        return { resumeBullet, best };
-    });
-    return scored
-        .filter((row) => row.best >= 0.18)
-        .sort((a, b) => b.best - a.best)
-        .slice(0, limit)
-        .map((row) => row.resumeBullet.slice(0, 140));
-}
-function buildSummary(breakdown, hasResume) {
-    if (!hasResume)
-        return 'Add a resume to score project and JD alignment.';
+function buildSummary(primary, secondary, exp) {
     const parts = [];
-    if (breakdown.matchedPrimary.length > 0) {
-        parts.push(`${breakdown.matchedPrimary.length} primary skill${breakdown.matchedPrimary.length === 1 ? '' : 's'} found in resume`);
+    const pTotal = primary.matched.length + primary.missing.length;
+    const sTotal = secondary.matched.length + secondary.missing.length;
+    if (pTotal)
+        parts.push(`${primary.matched.length} of ${pTotal} primary skills`);
+    if (sTotal)
+        parts.push(`${secondary.matched.length} of ${sTotal} secondary skills`);
+    if (exp.applies && exp.years != null) {
+        const range = exp.min != null && exp.max != null ? `${exp.min}–${exp.max}` : exp.min != null ? `${exp.min}+` : `≤${exp.max}`;
+        parts.push(`${exp.years} yrs vs ${range} yrs required`);
     }
-    if (breakdown.projectScore >= 55) {
-        parts.push('project experience aligns with role responsibilities');
-    }
-    else if (breakdown.projectScore >= 30) {
-        parts.push('some project overlap with the JD');
-    }
-    if (breakdown.jdScore >= 55) {
-        parts.push('resume narrative matches the job description');
-    }
-    if (parts.length === 0) {
-        return 'Limited overlap between resume and this job description.';
-    }
-    return parts.join('; ').replace(/^./, (c) => c.toUpperCase()) + '.';
+    if (!parts.length)
+        return 'This requirement lists no skills or experience to match against.';
+    const text = `Matches ${parts.join(', ')}.`;
+    return primary.missing.length ? `${text} Missing: ${primary.missing.slice(0, 5).join(', ')}.` : text;
 }
 export function computeMatchScore(candidate, requirement, resumeText, catalogNames = []) {
-    const profilePrimary = deserializeSkills(candidate.primarySkills);
-    const profileSecondary = deserializeSkills(candidate.secondarySkills);
-    const resumeProfile = parseResumeProfile(resumeText);
-    const extractedResumeSkills = extractSkillsFromText(resumeText, catalogNames);
-    const resumeSkillCorpus = [
-        resumeProfile.skillsText,
-        extractedResumeSkills.join(' '),
-        profilePrimary.join(' '),
-        profileSecondary.join(' '),
-    ].join(' ');
-    const fullResumeCorpus = [
-        resumeText,
+    const reqSkills = requirementSkills(requirement, catalogNames);
+    const candidateSkills = new Set([...deserializeSkills(candidate.primarySkills), ...deserializeSkills(candidate.secondarySkills)].map((s) => s.toLowerCase()));
+    if (!resumeText.trim() && candidateSkills.size <= INSUFFICIENT_MAX_SKILLS) {
+        return {
+            score: INSUFFICIENT_MATCH_SCORE,
+            breakdown: {
+                insufficientData: true,
+                primaryScore: 0,
+                secondaryScore: 0,
+                experienceScore: -1,
+                matchedPrimary: [],
+                matchedSecondary: [],
+                missingPrimary: [],
+                missingSecondary: [],
+                summary: 'Not enough data — please update the resume.',
+            },
+        };
+    }
+    const evidence = [
+        ...deserializeSkills(candidate.primarySkills),
+        ...deserializeSkills(candidate.secondarySkills),
         candidate.role,
-        candidate.currentCompany ?? '',
-        candidate.totalExperience ?? '',
-        ...profilePrimary,
-        ...profileSecondary,
-        ...extractedResumeSkills,
+        candidate.jobTitle ?? '',
+        resumeText,
     ]
-        .join(' ')
+        .join('\n')
         .toLowerCase();
-    const reqPrimary = deserializeSkills(requirement.primarySkills);
-    const reqSecondary = deserializeSkills(requirement.secondarySkills);
-    const jd = requirement.jobDescription?.trim() ||
-        requirement.description?.trim() ||
-        '';
-    const jobProfile = parseJobProfile(jd);
-    const jdRequirementBullets = [
-        ...jobProfile.responsibilityBullets,
-        ...jobProfile.mustHaveBullets,
-    ];
-    const resumeBullets = resumeProfile.bullets.length
-        ? resumeProfile.bullets
-        : extractResumeBulletsFallback(resumeText);
-    const primary = scoreSkillList(reqPrimary, [resumeSkillCorpus, fullResumeCorpus]);
-    const secondary = scoreSkillList(reqSecondary, [resumeSkillCorpus, fullResumeCorpus]);
-    const projectScoreRaw = bestBulletMatchScore(jdRequirementBullets, resumeBullets);
-    const narrativeScoreRaw = scoreNarrativeOverlap([jobProfile.aboutText, jobProfile.responsibilitiesText, jobProfile.mustHaveText, jd].join('\n'), [resumeProfile.summaryText, resumeProfile.experienceText, resumeProfile.projectsText, resumeText].join('\n'));
-    const jdScoreRaw = jdRequirementBullets.length
-        ? projectScoreRaw * 0.65 + narrativeScoreRaw * 0.35
-        : narrativeScoreRaw;
-    const hasPrimary = reqPrimary.length > 0;
-    const hasSecondary = reqSecondary.length > 0;
-    const hasJd = jd.length > 0;
-    const hasResume = resumeText.trim().length > 0;
-    let score;
-    if (!hasPrimary && !hasSecondary && !hasJd) {
-        score = 0;
-    }
-    else if (!hasPrimary && !hasSecondary) {
-        score = jdScoreRaw;
-    }
-    else if (!hasJd) {
-        const wPrimary = hasPrimary ? 0.65 : 0;
-        const wSecondary = hasSecondary ? 0.35 : 0;
-        score = (primary.score * wPrimary + secondary.score * wSecondary) / (wPrimary + wSecondary);
-    }
-    else if (!hasResume) {
-        const wPrimary = hasPrimary ? 0.55 : 0;
-        const wSecondary = hasSecondary ? 0.25 : 0;
-        const wJd = 0.2;
-        const skillWeight = wPrimary + wSecondary;
-        const skillPart = skillWeight > 0
-            ? (primary.score * wPrimary + secondary.score * wSecondary) / skillWeight
-            : 0;
-        score = skillPart * skillWeight + jdScoreRaw * wJd;
-    }
-    else {
-        const wPrimary = hasPrimary ? 0.3 : 0;
-        const wSecondary = hasSecondary ? 0.15 : 0;
-        const wJd = 0.3;
-        const wProject = 0.25;
-        const skillWeight = wPrimary + wSecondary;
-        const skillPart = skillWeight > 0
-            ? (primary.score * wPrimary + secondary.score * wSecondary) / skillWeight
-            : 0;
-        score =
-            skillPart * skillWeight +
-                jdScoreRaw * wJd +
-                projectScoreRaw * wProject;
-    }
-    const matchedHighlights = topMatchingHighlights(jdRequirementBullets, resumeBullets);
-    const breakdownBase = {
-        primaryScore: Math.round(primary.score * 100),
-        secondaryScore: Math.round(secondary.score * 100),
-        jdScore: Math.round(jdScoreRaw * 100),
-        projectScore: Math.round(projectScoreRaw * 100),
-        resumeScore: Math.round(narrativeScoreRaw * 100),
+    const primary = scoreSkills(reqSkills.primary, evidence, catalogNames);
+    const secondary = scoreSkills(reqSkills.secondary, evidence, catalogNames);
+    const years = candidate.experienceYears ?? parseExperienceYears(candidate.totalExperience);
+    const min = requirement.experienceMinYears ?? null;
+    // A single figure ("5 years") means "5+", not exactly five.
+    const max = requirement.experienceMaxYears != null && requirement.experienceMaxYears !== min ? requirement.experienceMaxYears : null;
+    const expApplies = years != null && (min != null || max != null);
+    const expRatio = expApplies ? experienceFit(years, min, max) : 0;
+    const parts = [];
+    if (reqSkills.primary.length)
+        parts.push([primary.ratio, WEIGHTS.primary]);
+    if (reqSkills.secondary.length)
+        parts.push([secondary.ratio, WEIGHTS.secondary]);
+    if (expApplies)
+        parts.push([expRatio, WEIGHTS.experience]);
+    const totalWeight = parts.reduce((sum, [, w]) => sum + w, 0);
+    const score = totalWeight > 0 ? parts.reduce((sum, [r, w]) => sum + r * w, 0) / totalWeight : 0;
+    const breakdown = {
+        insufficientData: false,
+        primaryScore: Math.round(primary.ratio * 100),
+        secondaryScore: Math.round(secondary.ratio * 100),
+        experienceScore: expApplies ? Math.round(expRatio * 100) : -1,
         matchedPrimary: primary.matched,
         matchedSecondary: secondary.matched,
-        matchedHighlights,
+        missingPrimary: primary.missing,
+        missingSecondary: secondary.missing,
+        summary: buildSummary(primary, secondary, { years, min, max, applies: expApplies }),
     };
-    const breakdown = {
-        ...breakdownBase,
-        summary: buildSummary(breakdownBase, hasResume),
-    };
-    return {
-        score: Math.round(Math.min(100, Math.max(0, score * 100))),
-        breakdown,
-    };
-}
-function extractResumeBulletsFallback(text) {
-    return text
-        .replace(/\r\n/g, '\n')
-        .split(/\n{2,}/)
-        .map((p) => p.replace(/\s+/g, ' ').trim())
-        .filter((p) => p.length >= 30 && p.length <= 500)
-        .slice(0, 16);
+    return { score: Math.round(Math.min(100, Math.max(0, score * 100))), breakdown };
 }
 export async function loadCandidateResumeText(candidate) {
     if (candidate.resumeText?.trim()) {

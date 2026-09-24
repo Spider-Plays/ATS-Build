@@ -21,7 +21,7 @@ import { assertCanViewCandidate, buildCandidateListWhere, buildCandidateMatchPoo
 import { buildRequirementTagUpdate } from '../lib/candidateStatuses.js';
 import { notifyCandidateStatusChange, notifyVendorAssignment } from '../lib/emailDispatch.js';
 import { hasOrgWideAccess } from '../lib/orgAccess.js';
-import { getCatalogSkillNames } from '../lib/skillCatalog.js';
+import { getCatalogSkillNames, listSkillCatalog } from '../lib/skillCatalog.js';
 import { extractResumeText } from '../lib/resumeParse.js';
 import { parseJobDescriptionSkills } from '../lib/jdParse.js';
 import { handleUploadResume } from '../middleware/uploadResume.js';
@@ -55,7 +55,8 @@ router.post('/parse-job-description', requireRoles(...STAFF_MUTATE, 'HIRING_MANA
                 error: 'Job description must be at least 20 characters. Paste text or upload a PDF/DOCX.',
             });
         }
-        const catalog = await getCatalogSkillNames();
+        // Categories let the parser skip soft skills / spoken languages / domains.
+        const catalog = await listSkillCatalog();
         const { primarySkills, secondarySkills } = parseJobDescriptionSkills(text, catalog);
         res.json({
             jobDescription: text.slice(0, 50_000),

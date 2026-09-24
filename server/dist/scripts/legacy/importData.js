@@ -13,12 +13,30 @@ import { buildCandidateResumePayload, extractResumeText, } from '../../lib/resum
 import { buildCandidateSearchIndexFields } from '../../lib/candidateFieldNormalize.js';
 import { buildOfferCreateData } from '../../lib/offerActions.js';
 import { normalizePersonName, slugFromName, stitchEmailFromName, } from '../../lib/legacyImport/ensureStitchUser.js';
-import { EMPLOYEE_REFERRAL_NAME, EMPLOYEE_REFERRAL_SOURCE, isAllowedRecruiterName, } from '../../lib/legacyImport/allowedRecruiters.js';
-import { buildImportStats, dedupeRowsByEmail, findResumeFile, loadLegacyCsv, loadLegacyRequirementCsv, normalizeEmail, parseCtcLakhs, parseLegacyDate, rowGet, } from '../../lib/legacyImport/parseCsv.js';
+import { EMPLOYEE_REFERRAL_NAME, EMPLOYEE_REFERRAL_SOURCE, RECRUITER_EMAILS, RECRUITER_OWNER_ALIASES, isAllowedRecruiterName, resolveAllowedRecruiterName, } from '../../lib/legacyImport/allowedRecruiters.js';
+import { buildImportStats, dedupeRowsByEmail, findResumeFile, loadLegacyCsv, loadLegacyRequirementCsv, normalizeEmail, parseCtcLakhs, parseLegacyDate, rowGet, setResumeSearchDirs, } from '../../lib/legacyImport/parseCsv.js';
+import { loadLegacyXlsx } from '../../lib/legacyImport/loadXlsx.js';
+import { synthesizeRequirementsFromCandidates } from '../../lib/legacyImport/synthesizeRequirements.js';
 import { createEmptyManifest, defaultManifestPath, loadManifest, saveManifest, } from '../../lib/legacyImport/manifest.js';
 import { extractInterviewSlots, interviewRecordStatus, legacyFeedbackRecommendation, mapLegacyStatus, pipelineRank, } from '../../lib/legacyImport/statusMap.js';
 import { buildImportReportRows, writeLegacyImportWorkbook, } from '../../lib/legacyImport/writeImportReport.js';
 import { buildManpowerRequirementPayload, isChildRequirement, nullIfNa, sourceMonthFromDate, sourceWeekFromDate, } from '../../lib/legacyImport/fieldMap.js';
+/** Defaults for `npm run db:import-main-data` (local SharePoint export). */
+export const DEFAULT_MAIN_DATA_XLSX = 'C:\\Users\\Karthik_VC\\OneDrive - Intact Green Services (India) PVT LTD\\Main Data (1).xlsx';
+export const DEFAULT_RESUME_REPOSITORY = 'C:\\Users\\Karthik_VC\\Downloads\\Resume_Repository (1)';
+export function applyMainDataDefaults(argv) {
+    const hasXlsx = argv.includes('--xlsx');
+    const hasDataDir = argv.includes('--data-dir');
+    const hasResumes = argv.includes('--resumes-dir');
+    const next = [...argv];
+    if (!hasXlsx && !hasDataDir) {
+        next.push('--xlsx', DEFAULT_MAIN_DATA_XLSX);
+    }
+    if (!hasResumes) {
+        next.push('--resumes-dir', DEFAULT_RESUME_REPOSITORY);
+    }
+    return next;
+}
 function parseArgs(argv) {
     let dataDir = '';
     let dryRun = false;
@@ -28,6 +46,8 @@ function parseArgs(argv) {
     let manifestPath = '';
     let onlyRequirements = false;
     let resumesOnly = false;
+    let xlsxPath = '';
+    const resumesDirs = [];
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         if (arg === '--dry-run')
@@ -46,16 +66,31 @@ function parseArgs(argv) {
             createdBy = argv[++i] ?? null;
         else if (arg === '--manifest')
             manifestPath = argv[++i] ?? '';
+        else if (arg === '--xlsx')
+            xlsxPath = argv[++i] ?? '';
+        else if (arg === '--resumes-dir') {
+            const dir = argv[++i] ?? '';
+            if (dir)
+                resumesDirs.push(dir);
+        }
     }
-    if (!dataDir) {
-        throw new Error('Missing --data-dir <path to extracted data/ folder>');
+    if (!dataDir && !xlsxPath) {
+        throw new Error('Missing --data-dir <folder> or --xlsx <Main Data.xlsx>');
     }
     if (onlyRequirements && resumesOnly) {
         throw new Error('Use either --only-requirements or --resumes-only, not both');
     }
-    const resolved = path.resolve(dataDir);
-    if (!fs.existsSync(resolved)) {
-        throw new Error(`Data directory not found: ${resolved}`);
+    const resolvedXlsx = xlsxPath ? path.resolve(xlsxPath) : null;
+    if (resolvedXlsx && !fs.existsSync(resolvedXlsx)) {
+        throw new Error(`Excel file not found: ${resolvedXlsx}`);
+    }
+    let resolved = dataDir ? path.resolve(dataDir) : path.resolve(process.cwd(), 'data/main-import');
+    fs.mkdirSync(resolved, { recursive: true });
+    const resolvedResumeDirs = resumesDirs.map((d) => path.resolve(d));
+    for (const dir of resolvedResumeDirs) {
+        if (!fs.existsSync(dir)) {
+            throw new Error(`Resume directory not found: ${dir}`);
+        }
     }
     return {
         dataDir: resolved,
@@ -66,6 +101,8 @@ function parseArgs(argv) {
         onlyRequirements,
         resumesOnly,
         manifestPath: manifestPath || defaultManifestPath(resolved),
+        xlsxPath: resolvedXlsx,
+        resumesDirs: resolvedResumeDirs,
     };
 }
 async function resolveFallbackUserId(explicit) {
@@ -92,6 +129,36 @@ function splitPeopleParts(raw) {
         .split(/[;,|]/)
         .map((p) => p.trim())
         .filter((p) => p && !isPlaceholderValue(p));
+}
+/** Recruiter cells that mean "a vendor sent this profile" — the vendor is in Partner Name. */
+const VENDOR_RECRUITER_LABELS = new Set(['ta', 'ta partner']);
+function isVendorRecruiterLabel(name) {
+    return VENDOR_RECRUITER_LABELS.has(normalizePersonName(name).toLowerCase());
+}
+/** Partner Name values that are not external vendors. */
+const NON_VENDOR_PARTNER_NAMES = new Set(['internal', 'employee referral', 'employee referrals']);
+/** Same vendor spelled differently in Partner Name → one canonical vendor. */
+const VENDOR_NAME_ALIASES = {
+    'northcorp software pvt. ltd': 'NorthCorp Technologies',
+};
+function legacyVendorName(row) {
+    const partner = nullIfNa(rowGet(row, 'Partner Name'))?.trim();
+    if (!partner || NON_VENDOR_PARTNER_NAMES.has(partner.toLowerCase()))
+        return null;
+    return VENDOR_NAME_ALIASES[partner.toLowerCase()] ?? partner;
+}
+/** Vendor mailbox: first word of the vendor name (joined with the next when too short). */
+function vendorEmailFromName(name) {
+    const words = name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    const local = (words[0] ?? 'vendor').length >= 3 ? words[0] : words.slice(0, 2).join('');
+    return `${local || 'vendor'}@ats.igsglobal.com`;
+}
+/** Vendor profile row: Recruiter is TA / TA Partner and Partner Name names the vendor. */
+function vendorRowName(row) {
+    const recruiter = splitPeopleParts(rowGet(row, 'Recruiter'))[0];
+    if (!recruiter || !isVendorRecruiterLabel(recruiter))
+        return null;
+    return legacyVendorName(row);
 }
 function hiringManagerEmailFromName(name) {
     return stitchEmailFromName(normalizePersonName(name));
@@ -190,10 +257,24 @@ function namesMatch(a, b) {
 }
 async function ensureRecruiterUser(lookup, passwordHash, identity, dryRun) {
     const name = identity.name?.trim();
-    // Sheet emails are ignored for login — all import users use @stitch-ats.in.
+    // Sheet emails are ignored for login — all import users use @ats.igsglobal.co.
     // Keep optional email only as a soft hint (unused for create).
     if (!name || isPlaceholderValue(name))
         return null;
+    const keeper = resolveAllowedRecruiterName(name);
+    const ownerKeeper = keeper ? RECRUITER_OWNER_ALIASES[keeper] : undefined;
+    if (ownerKeeper) {
+        const owner = await ensureRecruiterUser(lookup, passwordHash, { name: ownerKeeper }, dryRun);
+        if (owner) {
+            lookup.byName.set(name.toLowerCase(), owner.id);
+            lookup.byName.set(normalizePersonName(name).toLowerCase(), owner.id);
+        }
+        return owner;
+    }
+    const officialEmail = keeper ? RECRUITER_EMAILS[keeper] : undefined;
+    if (keeper && officialEmail) {
+        return ensureOfficialRecruiterUser(lookup, passwordHash, name, keeper, officialEmail, dryRun);
+    }
     const byName = resolveUserIdByName(lookup, name);
     if (byName) {
         lookup.byName.set(name.toLowerCase(), byName);
@@ -201,9 +282,9 @@ async function ensureRecruiterUser(lookup, passwordHash, identity, dryRun) {
         return { id: byName, created: false };
     }
     const displayName = normalizePersonName(name);
-    let finalEmail = `${slugFromName(displayName)}@stitch-ats.in`;
+    let finalEmail = `${slugFromName(displayName)}@ats.igsglobal.co`;
     if (resolveUserIdByEmail(lookup, finalEmail)) {
-        finalEmail = `${slugFromName(displayName)}.${crypto.randomBytes(2).toString('hex')}@stitch-ats.in`;
+        finalEmail = `${slugFromName(displayName)}.${crypto.randomBytes(2).toString('hex')}@ats.igsglobal.co`;
     }
     if (dryRun) {
         const dryId = `dry-run-user-${finalEmail}`;
@@ -232,7 +313,7 @@ async function ensureRecruiterUser(lookup, passwordHash, identity, dryRun) {
             ]);
             return { id: existingByEmail.id, created: false };
         }
-        finalEmail = `${slugFromName(displayName)}.${crypto.randomBytes(2).toString('hex')}@stitch-ats.in`;
+        finalEmail = `${slugFromName(displayName)}.${crypto.randomBytes(2).toString('hex')}@ats.igsglobal.co`;
     }
     const created = await prisma.user.create({
         data: {
@@ -250,6 +331,46 @@ async function ensureRecruiterUser(lookup, passwordHash, identity, dryRun) {
         select: { id: true, email: true, name: true },
     });
     registerUserInLookup(lookup, created, [name, displayName]);
+    return { id: created.id, created: true };
+}
+/** Recruiter from the TA list: one account per official mailbox, renamed/re-emailed if an older import made it. */
+async function ensureOfficialRecruiterUser(lookup, passwordHash, rawName, keeper, officialEmail, dryRun) {
+    const email = officialEmail.toLowerCase();
+    const aliases = [rawName, normalizePersonName(rawName), keeper];
+    const knownId = resolveUserIdByEmail(lookup, email) ?? resolveUserIdByName(lookup, keeper);
+    if (dryRun) {
+        const id = knownId ?? `dry-run-user-${email}`;
+        registerUserInLookup(lookup, { id, email, name: keeper }, aliases);
+        return { id, created: !knownId };
+    }
+    const existing = (await prisma.user.findUnique({ where: { email }, select: { id: true, email: true, name: true } })) ??
+        (knownId
+            ? await prisma.user.findUnique({ where: { id: knownId }, select: { id: true, email: true, name: true } })
+            : null);
+    if (existing) {
+        if (existing.email.toLowerCase() !== email || existing.name !== keeper) {
+            await prisma.user.update({ where: { id: existing.id }, data: { email, name: keeper } });
+            console.log(`  ↷ recruiter ${existing.name} <${existing.email}> → ${keeper} <${email}>`);
+        }
+        registerUserInLookup(lookup, { id: existing.id, email, name: keeper }, [...aliases, existing.name]);
+        return { id: existing.id, created: false };
+    }
+    const created = await prisma.user.create({
+        data: {
+            email,
+            passwordHash,
+            name: keeper,
+            role: 'RECRUITER',
+            department: 'Talent Acquisition',
+            status: 'ACTIVE',
+            permissions: '[]',
+            themePreference: 'light',
+            authProvider: 'local',
+            mustChangePassword: false,
+        },
+        select: { id: true, email: true, name: true },
+    });
+    registerUserInLookup(lookup, created, aliases);
     return { id: created.id, created: true };
 }
 function isShorterFormName(short, full) {
@@ -285,8 +406,8 @@ async function ensureHiringManagerUser(lookup, passwordHash, rawName, dryRun) {
     }
     let finalEmail = hiringManagerEmailFromName(name);
     if (resolveUserIdByEmail(lookup, finalEmail)) {
-        // Email taken by a different person — keep a unique stitch-ats.in address.
-        finalEmail = `${slugFromName(name)}.${crypto.randomBytes(2).toString('hex')}@stitch-ats.in`;
+        // Email taken by a different person — keep a unique ats.igsglobal.co address.
+        finalEmail = `${slugFromName(name)}.${crypto.randomBytes(2).toString('hex')}@ats.igsglobal.co`;
     }
     if (dryRun) {
         const dryId = `dry-run-hm-${finalEmail}`;
@@ -302,7 +423,7 @@ async function ensureHiringManagerUser(lookup, passwordHash, rawName, dryRun) {
         if (namesMatch(existingByEmail.name, name)) {
             return { id: existingByEmail.id, created: false };
         }
-        finalEmail = `${slugFromName(name)}.${crypto.randomBytes(2).toString('hex')}@stitch-ats.in`;
+        finalEmail = `${slugFromName(name)}.${crypto.randomBytes(2).toString('hex')}@ats.igsglobal.co`;
     }
     const created = await prisma.user.create({
         data: {
@@ -324,7 +445,7 @@ async function ensureHiringManagerUser(lookup, passwordHash, rawName, dryRun) {
 }
 /**
  * Ensure every Manpower "Hiring Manager" exists as a HIRING_MANAGER user.
- * Missing users get `{name-slug}@stitch-ats.in`.
+ * Missing users get `{name-slug}@ats.igsglobal.co`.
  */
 async function ensureLegacyHiringManagers(requirementRows, lookup, dryRun) {
     const names = new Set();
@@ -433,6 +554,9 @@ async function ensureLegacyRecruiters(candidateRows, requirementRows, lookup, dr
     }
     const referralId = referralEnsure?.id ?? resolveUserIdByName(lookup, EMPLOYEE_REFERRAL_NAME) ?? null;
     for (const identity of identities) {
+        // TA / TA Partner rows belong to the vendor in Partner Name, not a recruiter user.
+        if (isVendorRecruiterLabel(identity.name))
+            continue;
         if (!isAllowedRecruiterName(identity.name)) {
             redirected++;
             if (referralId) {
@@ -447,7 +571,8 @@ async function ensureLegacyRecruiters(candidateRows, requirementRows, lookup, dr
         resolved++;
         if (result.created) {
             created++;
-            console.log(`  + recruiter ${identity.name}${identity.email ? ` <${identity.email}>` : ''} → ${dryRun ? '(dry-run)' : result.id}`);
+            // Sheet Recruiter Email is not trusted (e.g. Suma S rows carry karthik.vc@) — log the name only.
+            console.log(`  + recruiter ${identity.name} → ${dryRun ? '(dry-run)' : result.id}`);
         }
     }
     if (redirected > 0) {
@@ -469,8 +594,11 @@ function quarterLabel(date) {
 }
 function resolveRecruiterIds(lookup, row, fallbackUserId) {
     const ids = new Set();
-    for (const name of splitPeopleParts(rowGet(row, 'Recruiter'))) {
+    const names = splitPeopleParts(rowGet(row, 'Recruiter'));
+    for (const name of names) {
         // Agencies / employees / unknown labels are not requirement assignees.
+        if (isVendorRecruiterLabel(name))
+            continue;
         if (!isAllowedRecruiterName(name))
             continue;
         if (normalizePersonName(name).toLowerCase() === EMPLOYEE_REFERRAL_NAME.toLowerCase())
@@ -479,7 +607,9 @@ function resolveRecruiterIds(lookup, row, fallbackUserId) {
         if (id)
             ids.add(id);
     }
-    for (const email of splitPeopleParts(rowGet(row, 'Recruiter Email'))) {
+    // Recruiter name wins; the sheet's Recruiter Email is often someone else's (Suma S → karthik.vc@).
+    const emails = names.length > 0 ? [] : splitPeopleParts(rowGet(row, 'Recruiter Email'));
+    for (const email of emails) {
         if (!email.includes('@'))
             continue;
         const id = resolveUserId(lookup, email);
@@ -547,7 +677,7 @@ async function ensureVendorByName(name) {
         data: {
             name: clean,
             code: `LEG-${slug || crypto.randomBytes(3).toString('hex')}`,
-            email: `legacy.${slug || 'vendor'}@imported.local`,
+            email: vendorEmailFromName(clean),
             status: 'ACTIVE',
             notes: 'Created by legacy Manpower import',
         },
@@ -555,12 +685,53 @@ async function ensureVendorByName(name) {
     });
     return created.id;
 }
+/** One VENDOR login per legacy vendor, so imported profiles look like vendor-portal submissions. */
+async function ensureLegacyVendorUser(vendorId, vendorName, cache) {
+    const cached = cache.get(vendorId);
+    if (cached)
+        return cached;
+    const existing = await prisma.user.findFirst({
+        where: { vendorId, role: 'VENDOR' },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+    });
+    if (existing) {
+        cache.set(vendorId, existing.id);
+        return existing.id;
+    }
+    const email = vendorEmailFromName(vendorName);
+    const taken = await prisma.user.findUnique({ where: { email }, select: { id: true, vendorId: true } });
+    if (taken) {
+        if (!taken.vendorId)
+            await prisma.user.update({ where: { id: taken.id }, data: { vendorId, role: 'VENDOR' } });
+        cache.set(vendorId, taken.id);
+        return taken.id;
+    }
+    const created = await prisma.user.create({
+        data: {
+            email,
+            passwordHash: await bcrypt.hash(DEV_PASSWORD, 10),
+            name: vendorName,
+            role: 'VENDOR',
+            vendorId,
+            status: 'ACTIVE',
+            permissions: '[]',
+            themePreference: 'light',
+            authProvider: 'local',
+            mustChangePassword: false,
+        },
+        select: { id: true },
+    });
+    console.log(`  + vendor user ${vendorName} <${email}> → ${created.id}`);
+    cache.set(vendorId, created.id);
+    return created.id;
+}
 async function linkVendorToRequirement(requirementId, vendorName, assignedBy) {
     if (!vendorName)
-        return;
+        return null;
     const vendorId = await ensureVendorByName(vendorName);
     if (!vendorId)
-        return;
+        return null;
     await prisma.vendorRequirement.upsert({
         where: {
             vendorId_requirementId: { vendorId, requirementId },
@@ -568,9 +739,11 @@ async function linkVendorToRequirement(requirementId, vendorName, assignedBy) {
         create: { vendorId, requirementId, assignedBy },
         update: {},
     });
+    return vendorId;
 }
 async function importRequirements(candidateRows, requirementRows, opts, manifest, userLookup, fallbackUserId) {
     const requirementByReqId = new Map();
+    const vendorUserCache = new Map();
     let childCount = 0;
     let skippedNonChild = 0;
     for (const row of requirementRows) {
@@ -616,7 +789,9 @@ async function importRequirements(candidateRows, requirementRows, opts, manifest
                 continue;
             }
         }
-        const existingByCode = await prisma.requirement.findUnique({ where: { jobCode: reqId } });
+        const existingByCode = opts.dryRun
+            ? null
+            : await prisma.requirement.findUnique({ where: { jobCode: reqId } });
         if (existingByCode) {
             manifest.requirements[reqId] = existingByCode.id;
             if (!opts.dryRun) {
@@ -630,7 +805,9 @@ async function importRequirements(candidateRows, requirementRows, opts, manifest
             continue;
         }
         if (opts.dryRun) {
-            console.log(`  [dry-run] would create requirement ${reqId}: ${data.title} [${reqStatus}] recruiters=${recruiterCount}`);
+            if (created < 8) {
+                console.log(`  [dry-run] would create requirement ${reqId}: ${data.title} [${reqStatus}] recruiters=${recruiterCount}`);
+            }
             manifest.requirements[reqId] = `dry-run-req-${reqId}`;
             created++;
             continue;
@@ -642,6 +819,9 @@ async function importRequirements(candidateRows, requirementRows, opts, manifest
         created++;
         console.log(`  ✓ ${reqId} → ${createdRow.id} (${reqStatus})`);
     }
+    if (opts.dryRun && created > 8) {
+        console.log(`  [dry-run] … ${created - 8} more requirement(s)`);
+    }
     for (const reqId of candidateReqIds) {
         if (!requirementByReqId.has(reqId) && !manifest.requirements[reqId]) {
             missingReqIds.push(reqId);
@@ -651,6 +831,7 @@ async function importRequirements(candidateRows, requirementRows, opts, manifest
 }
 async function importCandidates(rows, opts, manifest, userLookup, fallbackUserId) {
     const emailToCandidateId = new Map();
+    const vendorUserCache = new Map();
     console.log(`\nCandidates: ${rows.length} row(s) after email dedupe`);
     for (const row of rows) {
         const email = normalizeEmail(rowGet(row, 'Email ID', 'Email ID1'));
@@ -663,9 +844,10 @@ async function importCandidates(rows, opts, manifest, userLookup, fallbackUserId
             continue;
         }
         const rawRequirementId = manifest.requirements[title];
+        const dryLinked = Boolean(rawRequirementId?.startsWith('dry-run-'));
         const hasLinkedRequirement = Boolean(rawRequirementId && !rawRequirementId.startsWith('dry-run-'));
         const requirementId = hasLinkedRequirement ? rawRequirementId : null;
-        if (!hasLinkedRequirement && title) {
+        if (!hasLinkedRequirement && !dryLinked && title) {
             console.warn(`  ⚠ No requirement for Title ${title} — ${email} (creating without link)`);
         }
         const status = mapLegacyStatus(row);
@@ -685,6 +867,10 @@ async function importCandidates(rows, opts, manifest, userLookup, fallbackUserId
         const sheetJoinedMonth = nullIfNa(rowGet(row, 'Joined Month'));
         const sheetJoinedQuarter = nullIfNa(rowGet(row, 'Joined Quarter'));
         const partnerName = nullIfNa(rowGet(row, 'Partner Name'));
+        const vendorName = legacyVendorName(row);
+        const vendorOwnerName = vendorRowName(row);
+        if (vendorOwnerName)
+            owner.source = `Vendor: ${vendorOwnerName}`;
         const primarySkills = serializeSkills(parseSkillList(rowGet(row, 'Primary Skill')));
         const secondarySkills = serializeSkills(parseSkillList(rowGet(row, 'Secondary Skill')));
         const candidateData = {
@@ -744,15 +930,26 @@ async function importCandidates(rows, opts, manifest, userLookup, fallbackUserId
                 noticePeriod: rowGet(row, 'Notice Period', 'Notice period') || null,
             }),
         };
-        if (!opts.dryRun && partnerName) {
-            const vendorId = await ensureVendorByName(partnerName);
-            if (vendorId)
-                candidateData.vendorId = vendorId;
+        if (!opts.dryRun && vendorName) {
+            const vendorId = await ensureVendorByName(vendorName);
+            if (vendorId) {
+                const vendorFields = candidateData;
+                vendorFields.vendorId = vendorId;
+                // Every legacy vendor gets a portal login; only TA / TA Partner rows are owned by it.
+                const vendorUserId = await ensureLegacyVendorUser(vendorId, vendorName, vendorUserCache);
+                if (vendorOwnerName) {
+                    vendorFields.createdBy = vendorUserId;
+                    vendorFields.submittedByUserId = vendorUserId;
+                    if (requirementId)
+                        await linkVendorToRequirement(requirementId, vendorOwnerName, fallbackUserId);
+                }
+            }
         }
         const existingManifest = manifest.candidatesByEmail[email];
-        const existingDb = await findCandidateByEmail(email);
         if (opts.dryRun) {
-            console.log(`  [dry-run] ${email} → ${status} (req ${title}, resume ${resumeId})`);
+            if (emailToCandidateId.size < 8) {
+                console.log(`  [dry-run] ${email} → ${status} (req ${title}, resume ${resumeId})`);
+            }
             const dryId = existingManifest?.candidateId ?? `dry-run-cand-${resumeId || email}`;
             emailToCandidateId.set(email, dryId);
             manifest.candidatesByEmail[email] = {
@@ -765,6 +962,7 @@ async function importCandidates(rows, opts, manifest, userLookup, fallbackUserId
                 manifest.candidatesByResumeId[resumeId] = dryId;
             continue;
         }
+        const existingDb = await findCandidateByEmail(email);
         let candidateId;
         if (existingDb) {
             candidateId = existingDb.id;
@@ -796,6 +994,9 @@ async function importCandidates(rows, opts, manifest, userLookup, fallbackUserId
         manifest.candidatesByEmail[email] = { candidateId, resumeId, title, legacyId };
         if (resumeId)
             manifest.candidatesByResumeId[resumeId] = candidateId;
+    }
+    if (opts.dryRun && emailToCandidateId.size > 8) {
+        console.log(`  [dry-run] … ${emailToCandidateId.size - 8} more candidate(s)`);
     }
     return emailToCandidateId;
 }
@@ -1101,16 +1302,29 @@ function printStats(stats) {
     }
     console.log('Statuses:', stats.statuses);
 }
+function tryLoadRequirementCsv(dataDir) {
+    try {
+        return loadLegacyRequirementCsv(dataDir);
+    }
+    catch {
+        return null;
+    }
+}
 export async function run(argv = []) {
     const opts = parseArgs(argv);
-    const rows = loadLegacyCsv(opts.dataDir);
-    const requirementRows = loadLegacyRequirementCsv(opts.dataDir);
-    if (rows.length === 0) {
-        console.error('No data rows in CSV.');
-        process.exit(1);
+    setResumeSearchDirs(opts.resumesDirs ?? []);
+    const rows = opts.xlsxPath
+        ? await loadLegacyXlsx(opts.xlsxPath)
+        : loadLegacyCsv(opts.dataDir);
+    const fromCsv = tryLoadRequirementCsv(opts.dataDir);
+    const requirementRows = fromCsv && fromCsv.length > 0
+        ? fromCsv
+        : synthesizeRequirementsFromCandidates(rows);
+    if (!fromCsv || fromCsv.length === 0) {
+        console.log(`  Manpower CSV: (none) — synthesized ${requirementRows.length} requirement(s) from candidate Title`);
     }
-    if (requirementRows.length === 0) {
-        console.error('No requirement rows found in Manpower Requisition Form.csv.');
+    if (rows.length === 0) {
+        console.error('No data rows in Excel/CSV.');
         process.exit(1);
     }
     const stats = buildImportStats(rows, opts.dataDir);
@@ -1124,6 +1338,10 @@ export async function run(argv = []) {
     const userLookup = opts.dryRun ? createEmptyLookup() : await buildUserLookup();
     console.log(`\nMode: ${opts.dryRun ? 'DRY RUN' : 'IMPORT'}${opts.resumesOnly ? ' (resumes only)' : ''}`);
     console.log(`Data: ${opts.dataDir}`);
+    if (opts.xlsxPath)
+        console.log(`Excel: ${opts.xlsxPath}`);
+    if (opts.resumesDirs?.length)
+        console.log(`Resumes: ${opts.resumesDirs.join('; ')}`);
     console.log(`Manifest: ${opts.manifestPath}`);
     let requirementCreated = 0;
     let missingReqIds = [];

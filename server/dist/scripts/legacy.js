@@ -5,7 +5,12 @@
  *
  * Commands:
  *   import                 Full CSV + resume import
+ *   import-xlsx            Main Data.xlsx + Resume_Repository (local defaults)
  *   report                 Excel report from CSV/manifest (no DB writes)
+ *   resume-skills          Fill primary/secondary skills from parsed resumes
+ *   requirement-skills     Rebuild requirement primary/secondary skills from skills text + JD
+ *   match-scores           Recompute stored job match % for linked candidates
+ *   export-sql             SQL file + resume files for the hosted DB
  *   verify                 Sample post-import checks
  *   sync-resumes           Push local resumes to remote API
  *   sync-statuses          Re-apply Candidate sheet statuses
@@ -29,9 +34,38 @@ const COMMANDS = [
         run: async (argv) => (await import('./legacy/importData.js')).run(argv),
     },
     {
+        name: 'import-xlsx',
+        aliases: ['import-main-data'],
+        description: 'Import Main Data.xlsx + Resume_Repository into local DB',
+        run: async (argv) => {
+            const mod = await import('./legacy/importData.js');
+            return mod.run(mod.applyMainDataDefaults(argv));
+        },
+    },
+    {
         name: 'report',
         description: 'Build Excel migration report (no DB writes)',
         run: async (argv) => (await import('./legacy/report.js')).run(argv),
+    },
+    {
+        name: 'resume-skills',
+        description: 'Fill candidate primary/secondary skills from parsed resume text',
+        run: async (argv) => (await import('./legacy/resumeSkills.js')).run(argv),
+    },
+    {
+        name: 'requirement-skills',
+        description: 'Rebuild requirement primary/secondary skills from skills text + JD',
+        run: async (argv) => (await import('./legacy/refreshMatching.js')).runRequirementSkills(argv),
+    },
+    {
+        name: 'match-scores',
+        description: 'Recompute stored job match % for linked candidates',
+        run: async (argv) => (await import('./legacy/refreshMatching.js')).runMatchScores(argv),
+    },
+    {
+        name: 'export-sql',
+        description: 'Write imported hiring data as one SQL file (+ resume files) for the hosted DB',
+        run: async (argv) => (await import('./legacy/exportSql.js')).run(argv),
     },
     {
         name: 'verify',
@@ -105,6 +139,7 @@ Commands:`);
     console.log(`
 Examples:
   npm run db:legacy -- import --data-dir "...\\data" --dry-run
+  npm run db:import-main-data -- --dry-run
   npm run db:legacy -- report --data-dir "...\\data"
   npm run db:legacy -- repair-dates --data-dir "...\\data" --dry-run
 `);

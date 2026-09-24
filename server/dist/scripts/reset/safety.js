@@ -1,15 +1,11 @@
 import { env } from '../../config/env.js';
 import { databaseHostLabel } from '../../config/loadEnv.js';
-import { assertStagingDatabaseIsolation, databaseUrlHost, isProductionNeonDatabaseUrl, } from '../../config/databaseEnv.js';
 export function argvHasForce(argv) {
     return argv.includes('--force');
 }
 export function looksProductionDatabase() {
     const host = process.env.DATABASE_URL ?? '';
-    return (host.includes('weathered-math') ||
-        process.env.RENDER === 'true' ||
-        process.env.NODE_ENV === 'production' ||
-        isProductionNeonDatabaseUrl(host));
+    return (process.env.NODE_ENV === 'production' || host.includes('localhost') === false);
 }
 /** Soft guard: refuse production unless `--force`. */
 export function refuseProductionUnlessForced(argv, actionLabel) {
@@ -20,16 +16,15 @@ export function refuseProductionUnlessForced(argv, actionLabel) {
     }
     if (looksProductionDatabase() && !force) {
         console.error(`Refusing ${actionLabel} on a production-looking DB (${databaseHostLabel() ?? 'unknown'}).\n` +
-            'Use ATS_ENV=staging / server/.env.staging, or pass --force if intentional.');
+            'Use the local PostgreSQL DATABASE_URL, or pass --force if intentional.');
         process.exit(1);
     }
 }
-/** Hard staging isolation + refuse production Neon (used by full clear). */
+/** Refuse destructive operations against a non-local database. */
 export function assertSafeClearTarget() {
     const url = process.env.DATABASE_URL;
-    assertStagingDatabaseIsolation(url);
-    if (isProductionNeonDatabaseUrl(url)) {
-        throw new Error(`Refusing to clear production Neon (${databaseUrlHost(url)}). Use ATS_ENV=staging / local DATABASE_URL.`);
+    if (!url?.includes('localhost') && !url?.includes('127.0.0.1')) {
+        throw new Error(`Refusing to clear non-local database (${databaseHostLabel() ?? 'unknown'}).`);
     }
 }
 export function requireEnvConfirm(envKey, hint) {

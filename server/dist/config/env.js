@@ -17,7 +17,7 @@ function parseClientOrigins(raw) {
         .map((value) => value.trim().replace(/\/$/, ''))
         .filter(Boolean);
 }
-const DEFAULT_PRODUCTION_APP_URL = 'https://stitch-ats.in';
+const DEFAULT_PRODUCTION_APP_URL = 'http://localhost:3000';
 /** Single app URL for email links — not the full comma-separated CORS list. */
 function resolvePrimaryClientOrigin(origins) {
     if (origins.length === 0)
@@ -77,4 +77,7 @@ export const env = {
     groqModel: process.env.GROQ_MODEL?.trim() || 'llama-3.3-70b-versatile',
     /** Google Identity Services client ID (candidate portal Sign in with Google). */
     googleClientId: process.env.GOOGLE_CLIENT_ID?.trim() || '',
+    /** Microsoft Entra application settings for staff SSO. */
+    microsoftClientId: process.env.MICROSOFT_CLIENT_ID?.trim() || '',
+    microsoftTenantId: process.env.MICROSOFT_TENANT_ID?.trim() || '',
 };

@@ -167,7 +167,7 @@ export async function run(argv = []) {
         ? { byEmail: new Map(), byName: new Map(), emailName: new Map() }
         : await loadStitchUserLookup();
     const passwordHash = dryRun ? 'dry-run' : await bcrypt.hash(DEV_PASSWORD, 10);
-    // Ensure every IFT interviewer exists as INTERVIEWER (@stitch-ats.in if new).
+    // Ensure every IFT interviewer exists as INTERVIEWER (@ats.igsglobal.co if new).
     const interviewerNames = new Set();
     for (const g of groups) {
         if (g.l1?.interviewerName && !isPlaceholderPerson(g.l1.interviewerName)) {

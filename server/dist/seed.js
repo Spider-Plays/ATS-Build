@@ -45,7 +45,7 @@ async function main() {
         ? DEV_USERS.filter((u) => u.primary)
         : [...SEED_USERS];
     console.log(`Seeding ${usersToSeed.length} demo user(s)...`);
-    await withDbRetry(() => prisma.$queryRaw `SELECT 1`, { label: 'Neon' });
+    await withDbRetry(() => prisma.$queryRaw `SELECT 1`, { label: 'Database' });
     const legacyCleanup = await removeLegacyDevUsers(prisma);
     const legacyRemoved = legacyCleanup.merged + legacyCleanup.deleted + legacyCleanup.patternDeleted;
     if (legacyRemoved > 0) {
@@ -56,11 +56,11 @@ async function main() {
     if (hasVendor) {
         const vendor = await prisma.vendor.upsert({
             where: { code: 'DEV-VENDOR' },
-            update: { name: 'Dev Staffing Co', status: 'ACTIVE', email: 'vendor-org@stitch-ats.in' },
+            update: { name: 'Dev Staffing Co', status: 'ACTIVE', email: 'vendor-org@ats.igsglobal.co' },
             create: {
                 name: 'Dev Staffing Co',
                 code: 'DEV-VENDOR',
-                email: 'vendor-org@stitch-ats.in',
+                email: 'vendor-org@ats.igsglobal.co',
                 status: 'ACTIVE',
                 contactName: 'Raghavendra Murthy',
             },

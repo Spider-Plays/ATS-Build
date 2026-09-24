@@ -1,7 +1,7 @@
 /**
  * Import Employee Referral Tracker CSV into Stitch ATS.
  *
- * Creates missing employees / recruiters as `{name}@stitch-ats.in` (password: password).
+ * Creates missing employees / recruiters as `{name}@ats.igsglobal.co` (password: password).
  * Links or creates referred candidates with referredByUserId.
  *
  *   npx tsx src/scripts/import-employee-referrals.ts --csv "C:\path\EmployeeReferralTracker.csv"

@@ -67,21 +67,12 @@ async function start() {
         console.warn('Database not reachable or schema prep failed — some routes may error until Postgres is reachable:', e instanceof Error ? e.message : e);
     }
     const dbHost = databaseHostLabel();
-    const envLabel = process.env.ATS_ENV === 'local'
-        ? 'localhost (.env.local)'
-        : process.env.ATS_ENV === 'staging'
-            ? 'QA staging'
-            : process.env.ATS_ENV === 'production'
-                ? 'production (.env)'
-                : process.env.ATS_ENV === 'igs'
-                    ? 'IGS (.env.igs)'
-                    : 'local';
     const server = app.listen(env.port, () => {
-        console.log(`API running at http://localhost:${env.port} [${envLabel}${dbHost ? ` → ${dbHost}` : ''}]`);
+        console.log(`API running at http://localhost:${env.port}${dbHost ? ` -> ${dbHost}` : ''}`);
     });
     server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-            console.error(`Port ${env.port} is already in use. Stop the other process or change PORT in server/.env`);
+            console.error(`Port ${env.port} is already in use. Stop the other process or change PORT in the root .env`);
             process.exit(1);
         }
         throw err;

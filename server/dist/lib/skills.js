@@ -107,3 +107,119 @@ export function extractSkillsFromText(text, catalogNames = []) {
     }
     return sanitizeSkillList([...found]).slice(0, 40);
 }
+/** Catalog categories that describe a person, not a technical skill. */
+const NON_TECH_SKILL_CATEGORIES = new Set(['soft skills', 'spoken languages', 'domain']);
+/** Short catalog names that collide with ordinary words; only count their unambiguous forms. */
+const AMBIGUOUS_SKILL_PATTERNS = {
+    go: /(?<![a-z0-9])(?:golang|go\s*lang|go\s+(?:programming|developer|language))(?![a-z0-9])/gi,
+    r: /(?<![a-z0-9])(?:r\s+programming|r\s+language|rstudio|r\s*shiny)(?![a-z0-9])/gi,
+    ca: /(?!)/g,
+};
+function escapeRegExp(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+function catalogEntries(catalog) {
+    return catalog.map((c) => (typeof c === 'string' ? { name: c, category: '' } : { name: c.name, category: c.category ?? '' }));
+}
+/** Whole-word, case-insensitive pattern for a skill (ambiguous short names only in their clear forms). */
+export function skillMatchPattern(skill) {
+    const key = skill.trim().toLowerCase();
+    const ambiguous = AMBIGUOUS_SKILL_PATTERNS[key];
+    if (ambiguous)
+        return new RegExp(ambiguous.source, 'gi');
+    return new RegExp(`(?<![a-z0-9+#])${escapeRegExp(key)}(?![a-z0-9+#])`, 'gi');
+}
+/**
+ * Catalog skills found in text, most-mentioned first (whole-word matches only).
+ * Soft skills, spoken languages and industry domains are left out when categories are known.
+ */
+export function rankSkillsInText(text, catalog) {
+    if (!text.trim())
+        return [];
+    const corpus = text.toLowerCase();
+    const hits = [];
+    catalogEntries(catalog).forEach((entry, order) => {
+        if (NON_TECH_SKILL_CATEGORIES.has(entry.category.toLowerCase()))
+            return;
+        const count = corpus.match(skillMatchPattern(entry.name))?.length ?? 0;
+        if (count > 0)
+            hits.push({ name: entry.name, count, order });
+    });
+    return hits.sort((a, b) => b.count - a.count || a.order - b.order).map((h) => h.name);
+}
+/** Words that mark a sentence fragment rather than a skill name. */
+const PHRASE_FILLER_WORDS = new Set([
+    'a', 'an', 'the', 'in', 'of', 'for', 'with', 'using', 'to', 'on', 'at', 'by', 'and', 'or', 'as', 'is', 'are',
+    'work', 'working', 'develop', 'developing', 'maintain', 'maintaining', 'build', 'building', 'design', 'designing',
+    'experience', 'experienced', 'knowledge', 'strong', 'good', 'excellent', 'hands', 'ability', 'reliable',
+    'scalable', 'services', 'engineering', 'years', 'year', 'must', 'should', 'required', 'preferred',
+]);
+/**
+ * Skill-like phrases from a free-text skills cell ("Python, AWS, Okta Workflows").
+ * A cell written as a sentence yields nothing — only short, filler-free names are kept.
+ */
+export function skillPhrasesFromText(raw) {
+    const text = raw.trim();
+    if (!text || text.split(/\s+/).length > 30 || /[a-z]{3,}\.\s+[A-Z]/.test(text))
+        return [];
+    return sanitizeSkillList(text
+        .split(/[,;|•·\n]|\s+\/\s+/)
+        .map((p) => p.trim().replace(/^[-–•*]\s*/, '').replace(/[.:]+$/, ''))
+        .filter((p) => {
+        const words = p.toLowerCase().split(/\s+/).filter(Boolean);
+        return words.length > 0 && words.length <= 3 && p.length <= 40 && !words.some((w) => PHRASE_FILLER_WORDS.has(w));
+    }));
+}
+/**
+ * Requirement skills from the recruiter's skills text and the job description:
+ * primary = skills named in the skills text (catalog hits + short uncatalogued phrases), else the JD's top skills;
+ * secondary = remaining JD skills.
+ */
+export function deriveRequirementSkills(skillsText, jdText, catalog, limits = { primary: 12, secondary: 12 }) {
+    const inSkillsText = rankSkillsInText(skillsText, catalog);
+    const catalogLower = catalogEntries(catalog).map((c) => c.name.toLowerCase());
+    const extraPhrases = skillPhrasesFromText(skillsText).filter((phrase) => {
+        const lower = phrase.toLowerCase();
+        return !catalogLower.some((name) => skillMatchPattern(name).test(lower));
+    });
+    const inJd = rankSkillsInText(jdText, catalog);
+    const seen = new Set();
+    const pick = (list, max) => {
+        const out = [];
+        for (const s of list) {
+            const key = s.toLowerCase();
+            if (seen.has(key) || out.length >= max)
+                continue;
+            seen.add(key);
+            out.push(s);
+        }
+        return out;
+    };
+    // Too few real skills named (e.g. "cloud engineering"): top primary up with the JD's most-mentioned skills.
+    const fromSkillsText = [...inSkillsText, ...extraPhrases];
+    const topUp = inSkillsText.length < 3 ? inJd.slice(0, Math.max(0, 8 - fromSkillsText.length)) : [];
+    const primary = pick([...fromSkillsText, ...topUp], limits.primary);
+    const secondary = pick(inJd, limits.secondary);
+    return { primary, secondary };
+}
+/**
+ * Merge recruiter-entered skills with resume skills: sheet values stay first,
+ * the most-mentioned resume skills fill primary, the rest go to secondary.
+ */
+export function mergeResumeSkills(sheetPrimary, sheetSecondary, ranked, limits = { primary: 10, secondary: 15 }) {
+    const seen = new Set();
+    const take = (list, max) => {
+        const out = [];
+        for (const s of list) {
+            const key = s.trim().toLowerCase();
+            if (!key || seen.has(key) || out.length >= max)
+                continue;
+            seen.add(key);
+            out.push(s.trim());
+        }
+        return out;
+    };
+    const primary = take([...sheetPrimary, ...ranked], limits.primary);
+    const secondary = take([...sheetSecondary, ...ranked], limits.secondary);
+    return { primary, secondary };
+}

@@ -14,10 +14,10 @@ export function emailDeliveryErrorMessage(detail) {
         return 'Email delivery failed';
     if (/api key is invalid/i.test(cleaned)) {
         return ('Email delivery failed: RESEND_API_KEY is invalid. ' +
-            'Update RESEND_API_KEY or set M365_* in server/.env.staging (copy from production Render), then restart the API.');
+            'Update RESEND_API_KEY or set M365_* in the root .env, then restart the API.');
     }
     return `Email delivery failed: ${cleaned}`;
 }
-export const EMAIL_NOT_CONFIGURED_WARNING = 'Email is not configured. Set Microsoft 365 (M365_*) or RESEND_API_KEY in server/.env.staging (copy from production Render), then restart the API.';
+export const EMAIL_NOT_CONFIGURED_WARNING = 'Email is not configured. Set Microsoft 365 (M365_*) or RESEND_API_KEY in the root .env, then restart the API.';
 export const EMAIL_NOT_CONFIGURED_DEV_HINT = 'Temporary password was logged to the API server console (dev only).';
 export const EMAIL_TEMP_PASSWORD_DEV_HINT = 'Temporary password was logged to the API server console (dev only).';

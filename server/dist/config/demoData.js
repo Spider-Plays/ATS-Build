@@ -1,4 +1,4 @@
-/** Demo dataset for `npm run db:seed-demo`. Demo emails use @stitch-ats.in — safe to delete/re-seed. */
+/** Demo dataset for `npm run db:seed-demo`. Demo emails use @ats.igsglobal.co — safe to delete/re-seed. */
 import { DEV_PASSWORD, devUserEmail, devUserName, devUsersForRole } from './devUsers.js';
 export const DEMO_VENDOR_CODE = 'DEMO-STAFFING';
 export const DEMO_VENDOR_NAME = 'TalentBridge Staffing Solutions';
@@ -12,7 +12,7 @@ export const DEMO_RESUME_URLS = [
 /** Candidate portal logins — complete profiles, resumes, and existing applications. Password: `password`. */
 export const DEMO_PORTAL_USERS = [
     {
-        email: 'aisha.mehta@stitch-ats.in',
+        email: 'aisha.mehta@ats.igsglobal.co',
         name: 'Aisha Mehta',
         password: DEV_PASSWORD,
         applyToJobCode: 'REQ28062026001',
@@ -31,7 +31,7 @@ export const DEMO_PORTAL_USERS = [
         resumeSnippet: 'Aisha Mehta — Full-stack engineer at Mindtree, 5 years building React and Node.js products. TypeScript, PostgreSQL, REST APIs, AWS, Docker, CI/CD.',
     },
     {
-        email: 'rohan.kapoor@stitch-ats.in',
+        email: 'rohan.kapoor@ats.igsglobal.co',
         name: 'Rohan Kapoor',
         password: DEV_PASSWORD,
         applyToJobCode: 'REQ28062026002',
@@ -49,7 +49,7 @@ export const DEMO_PORTAL_USERS = [
         resumeSnippet: 'Rohan Kapoor — Product Manager at Nykaa, 7 years B2B SaaS. Product strategy, roadmapping, stakeholder management, agile delivery, SQL analytics.',
     },
     {
-        email: 'neha.iyer@stitch-ats.in',
+        email: 'neha.iyer@ats.igsglobal.co',
         name: 'Neha Iyer',
         password: DEV_PASSWORD,
         applyToJobCode: 'REQ28062026003',
@@ -68,7 +68,7 @@ export const DEMO_PORTAL_USERS = [
         resumeSnippet: 'Neha Iyer — DevOps engineer at Deloitte, 6 years. Kubernetes, Terraform, AWS, Linux, CI/CD, Helm, Prometheus observability.',
     },
     {
-        email: 'vikram.desai@stitch-ats.in',
+        email: 'vikram.desai@ats.igsglobal.co',
         name: 'Vikram Desai',
         password: DEV_PASSWORD,
         applyToJobCode: 'REQ28062026004',
@@ -86,7 +86,7 @@ export const DEMO_PORTAL_USERS = [
         resumeSnippet: 'Vikram Desai — UX designer at Razorpay, 4 years fintech UX. Figma, user research, wireframing, design systems, accessibility.',
     },
     {
-        email: 'priya.nair@stitch-ats.in',
+        email: 'priya.nair@ats.igsglobal.co',
         name: 'Priya Nair',
         password: DEV_PASSWORD,
         applyToJobCode: 'REQ28062026005',
@@ -122,7 +122,7 @@ export const DEMO_PORTAL_USERS = [
         resumeSnippet: 'Ashwin Rao — Software engineer at Infosys, 4 years. TypeScript, React, Node.js, PostgreSQL, REST API development.',
     },
     {
-        email: 'tanvi.kulkarni@stitch-ats.in',
+        email: 'tanvi.kulkarni@ats.igsglobal.co',
         name: 'Tanvi Kulkarni',
         password: DEV_PASSWORD,
         applyToJobCode: 'REQ28062026002',
@@ -140,7 +140,7 @@ export const DEMO_PORTAL_USERS = [
         resumeSnippet: 'Tanvi Kulkarni — Associate PM at Swiggy, 6 years consumer tech. Product strategy, agile, stakeholder management, SQL analytics.',
     },
     {
-        email: 'siddharth.menon@stitch-ats.in',
+        email: 'siddharth.menon@ats.igsglobal.co',
         name: 'Siddharth Menon',
         password: DEV_PASSWORD,
         applyToJobCode: 'REQ28062026003',
@@ -158,7 +158,7 @@ export const DEMO_PORTAL_USERS = [
         resumeSnippet: 'Siddharth Menon — Platform engineer at Flipkart, 8 years. Kubernetes, AWS, Terraform, Linux, Docker, CI/CD pipelines.',
     },
     {
-        email: 'revathi.nair@stitch-ats.in',
+        email: 'revathi.nair@ats.igsglobal.co',
         name: 'Revathi Nair',
         password: DEV_PASSWORD,
         applyToJobCode: 'REQ28062026004',
@@ -176,7 +176,7 @@ export const DEMO_PORTAL_USERS = [
         resumeSnippet: 'Revathi Nair — UX designer at TCS Interactive, 5 years. Figma, user research, prototyping, design systems, WCAG accessibility.',
     },
     {
-        email: 'amit.verma@stitch-ats.in',
+        email: 'amit.verma@ats.igsglobal.co',
         name: 'Amit Verma',
         password: DEV_PASSWORD,
         applyToJobCode: 'REQ28062026005',
@@ -194,7 +194,7 @@ export const DEMO_PORTAL_USERS = [
         resumeSnippet: 'Amit Verma — Data analyst at Genpact, 3 years. SQL, Python, Excel, Tableau, Power BI, operational reporting.',
     },
     {
-        email: 'deepika.reddy@stitch-ats.in',
+        email: 'deepika.reddy@ats.igsglobal.co',
         name: 'Deepika Reddy',
         password: DEV_PASSWORD,
         applyToJobCode: 'REQ28062026008',
@@ -212,7 +212,7 @@ export const DEMO_PORTAL_USERS = [
         resumeSnippet: 'Deepika Reddy — Java backend engineer at HDFC Bank, 7 years. Spring Boot, microservices, PostgreSQL, Kafka event streaming.',
     },
     {
-        email: 'nikhil.chatterjee@stitch-ats.in',
+        email: 'nikhil.chatterjee@ats.igsglobal.co',
         name: 'Nikhil Chatterjee',
         password: DEV_PASSWORD,
         applyToJobCode: 'REQ28062026007',
@@ -231,7 +231,7 @@ export const DEMO_PORTAL_USERS = [
     },
     /** Logged-in with complete profile but no application yet — portal browse / apply flow. */
     {
-        email: 'karan.joshi@stitch-ats.in',
+        email: 'karan.joshi@ats.igsglobal.co',
         name: 'Karan Joshi',
         password: DEV_PASSWORD,
         applyToJobCode: null,
@@ -248,7 +248,7 @@ export const DEMO_PORTAL_USERS = [
         secondarySkills: ['CSS', 'Git'],
     },
     {
-        email: 'meera.shah@stitch-ats.in',
+        email: 'meera.shah@ats.igsglobal.co',
         name: 'Meera Shah',
         password: DEV_PASSWORD,
         applyToJobCode: null,
@@ -607,7 +607,7 @@ Good to have
 ];
 export const DEMO_CANDIDATES = [
     {
-        email: 'arjun.pillai@stitch-ats.in',
+        email: 'arjun.pillai@ats.igsglobal.co',
         name: 'Arjun Pillai',
         role: 'Full Stack Developer',
         status: 'TO_BE_SCREENED',
@@ -621,7 +621,7 @@ export const DEMO_CANDIDATES = [
         resumeSnippet: 'Arjun Pillai — Full Stack Developer, Thoughtworks (Bangalore), 6 years. Led React/Node migration for a UK retail client; TypeScript, PostgreSQL, AWS ECS, daily deploys.',
     },
     {
-        email: 'sneha.reddy@stitch-ats.in',
+        email: 'sneha.reddy@ats.igsglobal.co',
         name: 'Sneha Reddy',
         role: 'Backend Engineer',
         status: 'OFFER_DECLINED',
@@ -638,7 +638,7 @@ export const DEMO_CANDIDATES = [
     },
     // —— Senior SWE pipeline: one realistic profile per Pipeline Board stage ——
     {
-        email: 'kavitha.narasimhan@stitch-ats.in',
+        email: 'kavitha.narasimhan@ats.igsglobal.co',
         name: 'Kavitha Narasimhan',
         role: 'Senior Software Engineer',
         status: 'TO_BE_SCREENED',
@@ -653,7 +653,7 @@ export const DEMO_CANDIDATES = [
         resumeSnippet: 'Kavitha Narasimhan — Senior engineer at Infosys, 7 years building React/Node products. Led migration to TypeScript microservices on AWS.',
     },
     {
-        email: 'priyanka.sharma@stitch-ats.in',
+        email: 'priyanka.sharma@ats.igsglobal.co',
         name: 'Priyanka Sharma',
         role: 'Senior Software Engineer',
         status: 'TO_BE_OFFERED',
@@ -670,7 +670,7 @@ export const DEMO_CANDIDATES = [
         offerStatus: 'SENT',
     },
     {
-        email: 'vikram.singh@stitch-ats.in',
+        email: 'vikram.singh@ats.igsglobal.co',
         name: 'Vikram Singh',
         role: 'Senior Software Engineer',
         status: 'JOINED',
@@ -687,7 +687,7 @@ export const DEMO_CANDIDATES = [
         offerStatus: 'ACCEPTED',
     },
     {
-        email: 'divya.menon@stitch-ats.in',
+        email: 'divya.menon@ats.igsglobal.co',
         name: 'Divya Menon',
         role: 'Senior Software Engineer',
         status: 'JOINED',
@@ -705,7 +705,7 @@ export const DEMO_CANDIDATES = [
         offerStatus: 'ACCEPTED',
     },
     {
-        email: 'ravi.deshmukh@stitch-ats.in',
+        email: 'ravi.deshmukh@ats.igsglobal.co',
         name: 'Ravi Deshmukh',
         role: 'Backend Engineer',
         status: 'OFFER_DECLINED',
@@ -722,7 +722,7 @@ export const DEMO_CANDIDATES = [
         offerStatus: 'DECLINED',
     },
     {
-        email: 'rahul.verma@stitch-ats.in',
+        email: 'rahul.verma@ats.igsglobal.co',
         name: 'Rahul Verma',
         role: 'Software Engineer',
         status: 'SCREEN_REJECT',
@@ -737,7 +737,7 @@ export const DEMO_CANDIDATES = [
         resumeSnippet: 'Rahul Verma — Wipro, 3 years Java/Spring. Limited frontend and Node.js exposure.',
     },
     {
-        email: 'manish.khanna@stitch-ats.in',
+        email: 'manish.khanna@ats.igsglobal.co',
         name: 'Manish Khanna',
         role: 'Software Engineer',
         status: 'L1_INTERVIEW',
@@ -753,7 +753,7 @@ export const DEMO_CANDIDATES = [
     },
     // —— DevOps pipeline coverage ——
     {
-        email: 'aditya.kulkarni@stitch-ats.in',
+        email: 'aditya.kulkarni@ats.igsglobal.co',
         name: 'Aditya Kulkarni',
         role: 'DevOps Engineer',
         status: 'OFFER_DECLINED',
@@ -769,7 +769,7 @@ export const DEMO_CANDIDATES = [
         offerStatus: 'DECLINED',
     },
     {
-        email: 'meera.iyer@stitch-ats.in',
+        email: 'meera.iyer@ats.igsglobal.co',
         name: 'Meera Iyer',
         role: 'Site Reliability Engineer',
         status: 'L1_INTERVIEW',
@@ -784,7 +784,7 @@ export const DEMO_CANDIDATES = [
         interviewProgress: 'l1-scheduled',
     },
     {
-        email: 'sanjay.patel@stitch-ats.in',
+        email: 'sanjay.patel@ats.igsglobal.co',
         name: 'Sanjay Patel',
         role: 'DevOps Engineer',
         status: 'TO_BE_OFFERED',
@@ -800,7 +800,7 @@ export const DEMO_CANDIDATES = [
         offerStatus: 'SENT',
     },
     {
-        email: 'lakshmi.rao@stitch-ats.in',
+        email: 'lakshmi.rao@ats.igsglobal.co',
         name: 'Lakshmi Rao',
         role: 'Platform Engineer',
         status: 'JOINED',
@@ -817,7 +817,7 @@ export const DEMO_CANDIDATES = [
         offerStatus: 'ACCEPTED',
     },
     {
-        email: 'harish.naidu@stitch-ats.in',
+        email: 'harish.naidu@ats.igsglobal.co',
         name: 'Harish Naidu',
         role: 'DevOps Engineer',
         status: 'JOINED',
@@ -833,7 +833,7 @@ export const DEMO_CANDIDATES = [
         offerStatus: 'ACCEPTED',
     },
     {
-        email: 'nitin.gupta@stitch-ats.in',
+        email: 'nitin.gupta@ats.igsglobal.co',
         name: 'Nitin Gupta',
         role: 'Systems Administrator',
         status: 'SCREEN_REJECT',
@@ -849,7 +849,7 @@ export const DEMO_CANDIDATES = [
     },
     // —— QA & Java roles ——
     {
-        email: 'shruti.desai@stitch-ats.in',
+        email: 'shruti.desai@ats.igsglobal.co',
         name: 'Shruti Desai',
         role: 'SDET',
         status: 'TO_BE_SCREENED',
@@ -863,7 +863,7 @@ export const DEMO_CANDIDATES = [
         resumeSnippet: 'Shruti Desai — Mindtree SDET, 4 years. Selenium, Java, REST API automation, Cypress, Postman.',
     },
     {
-        email: 'anil.reddy@stitch-ats.in',
+        email: 'anil.reddy@ats.igsglobal.co',
         name: 'Anil Reddy',
         role: 'Java Backend Engineer',
         status: 'TO_BE_SCREENED',
@@ -877,7 +877,7 @@ export const DEMO_CANDIDATES = [
         resumeSnippet: 'Anil Reddy — HDFC Bank, 6 years Java microservices. Spring Boot, PostgreSQL, Kafka event streaming.',
     },
     {
-        email: 'fatima.ansari@stitch-ats.in',
+        email: 'fatima.ansari@ats.igsglobal.co',
         name: 'Fatima Ansari',
         role: 'Product Manager',
         status: 'TO_BE_OFFERED',
@@ -893,7 +893,7 @@ export const DEMO_CANDIDATES = [
         offerStatus: 'SENT',
     },
     {
-        email: 'rohan.jadhav@stitch-ats.in',
+        email: 'rohan.jadhav@ats.igsglobal.co',
         name: 'Rohan Jadhav',
         role: 'Platform Engineer',
         status: 'TO_BE_SCREENED',
@@ -908,7 +908,7 @@ export const DEMO_CANDIDATES = [
         vendorSubmitted: true,
     },
     {
-        email: 'pooja.shah@stitch-ats.in',
+        email: 'pooja.shah@ats.igsglobal.co',
         name: 'Pooja Shah',
         role: 'SRE',
         status: 'TO_BE_SCREENED',
@@ -923,7 +923,7 @@ export const DEMO_CANDIDATES = [
         vendorSubmitted: true,
     },
     {
-        email: 'jayesh.mehta@stitch-ats.in',
+        email: 'jayesh.mehta@ats.igsglobal.co',
         name: 'Jayesh Mehta',
         role: 'DevOps Consultant',
         status: 'TO_BE_SCREENED',
@@ -938,7 +938,7 @@ export const DEMO_CANDIDATES = [
         vendorSubmitted: true,
     },
     {
-        email: 'esha.banerjee@stitch-ats.in',
+        email: 'esha.banerjee@ats.igsglobal.co',
         name: 'Esha Banerjee',
         role: 'UX Designer',
         status: 'L1_INTERVIEW',
@@ -953,7 +953,7 @@ export const DEMO_CANDIDATES = [
         interviewProgress: 'l1-done-l2-scheduled',
     },
     {
-        email: 'tarun.bhatia@stitch-ats.in',
+        email: 'tarun.bhatia@ats.igsglobal.co',
         name: 'Tarun Bhatia',
         role: 'Product Designer',
         status: 'JOINED',
@@ -969,7 +969,7 @@ export const DEMO_CANDIDATES = [
         offerStatus: 'ACCEPTED',
     },
     {
-        email: 'aadhya.krishnan@stitch-ats.in',
+        email: 'aadhya.krishnan@ats.igsglobal.co',
         name: 'Aadhya Krishnan',
         role: 'Product Designer',
         status: 'JOINED',
@@ -985,7 +985,7 @@ export const DEMO_CANDIDATES = [
         offerStatus: 'ACCEPTED',
     },
     {
-        email: 'anita.krishnan@stitch-ats.in',
+        email: 'anita.krishnan@ats.igsglobal.co',
         name: 'Anita Krishnan',
         role: 'Data Analyst',
         status: 'OFFER_DECLINED',
@@ -1001,7 +1001,7 @@ export const DEMO_CANDIDATES = [
         offerStatus: 'DECLINED',
     },
     {
-        email: 'chaitanya.joshi@stitch-ats.in',
+        email: 'chaitanya.joshi@ats.igsglobal.co',
         name: 'Chaitanya Joshi',
         role: 'Analytics Engineer',
         status: 'TO_BE_SCREENED',
@@ -1016,7 +1016,7 @@ export const DEMO_CANDIDATES = [
         vendorSubmitted: true,
     },
     {
-        email: 'yogesh.thakur@stitch-ats.in',
+        email: 'yogesh.thakur@ats.igsglobal.co',
         name: 'Yogesh Thakur',
         role: 'BI Analyst',
         status: 'SCREEN_REJECT',
@@ -1030,7 +1030,7 @@ export const DEMO_CANDIDATES = [
         resumeSnippet: 'Yogesh Thakur — BI analyst, Excel, SQL, basic reporting for retail analytics.',
     },
     {
-        email: 'oviya.ramesh@stitch-ats.in',
+        email: 'oviya.ramesh@ats.igsglobal.co',
         name: 'Oviya Ramesh',
         role: 'Frontend Developer',
         status: 'TO_BE_SCREENED',
@@ -1044,7 +1044,7 @@ export const DEMO_CANDIDATES = [
         resumeSnippet: 'Oviya Ramesh — Frontend developer at Tata Elxsi, React, TypeScript, CSS, Next.js, REST APIs.',
     },
     {
-        email: 'raj.malhotra@stitch-ats.in',
+        email: 'raj.malhotra@ats.igsglobal.co',
         name: 'Raj Malhotra',
         role: 'Engineering Manager',
         status: 'TO_BE_SCREENED',
@@ -1058,7 +1058,7 @@ export const DEMO_CANDIDATES = [
         resumeSnippet: 'Raj Malhotra — Engineering manager, Amazon India, 12 years. Led 18-engineer team on seller fulfillment APIs; system design, hiring, agile at scale.',
     },
     {
-        email: 'shreya.pandey@stitch-ats.in',
+        email: 'shreya.pandey@ats.igsglobal.co',
         name: 'Shreya Pandey',
         role: 'QA Engineer',
         status: 'TO_BE_SCREENED',
@@ -1072,7 +1072,7 @@ export const DEMO_CANDIDATES = [
         resumeSnippet: 'Shreya Pandey — QA engineer at HCLTech, Selenium, Jest, API testing, Cypress, Postman.',
     },
     {
-        email: 'bharat.choudhury@stitch-ats.in',
+        email: 'bharat.choudhury@ats.igsglobal.co',
         name: 'Bharat Choudhury',
         role: 'Mobile Developer',
         status: 'TO_BE_SCREENED',
@@ -1086,7 +1086,7 @@ export const DEMO_CANDIDATES = [
         resumeSnippet: 'Bharat Choudhury — Mobile developer at Dream11, React Native, TypeScript, Node.js, REST APIs.',
     },
     {
-        email: 'gauri.kulkarni@stitch-ats.in',
+        email: 'gauri.kulkarni@ats.igsglobal.co',
         name: 'Gauri Kulkarni',
         role: 'Technical Writer',
         status: 'TO_BE_SCREENED',

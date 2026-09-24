@@ -42,7 +42,7 @@ async function ensureNames(lookup, names, dryRun) {
     for (const name of names) {
         if (dryRun) {
             const existing = lookup.byName.get(name.trim().toLowerCase().replace(/\s+/g, ' ')) ??
-                lookup.byEmail.get(`${name.toLowerCase().replace(/[^a-z0-9]+/g, '.')}@stitch-ats.in`);
+                lookup.byEmail.get(`${name.toLowerCase().replace(/[^a-z0-9]+/g, '.')}@ats.igsglobal.co`);
             if (existing)
                 ids.push(existing);
             continue;

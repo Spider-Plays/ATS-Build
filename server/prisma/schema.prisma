@@ -26,6 +26,8 @@ model User {
   authProvider    String   @default("local")
   /// Google OAuth subject (`sub`) when signed in with Google.
   googleId        String?  @unique
+  /// Microsoft Entra object ID (`oid`) when signed in with Microsoft.
+  microsoftId     String?  @unique
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   lastLogin            DateTime?

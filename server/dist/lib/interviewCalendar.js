@@ -8,7 +8,7 @@ function organizerEmail() {
     return (process.env.M365_CALENDAR_ORGANIZER_EMAIL?.trim() ||
         m365Config.senderEmail ||
         env.emailFrom.replace(/^.*<([^>]+)>.*$/, '$1').trim() ||
-        'noreply@stitch-ats.in');
+        'noreply@ats.igsglobal.co');
 }
 function organizerName() {
     return m365Config.senderDisplayName || env.appName;

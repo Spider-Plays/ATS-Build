@@ -1,6 +1,6 @@
 /** Dev / demo accounts. Seeded via `npm run db:seed` and `npm run db:seed-demo`. */
 import registry from './devUsers.registry.json' with { type: 'json' };
-export const STITCH_EMAIL_DOMAIN = 'stitch-ats.in';
+export const STITCH_EMAIL_DOMAIN = 'ats.igsglobal.co';
 export const DEV_PASSWORD = 'password';
 export const DEV_USERS = registry.map((u) => ({
     email: u.email,
