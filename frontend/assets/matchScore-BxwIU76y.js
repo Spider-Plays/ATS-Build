@@ -1,0 +1,1 @@
+const a="Not enough data",n="Not enough data — please update the resume to calculate the job match.";function e(t){return typeof t=="number"&&t<0}function o(t){return e(t)?a:`${Math.round(t??0)}%`}export{a as N,n as a,o as f,e as i};
