@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { invalidateSkillCatalogCache, listSkillCatalog, resetDefaultSkillCatalogSync, syncDefaultSkillCatalog, } from '../lib/skillCatalog.js';
 import { requireAuth, requireActiveUser, requireRoles } from '../middleware/auth.js';
-import { INTERNAL_ROLES } from '../lib/roles.js';
+import { INTERNAL_ROLES, STAFF_MUTATE } from '../lib/roles.js';
 import { CatalogHandlers } from '../lib/catalogRouteFactory.js';
 const router = Router();
 // Extend handlers with custom create logic for skills with category
@@ -55,7 +55,7 @@ const handlers = new SkillHandlers({
 });
 router.use(requireAuth, requireActiveUser, requireRoles(...INTERNAL_ROLES));
 router.get('/', handlers.list);
-router.post('/', requireRoles('ADMIN'), handlers.create);
+router.post('/', requireRoles(...STAFF_MUTATE, 'HIRING_MANAGER', 'ACCOUNT_MANAGER'), handlers.create);
 router.delete('/:id', requireRoles('ADMIN'), handlers.delete);
 router.post('/seed-defaults', requireRoles('ADMIN'), handlers.seedDefaults);
 export default router;

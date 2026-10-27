@@ -18,11 +18,12 @@ export async function syncRequirementFilled(requirementId) {
  * Derive hiring stage from linked candidates (most advanced wins),
  * sync filled count, and close the req when all openings are hired.
  */
-export async function syncRequirementHiringState(requirementId) {
+export async function syncRequirementHiringState(requirementId, options) {
     const existing = await prisma.requirement.findUnique({
         where: { id: requirementId },
         select: {
             id: true,
+            title: true,
             status: true,
             openings: true,
             filled: true,
@@ -43,6 +44,7 @@ export async function syncRequirementHiringState(requirementId) {
         where: { id: requirementId },
         select: {
             id: true,
+            title: true,
             status: true,
             openings: true,
             filled: true,
@@ -113,6 +115,21 @@ export async function syncRequirementHiringState(requirementId) {
         data,
     });
     if (stageChanged) {
+        const { queueWorkflow, requirementMailValues, sendWorkflowMail } = await import('./workflowMail.js');
+        queueWorkflow((async () => {
+            const packed = await requirementMailValues(requirementId, {
+                previousStage: refreshed.hiringStage ?? 'SOURCING',
+                hiringStage: nextStage,
+            });
+            if (!packed)
+                return;
+            await sendWorkflowMail({
+                key: 'requirementStageChanged',
+                context: { requirementId, recruiterIds: packed.recruiterIds, values: packed.values },
+            });
+        })());
+    }
+    if (stageChanged && options?.notify) {
         await logActivity({
             entityType: 'REQUIREMENT',
             entityId: requirementId,
@@ -120,8 +137,10 @@ export async function syncRequirementHiringState(requirementId) {
             performedBy: 'system',
             performerRole: 'SYSTEM',
             details: {
+                title: refreshed.title,
                 from: refreshed.hiringStage ?? 'SOURCING',
                 to: nextStage,
+                hiringStage: nextStage,
                 derivedFromCandidates: true,
             },
         });

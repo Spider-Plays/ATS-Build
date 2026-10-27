@@ -6,7 +6,7 @@ import { assertCanViewRequirement, requirementIdsForAuth } from './requirementAc
 /** Stage changes trigger email alerts to stakeholders + super admin. */
 export const BUSINESS_STAGE_NOTIFY_ACTIONS = ['STAGE_CHANGED', 'SOW_SIGNED'];
 async function visibleCandidateIds(auth) {
-    const where = await buildCandidateListWhere(auth);
+    const where = await buildCandidateListWhere(auth, { includeReferralReview: true });
     const rows = await prisma.candidate.findMany({ where, select: { id: true } });
     return rows.map((r) => r.id);
 }

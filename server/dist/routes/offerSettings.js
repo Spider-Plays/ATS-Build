@@ -41,7 +41,7 @@ const letterTemplateSchema = z.object({
     clausePages: z.array(z.string()).min(1),
     declarationPageHtml: z.string().min(1),
 });
-router.get('/compensation', requireRoles(...COMPENSATION_EDITORS, ...LETTER_TEMPLATE_EDITORS, 'HR_MANAGER', 'TEAM_LEAD'), async (_req, res) => {
+router.get('/compensation', requireRoles(...COMPENSATION_EDITORS, ...LETTER_TEMPLATE_EDITORS, 'TA_MANAGER', 'TEAM_LEAD', 'HUMAN_RESOURCE'), async (_req, res) => {
     const config = await getCompensationConfig();
     res.json(config);
 });
@@ -60,7 +60,7 @@ router.post('/compensation/preview', requireRoles(...COMPENSATION_EDITORS), asyn
         : await getCompensationConfig();
     res.json(calculateCompensationBreakdown(annualCtc, { ...DEFAULT_COMPENSATION_CONFIG, ...config }));
 });
-router.get('/letter-template', requireRoles(...LETTER_TEMPLATE_EDITORS, 'HR_MANAGER'), async (_req, res) => {
+router.get('/letter-template', requireRoles(...LETTER_TEMPLATE_EDITORS, 'TA_MANAGER', 'HUMAN_RESOURCE'), async (_req, res) => {
     const template = await getOfferLetterTemplate();
     res.json(template);
 });
@@ -89,6 +89,7 @@ router.post('/letter-template/preview', requireRoles(...LETTER_TEMPLATE_EDITORS)
         breakdown,
         template,
     });
+    res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'");
     res.type('html').send(html);
 });
 router.post('/letter-template/reset', requireRoles(...LETTER_TEMPLATE_EDITORS), async (req, res) => {

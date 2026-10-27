@@ -56,6 +56,8 @@ function outOfScopeAnswer(matched) {
     });
 }
 function formatRoleLabel(role) {
+    if (role === 'TA_MANAGER')
+        return 'TA Manager';
     return role
         .split('_')
         .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
@@ -512,10 +514,10 @@ async function changeRequestsPending(auth, matched) {
     const role = auth.role;
     const userId = auth.userId;
     let where;
-    if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
-        where = { status: { in: ['PENDING_HR', 'PENDING_ADMIN'] } };
+    if (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'DEVELOPER') {
+        where = { status: { in: ['PENDING_HR', 'PENDING_ADMIN', 'PENDING_DEVELOPER', 'IN_PROCESS'] } };
     }
-    else if (role === 'HR_HEAD' || role === 'HR_MANAGER') {
+    else if (role === 'HR_HEAD' || role === 'TA_MANAGER') {
         where = { OR: [{ status: 'PENDING_HR' }, { requestedBy: userId }] };
     }
     else {

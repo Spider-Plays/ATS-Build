@@ -19,10 +19,11 @@ const MIME_BY_EXT = {
     '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 };
 export function isAllowedResumeFile(mime, filename) {
+    // The extension must be allowed; the MIME type must agree unless the browser sent a generic one.
     const ext = path.extname(filename).toLowerCase();
-    if (ALLOWED_EXT.has(ext))
-        return true;
-    return ALLOWED_MIME.has(mime);
+    if (!ALLOWED_EXT.has(ext))
+        return false;
+    return mime === 'application/octet-stream' || !mime || ALLOWED_MIME.has(mime);
 }
 export function resolveResumeMime(mime, filename) {
     if (mime && mime !== 'application/octet-stream' && ALLOWED_MIME.has(mime))

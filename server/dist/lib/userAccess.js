@@ -9,7 +9,7 @@ const SCHEDULABLE_STAFF_ROLES = [
     'ACCOUNT_MANAGER',
     'TEAM_LEAD',
     'RECRUITER',
-    'HR_MANAGER',
+    'TA_MANAGER',
     'HR_HEAD',
     'ADMIN',
     'SUPER_ADMIN',

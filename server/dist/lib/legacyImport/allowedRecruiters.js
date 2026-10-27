@@ -11,7 +11,7 @@ export const ALLOWED_RECRUITER_NAMES = [
     'Smitha Shastri',
     'Suma S',
     'TA',
-    'Pravin Christo peter Selvaraj',
+    'Pravin Christo Peter Selvaraj',
     'Karthik V C',
     'Shrinath',
     'Izel Saveeno Dsouza',
@@ -24,12 +24,27 @@ const KEEPER_ALIASES = {
     Alankar: ['Alankar C', 'Alankar'],
     'Pooja M C': ['Pooja'],
     'Karthik V C': ['Karthik'],
-    'Pravin Christo peter Selvaraj': ['Pravin', 'Pravin Christo', 'Pravin Selvaraj'],
+    'Pravin Christo Peter Selvaraj': ['Pravin', 'Pravin Christo', 'Pravin Selvaraj'],
     'Izel Saveeno Dsouza': ['Izel', 'Izel Dsouza'],
     'Smitha Shastri': ['Smitha'],
     Shrinath: ['Shrinath'],
     TA: ['TA'],
     'Employee Referral': ['Employee Referral', 'Employee Referrals', 'Referral'],
+};
+/** Official TA mailbox per keeper (TA recruiter list). Import users get these instead of stitch emails. */
+export const RECRUITER_EMAILS = {
+    'Pooja M C': 'pooja.mc@igsglobal.com',
+    'Smitha Shastri': 'smitha.shastri@igsglobal.com',
+    'Karthik V C': 'karthik.vc@igsglobal.com',
+    'Pravin Christo Peter Selvaraj': 'pravin.christo@igsglobal.com',
+    Shrinath: 'shrinath@igsglobal.com',
+    'Izel Saveeno Dsouza': 'izelsaveeno.dsouza@igsglobal.com',
+    'Sachin S': 'sachin.s@igsglobal.com',
+    'Suma S': 'suma.s@igsglobal.com',
+};
+/** Keepers that share another recruiter's mailbox, so their rows are owned by that account. */
+export const RECRUITER_OWNER_ALIASES = {
+    'Employee Referral': 'Sachin S',
 };
 export const EMPLOYEE_REFERRAL_NAME = 'Employee Referral';
 export const EMPLOYEE_REFERRAL_SOURCE = 'Employee Referral';

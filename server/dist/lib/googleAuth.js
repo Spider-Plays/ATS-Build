@@ -49,21 +49,17 @@ export async function verifyGoogleAccessToken(accessToken) {
     if (!verified) {
         throw new Error('Google email is not verified');
     }
-    // Optional audience check via tokeninfo (userinfo may omit aud).
-    try {
-        const infoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`);
-        if (infoRes.ok) {
-            const info = (await infoRes.json());
-            const audience = info.aud || info.azp;
-            if (audience && audience !== env.googleClientId) {
-                throw new Error('Google token audience mismatch');
-            }
-        }
+    // Required audience check: the token must have been issued to this app, not any Google app.
+    const infoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`);
+    if (!infoRes.ok) {
+        throw new Error('Could not verify Google token audience');
     }
-    catch (err) {
-        if (err instanceof Error && err.message === 'Google token audience mismatch')
-            throw err;
-        // tokeninfo is best-effort; userinfo already authenticated the token
+    const info = (await infoRes.json());
+    if (info.aud !== env.googleClientId && info.azp !== env.googleClientId) {
+        throw new Error('Google token audience mismatch');
+    }
+    if (info.sub && info.sub !== data.sub) {
+        throw new Error('Google token subject mismatch');
     }
     return {
         googleId: data.sub,

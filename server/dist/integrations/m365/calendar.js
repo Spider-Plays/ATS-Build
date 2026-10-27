@@ -22,14 +22,14 @@ export function shouldAutoCreateTeamsMeeting() {
 function calendarTimeZone() {
     return process.env.M365_CALENDAR_TIMEZONE?.trim() || 'UTC';
 }
-function toGraphDateTime(date) {
-    const tz = calendarTimeZone();
-    if (tz === 'UTC') {
+function toGraphDateTime(date, tz = calendarTimeZone()) {
+    const zone = tz === 'India Standard Time' ? 'Asia/Kolkata' : tz;
+    if (zone === 'UTC') {
         return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
     }
     try {
         const parts = new Intl.DateTimeFormat('en-CA', {
-            timeZone: tz,
+            timeZone: zone,
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
@@ -63,37 +63,45 @@ async function graphRequest(path, init) {
     return { ok: true, json };
 }
 function buildEventPayload(input) {
-    const tz = calendarTimeZone();
-    const useTeams = input.createTeamsMeeting && !input.meetingLink;
+    const tz = 'India Standard Time';
     return {
         subject: input.subject,
         body: {
             contentType: 'HTML',
             content: input.bodyHtml,
         },
-        start: { dateTime: toGraphDateTime(input.start), timeZone: tz },
-        end: { dateTime: toGraphDateTime(input.end), timeZone: tz },
-        ...(input.location ? { location: { displayName: input.location } } : {}),
+        start: { dateTime: toGraphDateTime(input.start, tz), timeZone: tz },
+        end: { dateTime: toGraphDateTime(input.end, tz), timeZone: tz },
+        location: { displayName: input.location?.trim() || 'Microsoft Teams Meeting' },
+        hideAttendees: true,
+        showAs: 'busy',
+        responseRequested: true,
         attendees: input.attendees.map((a) => ({
             emailAddress: { address: a.email, name: a.name },
             type: 'required',
         })),
-        ...(useTeams
-            ? {
-                isOnlineMeeting: true,
-                onlineMeetingProvider: 'teamsForBusiness',
-            }
-            : {}),
-        ...(input.meetingLink && !useTeams
-            ? {
-                location: { displayName: input.meetingLink },
-                body: {
-                    contentType: 'HTML',
-                    content: `${input.bodyHtml}<p><a href="${input.meetingLink}">Join meeting</a></p>`,
-                },
-            }
-            : {}),
     };
+}
+export async function createTeamsOnlineMeeting(input) {
+    if (!isM365CalendarEnabled())
+        return { ok: false, message: 'Calendar is not configured' };
+    const organizer = calendarOrganizerEmail();
+    const result = await graphRequest(`/users/${encodeURIComponent(organizer)}/onlineMeetings`, {
+        method: 'POST',
+        body: JSON.stringify({
+            subject: input.subject,
+            startDateTime: input.start.toISOString(),
+            endDateTime: input.end.toISOString(),
+            lobbyBypassSettings: { scope: 'everyone' },
+        }),
+    });
+    if (!result.ok) {
+        return { ok: false, message: `Graph online meeting failed (${result.status}): ${result.text.slice(0, 320)}` };
+    }
+    const joinUrl = result.json.joinWebUrl;
+    if (!joinUrl)
+        return { ok: false, message: 'Graph online meeting returned no joinWebUrl' };
+    return { ok: true, joinUrl };
 }
 export async function createM365InterviewEvent(input) {
     if (!isM365CalendarEnabled())
@@ -160,4 +168,47 @@ export async function cancelM365InterviewEvent(eventId) {
         };
     }
     return { ok: true, eventId };
+}
+/** Busy appointment on that person's own calendar. No other guests are on the event. */
+export async function createPrivateBusyHold(mailbox, input) {
+    if (!isM365CalendarEnabled())
+        return { ok: false, reason: 'not_configured' };
+    const result = await graphRequest(`/users/${encodeURIComponent(mailbox)}/events`, {
+        method: 'POST',
+        body: JSON.stringify(buildEventPayload({ ...input, attendees: [], createTeamsMeeting: false })),
+    });
+    if (!result.ok) {
+        return {
+            ok: false,
+            reason: 'error',
+            message: `Graph private hold failed (${result.status}): ${result.text.slice(0, 320)}`,
+        };
+    }
+    const payload = result.json;
+    if (!payload.id)
+        return { ok: false, reason: 'error', message: 'Graph private hold returned no event id' };
+    return { ok: true, eventId: payload.id, meetingLink: input.meetingLink };
+}
+export async function updatePrivateBusyHold(mailbox, eventId, input) {
+    if (!isM365CalendarEnabled())
+        return { ok: false, reason: 'not_configured' };
+    const result = await graphRequest(`/users/${encodeURIComponent(mailbox)}/events/${encodeURIComponent(eventId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(buildEventPayload({ ...input, attendees: [], createTeamsMeeting: false })),
+    });
+    if (!result.ok) {
+        return {
+            ok: false,
+            reason: 'error',
+            message: `Graph private hold update failed (${result.status}): ${result.text.slice(0, 320)}`,
+        };
+    }
+    return { ok: true, eventId, meetingLink: input.meetingLink };
+}
+export async function deletePrivateBusyHold(mailbox, eventId) {
+    if (!isM365CalendarEnabled())
+        return;
+    await graphRequest(`/users/${encodeURIComponent(mailbox)}/events/${encodeURIComponent(eventId)}`, {
+        method: 'DELETE',
+    });
 }

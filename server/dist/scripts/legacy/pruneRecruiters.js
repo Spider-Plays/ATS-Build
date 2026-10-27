@@ -31,7 +31,7 @@ const DO_NOT_PROMOTE = new Set([
     'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
     'FINANCE_HEAD',
 ]);
 function pickPromoteCandidate(matches) {
@@ -64,7 +64,7 @@ export async function run(argv = []) {
             OR: [
                 { name: { equals: EMPLOYEE_REFERRAL_NAME, mode: 'insensitive' } },
                 { email: stitchEmailFromName(EMPLOYEE_REFERRAL_NAME) },
-                { email: 'employee.referral@stitch-ats.in' },
+                { email: 'employee.referral@ats.igsglobal.co' },
             ],
         },
         select: { id: true, name: true, email: true, role: true },

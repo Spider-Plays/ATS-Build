@@ -1,9 +1,11 @@
 /** Role groups for route guards */
 export const INTERNAL_ROLES = [
     'SUPER_ADMIN',
+    'DEVELOPER',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
+    'HUMAN_RESOURCE',
     'FINANCE_HEAD',
     'RECRUITER',
     'TEAM_LEAD',
@@ -21,7 +23,7 @@ export const TA_REPORT_ROLES = [
     'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
     'TEAM_LEAD',
     'RECRUITER',
 ];
@@ -30,7 +32,7 @@ export const HIRING_REPORT_ROLES = [
     'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
     'TEAM_LEAD',
     'HIRING_MANAGER',
     'ACCOUNT_MANAGER',
@@ -42,7 +44,7 @@ export const CHANNEL_REPORT_ROLES = [
     'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
 ];
 /** Dedicated employee referrer accounts (referral portal only) */
 export const EMPLOYEE_ROLE = 'EMPLOYEE';
@@ -51,42 +53,35 @@ export const STAFF_MUTATE = [
     'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
     'RECRUITER',
     'TEAM_LEAD',
 ];
 /** HR Head and Super Admin approve directly; Admin with on-behalf-of-HR-Head flag. */
 export const REQ_APPROVERS = ['HR_HEAD', 'SUPER_ADMIN', 'ADMIN'];
-export const OFFER_ROLES = ['SUPER_ADMIN', 'ADMIN', 'HR_HEAD', 'HR_MANAGER', 'RECRUITER', 'TEAM_LEAD'];
+export const OFFER_ROLES = ['SUPER_ADMIN', 'ADMIN', 'HR_HEAD', 'TA_MANAGER', 'RECRUITER', 'TEAM_LEAD'];
 /** Roles that may read offer data via GET /api/offers* */
 export const OFFER_VIEW_ROLES = OFFER_ROLES;
 export const OFFER_HR_APPROVERS = ['HR_HEAD', 'SUPER_ADMIN', 'ADMIN'];
 export const OFFER_EXEC_APPROVERS = ['SUPER_ADMIN', 'ADMIN'];
-export const INTERVIEW_SCHEDULERS = [
-    'SUPER_ADMIN',
-    'ADMIN',
-    'HR_HEAD',
-    'HR_MANAGER',
-    'RECRUITER',
-    'TEAM_LEAD',
-    'HIRING_MANAGER',
-];
+/** Create, reschedule, and cancel interviews. Super Admin is not included; Developer bypasses requireExactRoles. */
+export const INTERVIEW_SCHEDULERS = ['TA_MANAGER', 'RECRUITER'];
 export const INTERVIEW_PLAN_EDITORS = [
     'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
     'TEAM_LEAD',
     'RECRUITER',
 ];
 export function isAdminRole(role) {
-    return role === 'ADMIN' || role === 'SUPER_ADMIN';
+    return role === 'ADMIN' || isSuperAdminRole(role);
 }
 export function isSuperAdminRole(role) {
-    return role === 'SUPER_ADMIN';
+    return role === 'SUPER_ADMIN' || role === 'DEVELOPER';
 }
 export function roleMatchesAllowed(userRole, allowedRoles) {
-    if (userRole === 'SUPER_ADMIN')
+    if (userRole === 'SUPER_ADMIN' || userRole === 'DEVELOPER')
         return true;
     return allowedRoles.includes(userRole);
 }

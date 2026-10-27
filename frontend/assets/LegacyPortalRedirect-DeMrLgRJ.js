@@ -1,1 +1,0 @@
-import{j as r}from"./vendor-query-D4SHj8q5.js";import{aN as o}from"./index-BEwksD67.js";import{u as e,N as i}from"./vendor-react-uBg5n048.js";import"./vendor-motion-D4d7F_nc.js";import"./vendor-lit-QNvgJy_F.js";function l(){const t=e(),a=t.pathname==="/portal"?o:`${o}${t.pathname.slice(7)}`;return r.jsx(i,{to:`${a}${t.search}`,replace:!0})}export{l as LegacyPortalRedirect};

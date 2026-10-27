@@ -43,7 +43,20 @@ export function requireRoles(...roles) {
     return (req, res, next) => {
         if (!req.auth)
             return sendAuthUnauthorized(res);
-        if (req.auth.role === 'SUPER_ADMIN')
+        if (req.auth.role === 'SUPER_ADMIN' || req.auth.role === 'DEVELOPER')
+            return next();
+        if (!roles.includes(req.auth.role)) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+        next();
+    };
+}
+/** Same as requireRoles, but Super Admin is not exempt. Developer always passes. */
+export function requireExactRoles(...roles) {
+    return (req, res, next) => {
+        if (!req.auth)
+            return sendAuthUnauthorized(res);
+        if (req.auth.role === 'DEVELOPER')
             return next();
         if (!roles.includes(req.auth.role)) {
             return res.status(403).json({ error: 'Forbidden' });

@@ -1,4 +1,4 @@
-/** Retry Prisma operations while Neon wakes from sleep (P1001 / init errors). */
+/** Retry transient PostgreSQL connection failures. */
 export async function withDbRetry(fn, options = {}) {
     const attempts = options.attempts ?? 6;
     const delayMs = options.delayMs ?? 5000;

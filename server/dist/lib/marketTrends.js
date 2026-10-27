@@ -44,7 +44,7 @@ export function forecastExpectedCtc(bands, experience, locationMultiplier) {
 export function canEditMarketData(role, tags) {
     if (!role)
         return false;
-    if (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR_HEAD' || role === 'HR_MANAGER') {
+    if (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR_HEAD' || role === 'TA_MANAGER') {
         return true;
     }
     return hasFeatureTag(role, tags, 'market_data');

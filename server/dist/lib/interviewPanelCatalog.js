@@ -128,12 +128,12 @@ const PANEL_MEMBER_ROLES = new Set([
     'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
 ]);
 const DEFAULT_PANEL_ROLE_HINTS = {
     0: ['INTERVIEWER', 'TEAM_LEAD', 'RECRUITER', 'HIRING_MANAGER'],
     1: ['HIRING_MANAGER', 'ACCOUNT_MANAGER', 'TEAM_LEAD', 'RECRUITER'],
-    2: ['HR_MANAGER', 'HR_HEAD', 'ADMIN'],
+    2: ['TA_MANAGER', 'HR_HEAD', 'ADMIN'],
 };
 /**
  * Fill empty L1/L2/HR panels with active staff (up to 3 each).

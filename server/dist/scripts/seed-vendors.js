@@ -40,10 +40,10 @@ const SAMPLE_VENDORS = [
     {
         name: 'Dev Staffing Co',
         code: 'DEV-VENDOR',
-        email: 'vendor-org@stitch-ats.in',
+        email: 'vendor-org@ats.igsglobal.co',
         contactName: 'Dev Vendor Contact',
         status: 'ACTIVE',
-        notes: 'Dev vendor org (portal login: vendor@stitch-ats.in).',
+        notes: 'Dev vendor org (portal login: vendor@ats.igsglobal.co).',
     },
 ];
 async function main() {

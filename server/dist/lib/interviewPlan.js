@@ -279,7 +279,7 @@ const PANEL_MEMBER_ROLES = [
     'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
 ];
 function parseInterviewerIdList(raw, label) {
     if (raw === undefined || raw === null)

@@ -11,8 +11,8 @@ describe('slugFromName', () => {
         assert.equal(slugFromName('Suma'), 'suma');
     });
     it('builds stitch emails', () => {
-        assert.equal(stitchEmailFromName('Suma S'), 'suma.s@stitch-ats.in');
-        assert.equal(stitchEmailFromName('Priya Sharma'), 'priya.s@stitch-ats.in');
+        assert.equal(stitchEmailFromName('Suma S'), 'suma.s@ats.igsglobal.co');
+        assert.equal(stitchEmailFromName('Priya Sharma'), 'priya.s@ats.igsglobal.co');
     });
 });
 describe('isSamePersonName', () => {

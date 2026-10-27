@@ -1,3 +1,4 @@
+import { lookupRateLimiter } from '../middleware/rateLimit.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
@@ -13,11 +14,12 @@ import { computeMatchScore } from '../lib/profileMatching.js';
 import { isAllowedResumeFile, resolveResumeMime, saveResumeFile, } from '../lib/resumeStorage.js';
 import { isReferralPortalRole } from '../lib/referralPortalRoles.js';
 import { ensureUserReferralCode } from '../lib/referralCode.js';
-import { notifyNewCandidate, notifyReferralSubmitted } from '../lib/emailDispatch.js';
+import { notifyReferralSubmitted } from '../lib/emailDispatch.js';
+import { candidateExperienceYears, referralBonusForExperience, referralValidUntil, sendReferralMail, } from '../lib/referralWorkflow.js';
 import { buildCandidateSearchIndexFields } from '../lib/candidateFieldNormalize.js';
 import { referralRequirementVisible } from '../lib/portalPositions.js';
 import { isRequirementAcceptingCandidates, requirementApplicationsClosedMessage, } from '../lib/requirementHiring.js';
-import { refreshRequirementHiringState, syncRequirementHiringState } from '../lib/hiring.js';
+import { refreshRequirementHiringState } from '../lib/hiring.js';
 const router = Router();
 function requireReferralPortalAccess(req, res, next) {
     if (!req.auth)
@@ -78,6 +80,31 @@ async function assertReferralOwnsCandidate(userId, candidateId) {
     });
     if (!row)
         throw new Error('Referral not found');
+}
+/**
+ * What the referring employee may see about review: the stage, the reason only when the
+ * referral team rejected it, and the bonus. Assignee and recruiter notes stay internal.
+ */
+function portalReferralFields(c) {
+    const stage = c.referralStage;
+    const estimatedBonus = referralBonusForExperience(candidateExperienceYears(c));
+    return {
+        referralStage: stage ?? undefined,
+        referralRejectionReason: stage === 'REJECTED' ? c.referralRejectionReason ?? undefined : undefined,
+        referralAssignedToUserId: undefined,
+        referralValidUntil: referralValidUntil(c).toISOString(),
+        referralBonusStatus: c.referralBonusStatus ?? undefined,
+        referralBonusAmount: c.referralBonusAmount ?? estimatedBonus ?? undefined,
+        referralBonusEligibleOn: c.referralBonusEligibleOn?.toISOString(),
+        referralBonusNote: undefined,
+    };
+}
+function bonusCounts(c) {
+    if (c.referralStage === 'EXPIRED' || c.referralBonusStatus === 'CANCELLED')
+        return 0;
+    if (!HIRED_STATUSES.has(c.status))
+        return 0;
+    return c.referralBonusAmount ?? referralBonusForExperience(candidateExperienceYears(c)) ?? 0;
 }
 const referralSubmitBodySchema = z.object({
     firstName: z.string().min(1),
@@ -157,12 +184,7 @@ router.get('/me', async (req, res) => {
         })
         : [];
     const reqById = new Map(requirements.map((r) => [r.id, r]));
-    const potentialBonus = referrals
-        .filter((c) => HIRED_STATUSES.has(c.status))
-        .reduce((sum, c) => {
-        const req = c.requirementId ? reqById.get(c.requirementId) : null;
-        return sum + (req?.referralBonusAmount ?? 0);
-    }, 0);
+    const potentialBonus = referrals.reduce((sum, c) => sum + bonusCounts(c), 0);
     res.json({
         user: {
             name: user.name,
@@ -195,7 +217,8 @@ router.get('/me', async (req, res) => {
                 jobCode: req?.jobCode,
                 referralRelationship: c.referralRelationship ?? undefined,
                 createdAt: c.createdAt.toISOString(),
-                bonusAmount: req?.referralBonusAmount ?? undefined,
+                bonusAmount: portalReferralFields(c).referralBonusAmount,
+                referralStage: c.referralStage ?? undefined,
             };
         }),
     });
@@ -249,11 +272,9 @@ router.get('/referrals', async (req, res) => {
     const reqById = new Map(requirements.map((r) => [r.id, r]));
     res.json(rows.map((c) => ({
         ...mapCandidate(c, { requirement: c.requirementId ? reqById.get(c.requirementId) ?? null : null }),
+        ...portalReferralFields(c),
         referralRelationship: c.referralRelationship ?? undefined,
         referralNotes: c.referralNotes ?? undefined,
-        referralBonusAmount: c.requirementId
-            ? reqById.get(c.requirementId)?.referralBonusAmount ?? undefined
-            : undefined,
     })));
 });
 router.get('/referrals/:id', async (req, res) => {
@@ -266,20 +287,24 @@ router.get('/referrals/:id', async (req, res) => {
         ? await prisma.requirement.findUnique({ where: { id: row.requirementId } })
         : null;
     const logs = await prisma.activityLog.findMany({
-        where: { entityType: 'CANDIDATE', entityId: row.id },
+        where: {
+            entityType: 'CANDIDATE',
+            entityId: row.id,
+            // Assignment and recruiter decisions are internal to the referral team.
+            action: { notIn: ['REFERRAL_ASSIGNED', 'REFERRAL_RECRUITER_REJECTED', 'REFERRAL_ACCEPTED'] },
+        },
         orderBy: { timestamp: 'desc' },
         take: 20,
     });
     res.json({
-        candidate: mapCandidate(row, { requirement }),
+        candidate: { ...mapCandidate(row, { requirement }), ...portalReferralFields(row) },
         referralRelationship: row.referralRelationship ?? undefined,
         referralNotes: row.referralNotes ?? undefined,
-        referralBonusAmount: requirement?.referralBonusAmount ?? undefined,
+        referralBonusAmount: portalReferralFields(row).referralBonusAmount,
+        // Referrers see when their referral moved, not internal notes or who acted.
         timeline: logs.map((l) => ({
             action: l.action,
             timestamp: l.timestamp.toISOString(),
-            performerName: l.performerName ?? undefined,
-            details: l.details ? JSON.parse(l.details) : undefined,
         })),
     });
 });
@@ -304,7 +329,7 @@ router.post('/parse-resume', handleUploadResume, async (req, res) => {
         res.status(422).json({ error: message });
     }
 });
-router.get('/check-email', async (req, res) => {
+router.get('/check-email', lookupRateLimiter, async (req, res) => {
     const email = typeof req.query.email === 'string' ? req.query.email : '';
     if (!email.trim()) {
         return res.json({ exists: false });
@@ -315,12 +340,10 @@ router.get('/check-email', async (req, res) => {
     }
     res.json({
         exists: true,
-        candidateId: existing.id,
-        name: existing.name,
         error: DUPLICATE_CANDIDATE_EMAIL_MESSAGE,
     });
 });
-router.get('/check-pan', async (req, res) => {
+router.get('/check-pan', lookupRateLimiter, async (req, res) => {
     const pan = typeof req.query.pan === 'string' ? req.query.pan : '';
     if (!pan.trim() || !isValidPanFormat(pan)) {
         return res.json({ exists: false });
@@ -331,16 +354,10 @@ router.get('/check-pan', async (req, res) => {
     }
     res.json({
         exists: true,
-        candidateId: existing.id,
-        name: existing.name,
         error: DUPLICATE_CANDIDATE_PAN_MESSAGE,
     });
 });
 router.post('/positions/:id/submit', async (req, res) => {
-    const user = await prisma.user.findUnique({ where: { id: req.auth.userId } });
-    if (!user)
-        return res.status(404).json({ error: 'User not found' });
-    const referrerCode = await ensureUserReferralCode(user.id);
     let requirement = await prisma.requirement.findUnique({ where: { id: req.params.id } });
     if (!requirement) {
         return res.status(404).json({ error: 'Position not open for referrals' });
@@ -351,6 +368,15 @@ router.post('/positions/:id/submit', async (req, res) => {
             error: requirementApplicationsClosedMessage(requirement),
         });
     }
+    return createReferral(req, res, requirement);
+});
+/** General referral, not linked to any job. */
+router.post('/submit', async (req, res) => createReferral(req, res, null));
+async function createReferral(req, res, requirement) {
+    const user = await prisma.user.findUnique({ where: { id: req.auth.userId } });
+    if (!user)
+        return res.status(404).json({ error: 'User not found' });
+    const referrerCode = await ensureUserReferralCode(user.id);
     const body = referralSubmitBodySchema.parse(req.body);
     const fullName = `${body.firstName.trim()} ${body.lastName.trim()}`.trim();
     const primarySkills = parseSkillList(body.primarySkills);
@@ -371,18 +397,19 @@ router.post('/positions/:id/submit', async (req, res) => {
     }
     const deptLabel = user.department ? ` · ${user.department}` : '';
     const source = `Employee Referral: ${user.name}${deptLabel}`;
+    const roleTitle = requirement?.title ?? 'General referral';
     const skillCorpus = [...primarySkills, ...secondarySkills].join(' ');
     const draft = {
         id: 'draft',
         name: fullName,
         email: body.email.toLowerCase().trim(),
-        role: requirement.title,
+        role: roleTitle,
         status: 'TO_BE_SCREENED',
         matchScore: 0,
         source,
         appliedDate: new Date(),
-        requirementId: requirement.id,
-        jobTitle: requirement.title,
+        requirementId: requirement?.id ?? null,
+        jobTitle: requirement?.title ?? null,
         createdBy: user.id,
         avatar: null,
         resumeUrl: null,
@@ -409,17 +436,17 @@ router.post('/positions/:id/submit', async (req, res) => {
         createdAt: new Date(),
         updatedAt: new Date(),
     };
-    const matchScore = computeMatchScore(draft, requirement, skillCorpus).score;
+    const matchScore = requirement ? computeMatchScore(draft, requirement, skillCorpus).score : 0;
     const row = await prisma.candidate.create({
         data: {
             name: fullName,
             email: body.email.toLowerCase().trim(),
-            role: requirement.title,
+            role: roleTitle,
             status: 'TO_BE_SCREENED',
             matchScore,
             source,
-            requirementId: requirement.id,
-            jobTitle: requirement.title,
+            requirementId: requirement?.id ?? null,
+            jobTitle: requirement?.title ?? null,
             submittedAt: new Date(),
             phone: body.phone.trim(),
             location: body.location.trim(),
@@ -437,12 +464,13 @@ router.post('/positions/:id/submit', async (req, res) => {
             referredByUserId: user.id,
             referralRelationship: body.referralRelationship.trim(),
             referralNotes: body.referralNotes?.trim() || null,
+            referralStage: 'PENDING_REVIEW',
             createdBy: user.id,
             ...buildCandidateSearchIndexFields({
                 name: fullName,
                 email: body.email.toLowerCase().trim(),
-                role: requirement.title,
-                jobTitle: requirement.title,
+                role: roleTitle,
+                jobTitle: requirement?.title ?? null,
                 location: body.location.trim(),
                 currentCompany: body.currentCompany.trim(),
                 primarySkills: serializeSkills(primarySkills),
@@ -462,28 +490,22 @@ router.post('/positions/:id/submit', async (req, res) => {
         performerName: user.name,
         performerRole: user.role,
         details: {
-            requirementId: requirement.id,
-            jobCode: requirement.jobCode,
+            candidateName: row.name,
+            requirementId: requirement?.id,
+            jobCode: requirement?.jobCode,
             referralRelationship: body.referralRelationship,
             referrerCode,
         },
     });
-    notifyReferralSubmitted({ name: row.name, email: row.email, jobTitle: row.jobTitle }, { email: user.email, name: user.name }, { title: requirement.title, jobCode: requirement.jobCode });
-    notifyNewCandidate({
-        id: row.id,
-        name: row.name,
-        email: row.email,
-        jobTitle: row.jobTitle,
-        requirementId: row.requirementId,
-        source: row.source,
-    }, { referrerName: user.name });
-    await syncRequirementHiringState(requirement.id);
+    notifyReferralSubmitted({ name: row.name, email: row.email, jobTitle: row.jobTitle }, { email: user.email, name: user.name }, { title: roleTitle, jobCode: requirement?.jobCode ?? null });
+    sendReferralMail('referralSubmitted', row);
     res.status(201).json({
         ...mapCandidate(row, { requirement }),
+        ...portalReferralFields(row),
         referralRelationship: row.referralRelationship ?? undefined,
         referralNotes: row.referralNotes ?? undefined,
     });
-});
+}
 router.post('/referrals/:candidateId/resume', handleUploadResume, async (req, res) => {
     try {
         await assertReferralOwnsCandidate(req.auth.userId, req.params.candidateId);

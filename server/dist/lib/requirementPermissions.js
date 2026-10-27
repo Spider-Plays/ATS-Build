@@ -2,14 +2,14 @@ export const HIRING_STAGE_EDIT_ROLES = [
     'SUPER_ADMIN',
     'ADMIN',
     'RECRUITER',
-    'HR_MANAGER',
+    'TA_MANAGER',
     'TEAM_LEAD',
 ];
 export const POSTING_CONTROL_ROLES = [
     'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
     'TEAM_LEAD',
     'HIRING_MANAGER',
 ];
@@ -17,22 +17,23 @@ export const PORTAL_VISIBILITY_ROLES = [
     'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
     'TEAM_LEAD',
 ];
 export const REQUIREMENT_CREATE_ROLES = [
     'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
     'HIRING_MANAGER',
 ];
-/** Assign recruiters or vendors to a requirement (HR Manager leadership). */
+/** Assign recruiters or vendors to a requirement (TA Manager leadership). */
 export const REQUIREMENT_ASSIGNMENT_ROLES = [
     'SUPER_ADMIN',
+    'DEVELOPER',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
 ];
 /** HR Head and Super Admin approve directly; Admin may approve only on behalf of HR Head. */
 export const REQ_APPROVAL_ROLES = ['HR_HEAD', 'SUPER_ADMIN', 'ADMIN'];
@@ -46,7 +47,9 @@ export function isRequirementHiringManager(auth, requirement) {
     return (requirement.hiringManager.trim().toLowerCase() === auth.name.trim().toLowerCase());
 }
 export function assertCanManageRequirementPosting(auth, requirement) {
-    if (['SUPER_ADMIN', 'ADMIN', 'HR_HEAD', 'HR_MANAGER', 'TEAM_LEAD'].includes(auth.role)) {
+    if (auth.role === 'DEVELOPER')
+        return;
+    if (['SUPER_ADMIN', 'ADMIN', 'HR_HEAD', 'TA_MANAGER', 'TEAM_LEAD'].includes(auth.role)) {
         return;
     }
     if (auth.role === 'HIRING_MANAGER') {
@@ -58,15 +61,17 @@ export function assertCanManageRequirementPosting(auth, requirement) {
     throw new Error('Not allowed to manage posting for this requirement');
 }
 export function assertCanUpdateHiringStage(auth, requirement) {
+    if (auth.role === 'DEVELOPER')
+        return;
     if (!['LIVE', 'ON_HOLD'].includes(requirement.status)) {
         throw new Error('Hiring stage can only be updated for live or on-hold requirements');
     }
     if (!HIRING_STAGE_EDIT_ROLES.includes(auth.role)) {
-        throw new Error('Only admins, recruiters, HR managers, and team leads can update hiring stage');
+        throw new Error('Only admins, recruiters, TA managers, and team leads can update hiring stage');
     }
 }
 export function assertCanApproveRequirement(auth, requirement, options = {}) {
-    if (auth.role === 'SUPER_ADMIN') {
+    if (auth.role === 'SUPER_ADMIN' || auth.role === 'DEVELOPER') {
         return;
     }
     if (auth.role === 'HIRING_MANAGER') {

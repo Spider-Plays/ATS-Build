@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth, requireActiveUser, requireRoles } from '../middleware/auth.js';
+import { requireAuth, requireActiveUser, requireExactRoles, requireRoles } from '../middleware/auth.js';
 import { logActivity } from '../services/activityLog.js';
 import { mapVendorOnboarding, mapVendorOnboardingStatus } from '../utils/mapVendorOnboarding.js';
 import { computeScoring, emptyOnboardingForm, emptyEvaluationScores, parseEvaluationJson, parseOnboardingJson, validateEvaluationComplete, validateOnboardingComplete, HR_APPROVER_ROLES, HR_SCORE_ROLES, } from '../lib/vendorOnboarding.js';
@@ -11,7 +11,7 @@ import { sendStaffNotificationEmail } from '../services/email.js';
 import { env } from '../config/env.js';
 import { clientErrorMessage } from '../lib/safeError.js';
 const router = Router();
-const VENDOR_MANAGERS = ['ADMIN', 'HR_HEAD', 'HR_MANAGER', 'RECRUITER', 'TEAM_LEAD', 'SUPER_ADMIN'];
+const VENDOR_MANAGERS = ['ADMIN', 'HR_HEAD', 'TA_MANAGER', 'RECRUITER', 'TEAM_LEAD', 'SUPER_ADMIN'];
 async function ensureOnboardingRow(vendorId) {
     const existing = await prisma.vendorOnboarding.findUnique({ where: { vendorId } });
     if (existing)
@@ -37,20 +37,48 @@ export async function createVendorOnboardingForNewVendor(vendorId) {
 }
 async function notifyHrManagersSubmitted(vendorName, vendorId) {
     try {
-        const recipients = await getUserEmailsByRoles(['HR_MANAGER', 'HR_HEAD', 'ADMIN', 'SUPER_ADMIN']);
+        const recipients = await getUserEmailsByRoles([
+            'TA_MANAGER',
+            'HR_HEAD',
+            'ADMIN',
+            'SUPER_ADMIN',
+            'DEVELOPER',
+        ]);
         if (recipients.length === 0)
             return;
         const url = `${env.clientOrigin.replace(/\/$/, '')}/vendors/${vendorId}?tab=onboarding`;
         await Promise.all(recipients.map((r) => sendStaffNotificationEmail({
             to: r.email,
             recipientName: r.name,
+            kind: 'vendorOnboardingSubmitted',
+            vendorId,
             subject: `Vendor onboarding submitted — ${vendorName}`,
             headline: 'Vendor onboarding ready for review',
-            body: `${vendorName} completed onboarding and evaluation and awaits approval. Review: ${url}`,
+            body: `${vendorName} completed onboarding and evaluation and awaits TA Manager review. Review: ${url}`,
         })));
     }
     catch (err) {
         console.error('[vendor-onboarding] HR notify failed:', err);
+    }
+}
+async function notifyHrHeadReview(vendorName, vendorId) {
+    try {
+        const recipients = await getUserEmailsByRoles(['HR_HEAD']);
+        if (recipients.length === 0)
+            return;
+        const url = `${env.clientOrigin.replace(/\/$/, '')}/vendors/${vendorId}?tab=onboarding`;
+        await Promise.all(recipients.map((r) => sendStaffNotificationEmail({
+            to: r.email,
+            recipientName: r.name,
+            kind: 'vendorOnboardingHrReview',
+            vendorId,
+            subject: `Vendor onboarding ready for HR review — ${vendorName}`,
+            headline: 'TA Manager approved — HR Head review',
+            body: `${vendorName} was approved by the TA Manager and now needs your review. Review: ${url}`,
+        })));
+    }
+    catch (err) {
+        console.error('[vendor-onboarding] HR Head notify failed:', err);
     }
 }
 async function notifyVendorDecision(vendorId, vendorName, approved, reason) {
@@ -65,6 +93,8 @@ async function notifyVendorDecision(vendorId, vendorName, approved, reason) {
         await Promise.all(users.map((u) => sendStaffNotificationEmail({
             to: u.email,
             recipientName: u.name,
+            kind: approved ? 'vendorOnboardingApproved' : 'vendorOnboardingRevision',
+            vendorId,
             subject: approved
                 ? `Vendor onboarding approved — ${vendorName}`
                 : `Vendor onboarding needs revision — ${vendorName}`,
@@ -79,10 +109,10 @@ async function notifyVendorDecision(vendorId, vendorName, approved, reason) {
     }
 }
 // ─── Staff: list pending / all packets ───────────────────────────────────────
-router.get('/pending', requireAuth, requireActiveUser, requireRoles(...HR_APPROVER_ROLES), async (_req, res) => {
+router.get('/pending', requireAuth, requireActiveUser, requireExactRoles(...HR_APPROVER_ROLES), async (_req, res) => {
     try {
         const rows = await prisma.vendorOnboarding.findMany({
-            where: { status: 'SUBMITTED' },
+            where: { status: { in: ['SUBMITTED', 'TA_APPROVED'] } },
             orderBy: { submittedAt: 'asc' },
         });
         const vendorIds = rows.map((r) => r.vendorId);
@@ -134,7 +164,7 @@ const decisionSchema = z.object({
     risks: z.string().optional(),
     recommendation: z.string().optional(),
 });
-router.post('/vendor/:vendorId/decision', requireAuth, requireActiveUser, requireRoles(...HR_APPROVER_ROLES), async (req, res) => {
+router.post('/vendor/:vendorId/decision', requireAuth, requireActiveUser, requireExactRoles('TA_MANAGER', 'HR_HEAD'), async (req, res) => {
     try {
         const body = decisionSchema.parse(req.body);
         const vendor = await prisma.vendor.findUnique({ where: { id: req.params.vendorId } });
@@ -143,35 +173,69 @@ router.post('/vendor/:vendorId/decision', requireAuth, requireActiveUser, requir
         const row = await prisma.vendorOnboarding.findUnique({ where: { vendorId: vendor.id } });
         if (!row)
             return res.status(404).json({ error: 'Onboarding packet not found' });
-        if (row.status !== 'SUBMITTED') {
-            return res.status(400).json({ error: 'Packet is not awaiting approval' });
-        }
+        const role = req.auth.role;
         const approver = await prisma.user.findUnique({ where: { id: req.auth.userId } });
-        const nextStatus = body.action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+        const approverName = approver?.name ?? req.auth.email;
+        if (role === 'TA_MANAGER') {
+            if (row.status !== 'SUBMITTED') {
+                return res.status(400).json({ error: 'Packet is not awaiting TA Manager review' });
+            }
+        }
+        else if (row.status !== 'TA_APPROVED') {
+            return res.status(400).json({
+                error: row.status === 'SUBMITTED'
+                    ? 'Waiting for TA Manager approval before HR Head review'
+                    : 'Packet is not awaiting HR Head review',
+            });
+        }
+        const rejected = body.action === 'REJECT';
+        const nextStatus = rejected ? 'REJECTED' : role === 'TA_MANAGER' ? 'TA_APPROVED' : 'APPROVED';
         const updated = await prisma.vendorOnboarding.update({
             where: { id: row.id },
             data: {
                 status: nextStatus,
-                evaluatorStrengths: body.strengths?.trim() || null,
-                evaluatorImprovements: body.improvements?.trim() || null,
-                evaluatorRisks: body.risks?.trim() || null,
-                evaluatorRecommendation: body.recommendation?.trim() || null,
-                decisionReason: body.reason.trim(),
-                decidedBy: req.auth.userId,
-                decidedByName: approver?.name ?? req.auth.email,
-                decidedByRole: req.auth.role,
-                decidedAt: new Date(),
+                evaluatorStrengths: body.strengths?.trim() || row.evaluatorStrengths,
+                evaluatorImprovements: body.improvements?.trim() || row.evaluatorImprovements,
+                evaluatorRisks: body.risks?.trim() || row.evaluatorRisks,
+                evaluatorRecommendation: body.recommendation?.trim() || row.evaluatorRecommendation,
+                ...(role === 'TA_MANAGER'
+                    ? {
+                        taReviewAction: body.action,
+                        taReviewReason: body.reason.trim(),
+                        taReviewedBy: req.auth.userId,
+                        taReviewedByName: approverName,
+                        taReviewedAt: new Date(),
+                    }
+                    : {}),
+                ...(rejected || role === 'HR_HEAD'
+                    ? {
+                        decisionReason: body.reason.trim(),
+                        decidedBy: req.auth.userId,
+                        decidedByName: approverName,
+                        decidedByRole: role,
+                        decidedAt: new Date(),
+                    }
+                    : {}),
             },
         });
         await logActivity({
             entityType: 'VENDOR',
             entityId: vendor.id,
-            action: body.action === 'APPROVE' ? 'ONBOARDING_APPROVED' : 'ONBOARDING_REJECTED',
+            action: nextStatus === 'APPROVED'
+                ? 'ONBOARDING_APPROVED'
+                : nextStatus === 'TA_APPROVED'
+                    ? 'ONBOARDING_TA_APPROVED'
+                    : 'ONBOARDING_REJECTED',
             performedBy: req.auth.userId,
-            performerRole: req.auth.role,
-            details: { reason: body.reason.trim(), category: updated.category },
+            performerRole: role,
+            details: { reason: body.reason.trim(), category: updated.category, stage: role },
         });
-        void notifyVendorDecision(vendor.id, vendor.name, body.action === 'APPROVE', body.reason.trim());
+        if (nextStatus === 'TA_APPROVED') {
+            void notifyHrHeadReview(vendor.name, vendor.id);
+        }
+        else {
+            void notifyVendorDecision(vendor.id, vendor.name, nextStatus === 'APPROVED', body.reason.trim());
+        }
         res.json(mapVendorOnboarding(updated, { includeScoring: true, role: req.auth.role }));
     }
     catch (err) {

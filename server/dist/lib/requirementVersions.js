@@ -29,7 +29,14 @@ export async function snapshotMatchingProfiles(requirement, requirementId, candi
         orderBy: { updatedAt: 'desc' },
     });
     const catalog = await getCatalogSkillNames();
-    const ranked = await rankCandidatesForRequirement(candidates, requirement, requirementId, catalog);
+    let ranked = [];
+    try {
+        ranked = await rankCandidatesForRequirement(candidates, requirement, requirementId, catalog);
+    }
+    catch (err) {
+        console.error('snapshotMatchingProfiles: skipped candidate ranking', err);
+        return [];
+    }
     const candidateById = new Map(candidates.map((c) => [c.id, c]));
     return ranked
         .filter((m) => m.alreadyLinked || m.matchScore >= 15)

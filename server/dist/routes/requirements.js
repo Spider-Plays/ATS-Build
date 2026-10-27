@@ -10,7 +10,9 @@ import { generateJobCode } from '../lib/jobCode.js';
 import { parseSkillList, serializeSkills } from '../lib/skills.js';
 import { computeMatchScore, loadCandidateResumeText, rankCandidatesForRequirement, } from '../lib/profileMatching.js';
 import { appendRequirementVersion, parseRequirementVersions, snapshotLinkedCandidates, snapshotMatchingProfiles, } from '../lib/requirementVersions.js';
-import { pickRequirementExtrasForCreate, pickRequirementExtrasPatch, parseOptionalDate, RequirementFieldError, } from '../lib/requirementFields.js';
+import { pickRequirementExtrasForCreate, pickRequirementExtrasPatch, parseOptionalDate, parseCalendarDate, fiscalQuarterLabel, calendarMonthKey, RequirementFieldError, } from '../lib/requirementFields.js';
+import { canEditRequirementRaisedOn, parseFeatureTags } from '../lib/userTags.js';
+import { calendarDaysBetween } from '../lib/reportCommon.js';
 import { buildApprovalRecord, parseRequirementApprovalBody, requireApprovalComments, } from '../lib/requirementApproval.js';
 import { assertCanApproveRequirement, assertCanManageRequirementPosting, assertCanUpdateHiringStage, HIRING_STAGE_EDIT_ROLES, PORTAL_VISIBILITY_ROLES, POSTING_CONTROL_ROLES, REQUIREMENT_ASSIGNMENT_ROLES, } from '../lib/requirementPermissions.js';
 import { parseRequirementClientInput, resolveClientFromCatalog, } from '../lib/clientCatalog.js';
@@ -21,10 +23,20 @@ import { assertCanViewCandidate, buildCandidateListWhere, buildCandidateMatchPoo
 import { buildRequirementTagUpdate } from '../lib/candidateStatuses.js';
 import { notifyCandidateStatusChange, notifyVendorAssignment } from '../lib/emailDispatch.js';
 import { hasOrgWideAccess } from '../lib/orgAccess.js';
-import { getCatalogSkillNames } from '../lib/skillCatalog.js';
+import { getCatalogSkillNames, listSkillCatalog } from '../lib/skillCatalog.js';
 import { extractResumeText } from '../lib/resumeParse.js';
 import { parseJobDescriptionSkills } from '../lib/jdParse.js';
+import { extractSkillsWithGroq } from '../lib/groqJd.js';
+import { formatUpdatedDetails, queueWorkflow, requirementMailValues, sendWorkflowMail } from '../lib/workflowMail.js';
 import { handleUploadResume } from '../middleware/uploadResume.js';
+function istDateKey(date) {
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(date);
+}
 const router = Router();
 router.use(requireAuth, requireActiveUser, requireRoles(...REQUIREMENT_API_ROLES));
 router.get('/', async (req, res) => {
@@ -55,8 +67,13 @@ router.post('/parse-job-description', requireRoles(...STAFF_MUTATE, 'HIRING_MANA
                 error: 'Job description must be at least 20 characters. Paste text or upload a PDF/DOCX.',
             });
         }
-        const catalog = await getCatalogSkillNames();
-        const { primarySkills, secondarySkills } = parseJobDescriptionSkills(text, catalog);
+        // Categories let the parser skip soft skills / spoken languages / domains.
+        const catalog = await listSkillCatalog();
+        const fromGroq = await extractSkillsWithGroq(text).catch((err) => {
+            console.error('Groq skill extract failed:', err);
+            return null;
+        });
+        const { primarySkills, secondarySkills } = fromGroq ?? parseJobDescriptionSkills(text, catalog);
         res.json({
             jobDescription: text.slice(0, 50_000),
             primarySkills,
@@ -225,7 +242,7 @@ router.post('/:id/link-candidate', requireRoles(...STAFF_MUTATE), async (req, re
         incrementVersion: false,
         candidateWhere: candidateScope,
     });
-    await syncRequirementHiringState(requirement.id);
+    await syncRequirementHiringState(requirement.id, { notify: true });
     res.json(mapCandidate(updated, { requirement }));
 });
 router.get('/:id/interview-plan', async (req, res) => {
@@ -453,6 +470,18 @@ router.post('/', requireRoles(...STAFF_MUTATE, 'HIRING_MANAGER'), async (req, re
     let extras;
     try {
         extras = pickRequirementExtrasForCreate(body);
+        const raisedOn = parseOptionalDate(body.raisedOn);
+        if (raisedOn && istDateKey(raisedOn) !== istDateKey(new Date())) {
+            const actor = await prisma.user.findUnique({
+                where: { id: req.auth.userId },
+                select: { role: true, permissions: true },
+            });
+            if (!canEditRequirementRaisedOn(actor?.role, parseFeatureTags(actor?.permissions))) {
+                return res.status(403).json({
+                    error: 'Only a TA Manager or a user with the TA Operation tag can change the date a requirement is raised.',
+                });
+            }
+        }
     }
     catch (e) {
         if (e instanceof RequirementFieldError) {
@@ -526,6 +555,15 @@ router.post('/', requireRoles(...STAFF_MUTATE, 'HIRING_MANAGER'), async (req, re
         performerRole: req.auth.role,
         details: { title: body.title },
     });
+    queueWorkflow((async () => {
+        const packed = await requirementMailValues(row.id);
+        if (!packed)
+            return;
+        await sendWorkflowMail({
+            key: 'requirementRaised',
+            context: { requirementId: row.id, recruiterIds: packed.recruiterIds, values: packed.values },
+        });
+    })());
     res.status(201).json(mapRequirement(row));
 });
 router.patch('/:id', requireRoles(...STAFF_MUTATE, 'HIRING_MANAGER'), async (req, res) => {
@@ -644,6 +682,17 @@ router.patch('/:id', requireRoles(...STAFF_MUTATE, 'HIRING_MANAGER'), async (req
         await syncRequirementHiringState(row.id);
     }
     const refreshed = await prisma.requirement.findUnique({ where: { id: req.params.id } });
+    queueWorkflow((async () => {
+        const packed = await requirementMailValues(row.id, {
+            updatedDetails: formatUpdatedDetails(data, existing),
+        });
+        if (!packed)
+            return;
+        await sendWorkflowMail({
+            key: 'requirementUpdated',
+            context: { requirementId: row.id, recruiterIds: packed.recruiterIds, values: packed.values },
+        });
+    })());
     res.json(mapRequirement(refreshed ?? row));
 });
 const REQUIREMENT_STATUSES = [
@@ -1048,6 +1097,15 @@ router.post('/:id/approve', requireRoles(...REQ_APPROVERS), async (req, res) => 
         performerRole: req.auth.role,
         details: approval.onBehalfOf ? { onBehalfOf: approval.onBehalfOf } : undefined,
     });
+    queueWorkflow((async () => {
+        const packed = await requirementMailValues(row.id);
+        if (!packed)
+            return;
+        await sendWorkflowMail({
+            key: 'requirementApproved',
+            context: { requirementId: row.id, recruiterIds: packed.recruiterIds, values: packed.values },
+        });
+    })());
     res.json(mapRequirement(row));
 });
 router.post('/:id/reject', requireRoles(...REQ_APPROVERS), async (req, res) => {
@@ -1144,6 +1202,19 @@ router.post('/:id/assign-recruiter', requireRoles(...REQUIREMENT_ASSIGNMENT_ROLE
         performedBy: req.auth.userId,
         details: { recruiterId },
     });
+    queueWorkflow((async () => {
+        const packed = await requirementMailValues(row.id, { recruiterName: recruiterUser.name });
+        if (!packed)
+            return;
+        await sendWorkflowMail({
+            key: 'recruiterAssigned',
+            context: {
+                requirementId: row.id,
+                recruiterIds: [recruiterId],
+                values: packed.values,
+            },
+        });
+    })());
     res.json(mapRequirement(row));
 });
 router.post('/:id/assign-recruiter/:recruiterId/accept', requireRoles('RECRUITER'), async (req, res) => {
@@ -1191,6 +1262,20 @@ router.post('/:id/assign-recruiter/:recruiterId/accept', requireRoles('RECRUITER
         performedBy: req.auth.userId,
         details: { recruiterId },
     });
+    queueWorkflow((async () => {
+        const packed = await requirementMailValues(row.id);
+        if (!packed)
+            return;
+        const user = await prisma.user.findUnique({ where: { id: recruiterId }, select: { name: true } });
+        await sendWorkflowMail({
+            key: 'recruiterAccepted',
+            context: {
+                requirementId: row.id,
+                recruiterIds: [recruiterId],
+                values: { ...packed.values, recruiterName: user?.name ?? '' },
+            },
+        });
+    })());
     res.json(mapRequirement(row));
 });
 router.post('/:id/assign-recruiter/:recruiterId/reject', requireRoles('RECRUITER'), async (req, res) => {
@@ -1274,6 +1359,62 @@ router.delete('/:id/assign-recruiter/:recruiterId', requireRoles(...REQUIREMENT_
         action: 'RECRUITER_UNASSIGNED',
         performedBy: req.auth.userId,
         details: { recruiterId, wasPending },
+    });
+    res.json(mapRequirement(row));
+});
+router.post('/:id/repurpose', async (req, res) => {
+    const existing = await prisma.requirement.findUnique({ where: { id: req.params.id } });
+    if (!existing)
+        return res.status(404).json({ error: 'Not found' });
+    if (existing.status === 'CANCELLED' || existing.status === 'CLOSED' || existing.status === 'REJECTED') {
+        return res.status(400).json({ error: 'Closed requirements cannot be repurposed' });
+    }
+    const actor = await prisma.user.findUnique({
+        where: { id: req.auth.userId },
+        select: { role: true, permissions: true, name: true },
+    });
+    if (!canEditRequirementRaisedOn(actor?.role, parseFeatureTags(actor?.permissions))) {
+        return res.status(403).json({
+            error: 'Only a TA Manager or a user with the TA Operation tag can repurpose a requirement.',
+        });
+    }
+    const raisedOn = parseCalendarDate(req.body?.raisedOn);
+    const targetStartDate = parseCalendarDate(req.body?.targetStartDate);
+    if (!raisedOn) {
+        return res.status(400).json({ error: 'Requirement raised date is required' });
+    }
+    if (!targetStartDate) {
+        return res.status(400).json({ error: 'Project start date is required' });
+    }
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    if (reason.length < 3) {
+        return res.status(400).json({ error: 'A repurpose reason is required' });
+    }
+    const now = new Date();
+    const agingDays = Math.max(0, calendarDaysBetween(raisedOn, now));
+    const row = await prisma.requirement.update({
+        where: { id: existing.id },
+        data: {
+            raisedOn,
+            targetStartDate,
+            quarter: fiscalQuarterLabel(raisedOn),
+            reqMonth: calendarMonthKey(raisedOn),
+            agingDays,
+            updatedAt: now,
+        },
+    });
+    await logActivity({
+        entityType: 'REQUIREMENT',
+        entityId: row.id,
+        action: 'REPURPOSED',
+        performedBy: req.auth.userId,
+        performerName: actor?.name,
+        performerRole: actor?.role ?? req.auth.role,
+        details: {
+            raisedOn: raisedOn.toISOString(),
+            targetStartDate: targetStartDate.toISOString(),
+            reason,
+        },
     });
     res.json(mapRequirement(row));
 });

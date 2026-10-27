@@ -5,11 +5,11 @@
  */
 import '../../config/loadEnv.js';
 import { prisma } from '../../lib/prisma.js';
-import { databaseUrlHost } from '../../config/databaseEnv.js';
+import { databaseHostLabel } from '../../config/loadEnv.js';
 import { assertSafeClearTarget, targetDbLabel } from './safety.js';
 export async function run(_argv = []) {
     assertSafeClearTarget();
-    console.log(`Clearing entire database on ${databaseUrlHost(process.env.DATABASE_URL) ?? targetDbLabel()}…`);
+    console.log(`Clearing entire database on ${databaseHostLabel() ?? targetDbLabel()}…`);
     await prisma.$transaction([
         prisma.activityLog.deleteMany(),
         prisma.feedback.deleteMany(),

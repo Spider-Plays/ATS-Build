@@ -43,4 +43,38 @@ export async function ensureVendorOnboardingTable() {
       END IF;
     END $$;
   `);
+    // Existing databases were created before the TA Manager → HR Head review step.
+    for (const statement of [
+        `ALTER TABLE "VendorOnboarding" ADD COLUMN IF NOT EXISTS "taReviewAction" TEXT`,
+        `ALTER TABLE "VendorOnboarding" ADD COLUMN IF NOT EXISTS "taReviewReason" TEXT`,
+        `ALTER TABLE "VendorOnboarding" ADD COLUMN IF NOT EXISTS "taReviewedBy" TEXT`,
+        `ALTER TABLE "VendorOnboarding" ADD COLUMN IF NOT EXISTS "taReviewedByName" TEXT`,
+        `ALTER TABLE "VendorOnboarding" ADD COLUMN IF NOT EXISTS "taReviewedAt" TIMESTAMP(3)`,
+    ]) {
+        await prisma.$executeRawUnsafe(statement);
+    }
+    await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "VendorCreationRequest" (
+      "id" TEXT NOT NULL,
+      "name" TEXT NOT NULL,
+      "email" TEXT NOT NULL,
+      "contactName" TEXT NOT NULL,
+      "phone" TEXT,
+      "notes" TEXT,
+      "status" TEXT NOT NULL DEFAULT 'PENDING_TA',
+      "requestedBy" TEXT NOT NULL,
+      "requestedByName" TEXT,
+      "taReviewReason" TEXT,
+      "taReviewedBy" TEXT,
+      "taReviewedByName" TEXT,
+      "taReviewedAt" TIMESTAMP(3),
+      "vendorId" TEXT,
+      "fulfilledBy" TEXT,
+      "fulfilledAt" TIMESTAMP(3),
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "VendorCreationRequest_pkey" PRIMARY KEY ("id")
+    )
+  `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "VendorCreationRequest_status_idx" ON "VendorCreationRequest"("status")`);
 }

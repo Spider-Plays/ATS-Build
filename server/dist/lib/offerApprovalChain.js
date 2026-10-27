@@ -2,7 +2,7 @@ export const OFFER_APPROVER_ELIGIBLE_ROLES = [
     'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
 ];
 export function createDefaultApprovalChain() {
     return {

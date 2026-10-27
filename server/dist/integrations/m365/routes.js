@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { env } from '../../config/env.js';
+import { sendHtmlEmail } from '../../services/email.js';
 import { requireIntegrationApiKey } from './auth.js';
-import { getM365ConfigStatus, getM365SetupGuide, sendM365HtmlEmail, testM365Connection, } from './client.js';
+import { getM365ConfigStatus, getM365SetupGuide, testM365Connection, } from './client.js';
 const router = Router();
 router.use(requireIntegrationApiKey);
 router.get('/setup-guide', (_req, res) => {
@@ -34,7 +35,9 @@ router.post('/test-email', async (req, res) => {
         return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
     }
     const subject = parsed.data.subject ?? `${env.appName} — Microsoft 365 test email`;
-    const result = await sendM365HtmlEmail({
+    const result = await sendHtmlEmail({
+        kind: 'm365Test',
+        vars: { appName: env.appName },
         to: parsed.data.to,
         subject,
         html: `
@@ -46,10 +49,14 @@ router.post('/test-email', async (req, res) => {
     `,
     });
     if (!result.sent) {
-        const status = result.reason === 'not_configured' ? 503 : 400;
+        const status = result.reason === 'not_configured' ? 503 : result.reason === 'disabled' ? 403 : 400;
         return res.status(status).json({
             ok: false,
-            error: result.reason === 'error' ? result.message : 'Microsoft 365 email is not configured',
+            error: result.reason === 'disabled'
+                ? 'Microsoft 365 test email is turned off in Email delivery'
+                : result.reason === 'error'
+                    ? result.message
+                    : 'Microsoft 365 email is not configured',
         });
     }
     res.json({ ok: true, messageId: result.id, to: parsed.data.to });

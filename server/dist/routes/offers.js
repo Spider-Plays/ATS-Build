@@ -1,3 +1,5 @@
+import { expensiveRateLimiter } from '../middleware/rateLimit.js';
+import { applyDocumentCsp } from '../lib/authResponse.js';
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { syncRequirementHiringState } from '../lib/hiring.js';
@@ -25,7 +27,7 @@ import { ensureCandidatePortalAccount } from '../lib/candidatePortalAccount.js';
 import { logTemporaryPassword } from '../lib/devPasswordLog.js';
 const router = Router();
 router.use(requireAuth, requireActiveUser, requireRoles(...INTERNAL_ROLES));
-const requireOfferViewer = requireRoles(...OFFER_VIEW_ROLES);
+const requireOfferViewer = requireRoles(...OFFER_VIEW_ROLES, 'HUMAN_RESOURCE');
 router.get('/pending', requireOfferViewer, async (req, res) => {
     const step = req.query.step;
     const listWhere = await buildOfferListWhere(req.auth);
@@ -88,6 +90,7 @@ router.get('/:id/letter', requireOfferViewer, async (req, res) => {
         if (!ctx)
             return res.status(404).json({ error: 'Not found' });
         await assertCanViewOffer(req.auth, ctx.offer.id);
+        applyDocumentCsp(res);
         res.type('html').send(ctx.letterHtml);
     }
     catch (err) {
@@ -98,7 +101,7 @@ router.get('/:id/letter', requireOfferViewer, async (req, res) => {
         return res.status(500).json({ error: 'Failed to render offer letter preview' });
     }
 });
-router.get('/:id/letter/pdf', requireOfferViewer, async (req, res) => {
+router.get('/:id/letter/pdf', requireOfferViewer, expensiveRateLimiter, async (req, res) => {
     try {
         const ctx = await loadOfferLetterContext(req.params.id);
         if (!ctx)
@@ -680,7 +683,7 @@ router.post('/:id/send', requireRoles(...OFFER_ROLES), async (req, res) => {
     });
     const origin = env.clientOrigin.replace(/\/$/, '');
     const portalOfferPath = `/candidate/offers/${row.id}`;
-    const portalLoginUrl = `${origin}/candidate/login?returnTo=${encodeURIComponent(portalOfferPath)}`;
+    const portalLoginUrl = `${origin}/login?returnTo=${encodeURIComponent(portalOfferPath)}`;
     const emailResult = await sendOfferSentEmail({
         to: candidate.email,
         candidateName: candidate.name,
@@ -719,7 +722,7 @@ router.post('/:id/send', requireRoles(...OFFER_ROLES), async (req, res) => {
         });
     }
     if (row.requirementId)
-        await syncRequirementHiringState(row.requirementId);
+        await syncRequirementHiringState(row.requirementId, { notify: true });
     res.json(mapOffer(row));
 });
 router.post('/:id/withdraw', requireRoles(...OFFER_ROLES), async (req, res) => {
@@ -866,7 +869,7 @@ router.post('/:id/accept', requireRoles(...OFFER_ROLES), async (req, res) => {
         });
     }
     if (row.requirementId)
-        await syncRequirementHiringState(row.requirementId);
+        await syncRequirementHiringState(row.requirementId, { notify: true });
     res.json(mapOffer(row));
 });
 router.post('/:id/decline', requireRoles(...OFFER_ROLES), async (req, res) => {

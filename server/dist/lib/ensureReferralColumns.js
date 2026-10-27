@@ -10,6 +10,17 @@ export async function ensureReferralColumns() {
         'ALTER TABLE "Candidate" ADD COLUMN IF NOT EXISTS "referredByUserId" TEXT',
         'ALTER TABLE "Candidate" ADD COLUMN IF NOT EXISTS "referralRelationship" TEXT',
         'ALTER TABLE "Candidate" ADD COLUMN IF NOT EXISTS "referralNotes" TEXT',
+        'ALTER TABLE "Candidate" ADD COLUMN IF NOT EXISTS "referralStage" TEXT',
+        'ALTER TABLE "Candidate" ADD COLUMN IF NOT EXISTS "referralAssignedToUserId" TEXT',
+        'ALTER TABLE "Candidate" ADD COLUMN IF NOT EXISTS "referralAssignedAt" TIMESTAMP(3)',
+        'ALTER TABLE "Candidate" ADD COLUMN IF NOT EXISTS "referralRejectionReason" TEXT',
+        'ALTER TABLE "Candidate" ADD COLUMN IF NOT EXISTS "referralReviewedAt" TIMESTAMP(3)',
+        'ALTER TABLE "Candidate" ADD COLUMN IF NOT EXISTS "referralBonusStatus" TEXT',
+        'ALTER TABLE "Candidate" ADD COLUMN IF NOT EXISTS "referralBonusAmount" INTEGER',
+        'ALTER TABLE "Candidate" ADD COLUMN IF NOT EXISTS "referralBonusEligibleOn" TIMESTAMP(3)',
+        'ALTER TABLE "Candidate" ADD COLUMN IF NOT EXISTS "referralBonusDecidedBy" TEXT',
+        'ALTER TABLE "Candidate" ADD COLUMN IF NOT EXISTS "referralBonusDecidedAt" TIMESTAMP(3)',
+        'ALTER TABLE "Candidate" ADD COLUMN IF NOT EXISTS "referralBonusNote" TEXT',
     ];
     for (const sql of statements) {
         await prisma.$executeRawUnsafe(sql);

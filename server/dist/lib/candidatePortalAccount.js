@@ -1,3 +1,4 @@
+import { BCRYPT_ROUNDS } from './passwordPolicy.js';
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma.js';
 const MIN_PORTAL_PASSWORD_LENGTH = 8;
@@ -23,7 +24,7 @@ export async function ensureCandidatePortalAccount(candidate) {
         };
     }
     const existing = await prisma.user.findUnique({ where: { email } });
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const phoneDigits = candidate.phone?.trim() || password;
     if (existing) {
         if (existing.role !== 'CANDIDATE') {

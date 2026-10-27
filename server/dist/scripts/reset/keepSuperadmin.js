@@ -9,7 +9,7 @@ import { prisma } from '../../lib/prisma.js';
 import { requireEnvConfirm, targetDbLabel } from './safety.js';
 export async function run(_argv = []) {
     requireEnvConfirm('CONFIRM_PRODUCTION_RESET');
-    const keepEmail = (process.env.KEEP_SUPER_ADMIN_EMAIL?.trim().toLowerCase() || 'superadmin@stitch-ats.in');
+    const keepEmail = (process.env.KEEP_SUPER_ADMIN_EMAIL?.trim().toLowerCase() || 'superadmin@ats.igsglobal.co');
     const keepUser = (await prisma.user.findFirst({
         where: { email: keepEmail, role: 'SUPER_ADMIN' },
     })) ??

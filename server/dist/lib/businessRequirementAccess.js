@@ -9,7 +9,7 @@ export const BUSINESS_MUTATE_ROLES = [
 export const BUSINESS_VIEW_ROLES = [
     ...BUSINESS_MUTATE_ROLES,
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
 ];
 export class BusinessRequirementAccessError extends Error {
     constructor(message) {
@@ -28,7 +28,7 @@ export function canMutateBusinessRequirement(auth, row) {
         row.hiringManager === auth.userId);
 }
 export function canViewBusinessRequirement(auth, row) {
-    if (hasOrgWideAccess(auth.role) && (auth.role === 'HR_HEAD' || auth.role === 'HR_MANAGER')) {
+    if (hasOrgWideAccess(auth.role) && (auth.role === 'HR_HEAD' || auth.role === 'TA_MANAGER')) {
         return true;
     }
     if (isAdminRole(auth.role))
@@ -36,7 +36,7 @@ export function canViewBusinessRequirement(auth, row) {
     if (!BUSINESS_VIEW_ROLES.includes(auth.role)) {
         return false;
     }
-    if (auth.role === 'HR_HEAD' || auth.role === 'HR_MANAGER')
+    if (auth.role === 'HR_HEAD' || auth.role === 'TA_MANAGER')
         return true;
     return canMutateBusinessRequirement(auth, row);
 }
@@ -96,7 +96,7 @@ export function isBusinessTeamRole(role) {
         role === 'HIRING_MANAGER');
 }
 export function isHrPreviewRole(role) {
-    return role === 'HR_HEAD' || role === 'HR_MANAGER';
+    return role === 'HR_HEAD' || role === 'TA_MANAGER';
 }
 /** Business requirements where the user is account or hiring manager. */
 export async function businessRequirementIdsForStakeholder(userId) {

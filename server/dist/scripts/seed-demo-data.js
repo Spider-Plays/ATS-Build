@@ -748,11 +748,11 @@ async function ensureUpcomingInterviews(interviewerIds, target = 5) {
 async function seedDemoChangeRequests(userByEmail) {
     await ensureChangeRequestTable();
     const hr = (await prisma.user.findFirst({
-        where: { email: devUserEmail('HR_MANAGER') },
+        where: { email: devUserEmail('TA_MANAGER') },
         select: { id: true, name: true, role: true },
     })) ??
         (await prisma.user.findFirst({
-            where: { role: 'HR_MANAGER' },
+            where: { role: 'TA_MANAGER' },
             select: { id: true, name: true, role: true },
         }));
     const admin = (await prisma.user.findFirst({
@@ -1079,14 +1079,14 @@ async function linkDemoReferrals(candidateSeeds, userByEmail) {
     return linked;
 }
 async function seedDemoActivityTour(userByEmail, recruiterId) {
-    const actor = userByEmail.get(devUserEmail('HR_MANAGER')) ??
+    const actor = userByEmail.get(devUserEmail('TA_MANAGER')) ??
         userByEmail.get(devUserEmail('ADMIN')) ??
         recruiterId;
     const actorUser = await prisma.user.findUnique({ where: { id: actor } });
     const performerName = actorUser?.name ?? 'Demo Admin';
     const performerRole = actorUser?.role ?? 'ADMIN';
     const sampleCandidate = await prisma.candidate.findFirst({
-        where: { email: { endsWith: '@stitch-ats.in' }, requirementId: { not: null } },
+        where: { email: { endsWith: '@ats.igsglobal.co' }, requirementId: { not: null } },
         orderBy: { updatedAt: 'desc' },
     });
     const sampleReq = await prisma.requirement.findFirst({
@@ -1524,7 +1524,6 @@ async function main() {
     if (FRESH && !FORCE) {
         const host = process.env.DATABASE_URL ?? '';
         const looksProduction = host.includes('weathered-math') ||
-            process.env.RENDER === 'true' ||
             process.env.NODE_ENV === 'production';
         if (looksProduction) {
             console.error('Refusing --fresh wipe on a production database.\n' +
@@ -1555,7 +1554,7 @@ async function main() {
         update: {
             name: DEMO_VENDOR_NAME,
             status: 'ACTIVE',
-            email: 'staffing@stitch-ats.in',
+            email: 'staffing@ats.igsglobal.co',
             contactName: 'Raghavendra Murthy',
             phone: '+91 80 4123 8900',
             website: 'https://talentbridge.example.com',
@@ -1565,7 +1564,7 @@ async function main() {
         create: {
             name: DEMO_VENDOR_NAME,
             code: DEMO_VENDOR_CODE,
-            email: 'staffing@stitch-ats.in',
+            email: 'staffing@ats.igsglobal.co',
             status: 'ACTIVE',
             contactName: 'Raghavendra Murthy',
             phone: '+91 80 4123 8900',
@@ -1652,7 +1651,7 @@ async function main() {
         await upsertDemoVendorOnboarding(row.id, v.name, v.email, v.contactName, onboardingStatus);
     }
     // Primary demo vendor is fully approved for portal walkthroughs.
-    await upsertDemoVendorOnboarding(vendor.id, DEMO_VENDOR_NAME, 'staffing@stitch-ats.in', 'Raghavendra Murthy', 'APPROVED');
+    await upsertDemoVendorOnboarding(vendor.id, DEMO_VENDOR_NAME, 'staffing@ats.igsglobal.co', 'Raghavendra Murthy', 'APPROVED');
     const userByEmail = new Map();
     for (const u of DEV_USERS) {
         const row = await upsertUser({
@@ -2018,15 +2017,15 @@ async function main() {
         preferredEmailsByOrder: {
             0: [
                 devUserEmail('INTERVIEWER'),
-                'nisha.kamath@stitch-ats.in',
-                'pradeep.naidu@stitch-ats.in',
+                'nisha.kamath@ats.igsglobal.co',
+                'pradeep.naidu@ats.igsglobal.co',
             ],
             1: [
                 devUserEmail('HIRING_MANAGER'),
-                'preeti.gowda@stitch-ats.in',
-                'harish.kulkarni@stitch-ats.in',
+                'preeti.gowda@ats.igsglobal.co',
+                'harish.kulkarni@ats.igsglobal.co',
             ],
-            2: [devUserEmail('HR_MANAGER'), 'gautam.mehta@stitch-ats.in', 'shalini.verma@stitch-ats.in'],
+            2: [devUserEmail('TA_MANAGER'), 'gautam.mehta@ats.igsglobal.co', 'shalini.verma@ats.igsglobal.co'],
         },
     });
     console.log(`Interview panels: ${panels.map((p) => `${p.name}=${p.interviewerIds.length}`).join(', ')}`);

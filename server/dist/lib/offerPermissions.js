@@ -20,7 +20,7 @@ export function assertCanApproveOfferHr(auth, offer, options = {}) {
     if (offer.status !== 'PENDING_HR_APPROVAL') {
         throw new Error('Offer is not pending HR approval');
     }
-    if (auth.role === 'SUPER_ADMIN')
+    if (auth.role === 'SUPER_ADMIN' || auth.role === 'DEVELOPER')
         return;
     if (offer.createdBy === auth.userId) {
         throw new Error('You cannot approve an offer you created');
@@ -39,7 +39,7 @@ export function assertCanApproveOfferExec(auth, offer, options = {}) {
     if (offer.status !== 'PENDING_EXEC_APPROVAL') {
         throw new Error('Offer is not pending executive approval');
     }
-    if (auth.role === 'SUPER_ADMIN')
+    if (auth.role === 'SUPER_ADMIN' || auth.role === 'DEVELOPER')
         return;
     if (offer.createdBy === auth.userId) {
         throw new Error('You cannot approve an offer you created');
@@ -77,7 +77,7 @@ export function assertCanApproveOfferStage(auth, offer) {
     if (!usesApprovalChain(offer)) {
         throw new Error('This offer does not use a custom approval chain');
     }
-    if (auth.role === 'SUPER_ADMIN')
+    if (auth.role === 'SUPER_ADMIN' || auth.role === 'DEVELOPER')
         return;
     if (!canUserApproveCurrentStage(auth, offer)) {
         const stage = getCurrentStage(offer);

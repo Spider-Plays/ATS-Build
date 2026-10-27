@@ -42,7 +42,7 @@ async function resolveHiringManagerRecipients(hiringManager) {
     return byName;
 }
 /**
- * HR Managers (role), assigned recruiters, and the named hiring manager
+ * TA Managers (role), assigned recruiters, and the named hiring manager
  * for requirement SLA ageing alerts (20 / 40 days).
  */
 export async function getRequirementAgingAlertRecipients(requirement) {
@@ -55,7 +55,7 @@ export async function getRequirementAgingAlertRecipients(requirement) {
         recruiterIds = [];
     }
     const [hrManagers, recruiters, hiringManagers] = await Promise.all([
-        getUserEmailsByRoles(['HR_MANAGER']),
+        getUserEmailsByRoles(['TA_MANAGER']),
         getUserEmailsByIds(recruiterIds),
         resolveHiringManagerRecipients(requirement.hiringManager),
     ]);
@@ -88,6 +88,44 @@ export async function getVendorUserEmails(vendorId) {
     });
     return users;
 }
+/** Role and tag chips. Vendor is only the portal users of the vendor this email is about. */
+export async function emailsForRoleSlots(slots, vendorId) {
+    const wanted = new Set(slots);
+    const emails = [];
+    if (wanted.has('vendor') && vendorId) {
+        const portalUsers = await prisma.user.findMany({
+            where: { role: 'VENDOR', status: 'ACTIVE', vendorId },
+            select: { email: true },
+        });
+        emails.push(...portalUsers.map((user) => user.email));
+    }
+    if (wanted.has('hr_head'))
+        emails.push(...(await getUserEmailsByRoles(['HR_HEAD'])).map((user) => user.email));
+    if (wanted.has('ta_manager'))
+        emails.push(...(await getUserEmailsByRoles(['TA_MANAGER'])).map((user) => user.email));
+    if (wanted.has('ta_operation') || wanted.has('referral_team')) {
+        const users = await prisma.user.findMany({
+            where: { status: 'ACTIVE' },
+            select: { email: true, permissions: true },
+        });
+        for (const user of users) {
+            let tags = [];
+            try {
+                tags = JSON.parse(user.permissions || '[]');
+            }
+            catch {
+                tags = [];
+            }
+            if (!Array.isArray(tags))
+                continue;
+            if (wanted.has('ta_operation') && tags.includes('ta_operation'))
+                emails.push(user.email);
+            if (wanted.has('referral_team') && tags.includes('employee_referral'))
+                emails.push(user.email);
+        }
+    }
+    return emails;
+}
 export async function getUserEmailsByRoles(roles) {
     const users = await prisma.user.findMany({
         where: { role: { in: roles }, status: 'ACTIVE' },
@@ -100,7 +138,7 @@ export async function getBusinessRequirementStageNotificationRecipients(business
     return getBusinessRequirementNotificationRecipients(businessReq, [
         'SUPER_ADMIN',
         'ADMIN',
-        'HR_MANAGER',
+        'TA_MANAGER',
         'HR_HEAD',
     ]);
 }
@@ -109,7 +147,7 @@ export async function getLinkedRequirementCreatedNotificationRecipients(business
     return getBusinessRequirementNotificationRecipients(businessReq, [
         'SUPER_ADMIN',
         'ADMIN',
-        'HR_MANAGER',
+        'TA_MANAGER',
         'HR_HEAD',
     ]);
 }

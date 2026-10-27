@@ -11,18 +11,20 @@ function parseHiringGroupBy(value) {
     if (value === 'department' || value === 'hiringManager' || value === 'accountManager') {
         return value;
     }
-    return 'client';
+    return 'project';
 }
 function parseReferralGroupBy(value) {
-    if (value === 'department' || value === 'client')
+    if (value === 'department')
         return value;
+    if (value === 'project' || value === 'client')
+        return 'project';
     return 'referrer';
 }
 function parseVendorGroupBy(value) {
-    return value === 'client' ? 'client' : 'vendor';
+    return value === 'project' || value === 'client' ? 'project' : 'vendor';
 }
 router.get('/ta', requireRoles(...TA_REPORT_ROLES), async (req, res) => {
-    const groupBy = req.query.groupBy === 'recruiter' ? 'recruiter' : 'client';
+    const groupBy = req.query.groupBy === 'recruiter' ? 'recruiter' : 'project';
     const preset = normalizePreset(req.query.preset);
     const { from, to } = resolveDateRange(preset, req.query.from, req.query.to);
     const ranges = parseReportDayRanges(req.query.ranges);
@@ -52,7 +54,8 @@ router.get('/hiring', requireRoles(...HIRING_REPORT_ROLES), async (req, res) => 
         const groupBy = parseHiringGroupBy(req.query.groupBy);
         const preset = normalizePreset(req.query.preset);
         const { from, to } = resolveDateRange(preset, req.query.from, req.query.to);
-        const report = await buildHiringReport({ groupBy, from, to });
+        const statuses = parseRequirementStatuses(req.query.status);
+        const report = await buildHiringReport({ groupBy, from, to, statuses });
         res.json({
             groupBy,
             preset,
@@ -72,7 +75,8 @@ router.get('/referrals', requireRoles(...CHANNEL_REPORT_ROLES), async (req, res)
         const groupBy = parseReferralGroupBy(req.query.groupBy);
         const preset = normalizePreset(req.query.preset);
         const { from, to } = resolveDateRange(preset, req.query.from, req.query.to);
-        const report = await buildReferralReport({ groupBy, from, to });
+        const statuses = parseRequirementStatuses(req.query.status);
+        const report = await buildReferralReport({ groupBy, from, to, statuses });
         res.json({
             groupBy,
             preset,
@@ -92,7 +96,8 @@ router.get('/vendors', requireRoles(...CHANNEL_REPORT_ROLES), async (req, res) =
         const groupBy = parseVendorGroupBy(req.query.groupBy);
         const preset = normalizePreset(req.query.preset);
         const { from, to } = resolveDateRange(preset, req.query.from, req.query.to);
-        const report = await buildVendorReport({ groupBy, from, to });
+        const statuses = parseRequirementStatuses(req.query.status);
+        const report = await buildVendorReport({ groupBy, from, to, statuses });
         res.json({
             groupBy,
             preset,

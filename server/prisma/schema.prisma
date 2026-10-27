@@ -26,18 +26,61 @@ model User {
   authProvider    String   @default("local")
   /// Google OAuth subject (`sub`) when signed in with Google.
   googleId        String?  @unique
+  /// Microsoft Entra object ID (`oid`) when signed in with Microsoft.
+  microsoftId     String?  @unique
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   lastLogin            DateTime?
   mustChangePassword   Boolean  @default(false)
+  /// Set for admin-created accounts until phone and designation are saved.
+  mustCompleteProfile  Boolean  @default(false)
   passwordResetToken   String?
   passwordResetExpires DateTime?
+  /// Consecutive wrong-password sign-ins; reset on success or admin unlock.
+  failedLoginAttempts  Int      @default(0)
+  /// Set after 5 consecutive failures; only Super Admin / Developer can clear it.
+  lockedAt             DateTime?
   /// Incremented on password change / disable to invalidate access JWTs.
   tokenVersion         Int      @default(0)
   vendorId             String?
   referralCode         String?  @unique
   loginHistory         LoginHistory[]
   refreshTokens        RefreshToken[]
+  /// TOTP multi-factor auth. Secrets are AES-256-GCM encrypted (see server/src/lib/mfa.ts).
+  mfaEnabled           Boolean  @default(false)
+  mfaSecretEnc         String?
+  /// Secret generated during enrolment; promoted to mfaSecretEnc once the first code is confirmed.
+  mfaPendingSecretEnc  String?
+  mfaEnrolledAt        DateTime?
+  /// Last accepted TOTP time step; codes at or before it are rejected (replay protection).
+  mfaLastStep          Int?
+  /// Wrong second-factor codes; separate from failedLoginAttempts so a correct password cannot reset it.
+  mfaFailedAttempts    Int      @default(0)
+  mfaBackupCodes       MfaBackupCode[]
+  trustedDevices       TrustedDevice[]
+}
+
+model MfaBackupCode {
+  id       String    @id @default(cuid())
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash String
+  usedAt   DateTime?
+
+  @@index([userId])
+}
+
+/// "Remember this device" for 15 days: the browser keeps a random token, only its hash is stored.
+model TrustedDevice {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model RefreshToken {
@@ -57,12 +100,15 @@ model RefreshToken {
 }
 
 model LoginHistory {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  loggedInAt DateTime @default(now())
-  ipAddress  String?
-  userAgent  String?
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loggedInAt   DateTime  @default(now())
+  loggedOutAt  DateTime?
+  /// signed_out | tab_closed | unexpected
+  logoutReason String?
+  ipAddress    String?
+  userAgent    String?
 
   @@index([userId, loggedInAt])
 }
@@ -88,7 +134,7 @@ model VendorOnboarding {
   id        String @id @default(cuid())
   vendorId  String @unique
   vendor    Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  /// NOT_STARTED | ONBOARDING | EVALUATION | SUBMITTED | APPROVED | REJECTED
+  /// NOT_STARTED | ONBOARDING | EVALUATION | SUBMITTED | TA_APPROVED | APPROVED | REJECTED
   status    String @default("NOT_STARTED")
 
   onboardingJson        String    @default("{}")
@@ -114,6 +160,42 @@ model VendorOnboarding {
   decidedByName            String?
   decidedByRole            String?
   decidedAt                DateTime?
+
+  /// TA Manager step before HR Head. APPROVE | REJECT
+  taReviewAction   String?
+  taReviewReason   String?
+  taReviewedBy     String?
+  taReviewedByName String?
+  taReviewedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+/// TA Operation asks for a new vendor. TA Manager approves, then Super Admin or Developer creates it.
+model VendorCreationRequest {
+  id          String  @id @default(cuid())
+  name        String
+  email       String
+  contactName String
+  phone       String?
+  notes       String?
+  /// PENDING_TA | REJECTED | READY | FULFILLED
+  status      String  @default("PENDING_TA")
+
+  requestedBy     String
+  requestedByName String?
+
+  taReviewReason   String?
+  taReviewedBy     String?
+  taReviewedByName String?
+  taReviewedAt     DateTime?
+
+  vendorId    String?
+  fulfilledBy String?
+  fulfilledAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -199,6 +281,8 @@ model Requirement {
   accountManager  String?
   status          String
   hiringStage     String   @default("SOURCING")
+  /** Child tracker label from the MRF, e.g. L1 Interview, Client Interview. */
+  trackerStatus   String?
   liveAt          DateTime?
   onHoldAt        DateTime?
   openings        Int
@@ -234,6 +318,8 @@ model Requirement {
   salaryBand        String?
   targetStartDate   DateTime?
   hiringDeadline    DateTime?
+  /** Business date the requirement was raised. Aging restarts from this when set. */
+  raisedOn          DateTime?
   description     String?
   jobDescription  String?
   primarySkills   String   @default("[]")
@@ -307,6 +393,19 @@ model Candidate {
   referredByUserId      String?
   referralRelationship  String?
   referralNotes         String?
+  /// Employee referral review gate: PENDING_REVIEW, ASSIGNED, REJECTED, BANKED, ACCEPTED, EXPIRED (null = not gated).
+  referralStage            String?
+  referralAssignedToUserId String?
+  referralAssignedAt       DateTime?
+  referralRejectionReason  String?
+  referralReviewedAt       DateTime?
+  /// Referral bonus after joining: PENDING, GRANTED, PAID, CANCELLED.
+  referralBonusStatus      String?
+  referralBonusAmount      Int?
+  referralBonusEligibleOn  DateTime?
+  referralBonusDecidedBy   String?
+  referralBonusDecidedAt   DateTime?
+  referralBonusNote        String?
   partnerName           String?
   hireCategory          String?
   quarter               String?
@@ -503,7 +602,7 @@ model ChangeRequest {
   module            String
   page              String?
   description       String
-  status            String    @default("PENDING_HR")
+  status            String    @default("PENDING_ADMIN")
   requestedBy       String
   requestedByName   String
   requestedByRole   String

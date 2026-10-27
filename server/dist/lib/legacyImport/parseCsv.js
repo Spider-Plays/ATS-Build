@@ -282,6 +282,27 @@ const EXT_BY_MIME_LOOKUP = {
 };
 const RESUME_DIR_NAMES = ['Resume_Repository', 'Resumes', 'resumes', 'resume'];
 let resumeIndexCache = null;
+let extraResumeSearchDirs = [];
+/** Extra absolute folders to walk for `{RESUME ID}.*` (e.g. Downloads\\Resume_Repository (1)). */
+export function setResumeSearchDirs(dirs) {
+    extraResumeSearchDirs = [
+        ...new Set(dirs
+            .filter(Boolean)
+            .map((d) => path.resolve(d))
+            .filter((d) => fs.existsSync(d))),
+    ];
+    resumeIndexCache = null;
+}
+export function getResumeSearchDirs() {
+    return [...extraResumeSearchDirs];
+}
+const RESUME_FILE_EXTS = new Set(['.pdf', '.docx', '.doc', '.rtf', '.odt']);
+function isResumeFile(filePath) {
+    const base = path.basename(filePath);
+    if (/_error\.txt$/i.test(base) || /^___?all_errors/i.test(base))
+        return false;
+    return RESUME_FILE_EXTS.has(path.extname(base).toLowerCase());
+}
 function walkFiles(dir, out = []) {
     let entries;
     try {
@@ -292,10 +313,15 @@ function walkFiles(dir, out = []) {
     }
     for (const ent of entries) {
         const full = path.join(dir, ent.name);
-        if (ent.isDirectory())
+        // SharePoint export dumps failed downloads under __Resume_Repository as *.pdf_Error.txt
+        if (ent.isDirectory()) {
+            if (/^_+/.test(ent.name))
+                continue;
             walkFiles(full, out);
-        else if (ent.isFile())
+        }
+        else if (ent.isFile() && isResumeFile(full)) {
             out.push(full);
+        }
     }
     return out;
 }
@@ -313,7 +339,7 @@ function toResumeMatch(filePath) {
 /** Prefer PDF, then DOCX/DOC, then anything else; shorter names win ties. */
 function rankResumePath(filePath) {
     const ext = path.extname(filePath).toLowerCase();
-    const extRank = ext === '.pdf' ? 0 : ext === '.docx' ? 1 : ext === '.doc' ? 2 : 3;
+    const extRank = ext === '.pdf' ? 0 : ext === '.docx' ? 1 : ext === '.doc' ? 2 : ext === '.rtf' ? 3 : 4;
     return extRank * 10_000 + path.basename(filePath).length;
 }
 function normalizeNameToken(raw) {
@@ -352,22 +378,29 @@ function buildResumeIndex(dataDir) {
     const byResumeId = new Map();
     const push = (map, key, filePath) => {
         const list = map.get(key);
-        if (list)
-            list.push(filePath);
-        else
-            map.set(key, [filePath]);
+        if (list) {
+            if (!list.includes(filePath))
+                list.push(filePath);
+            return;
+        }
+        map.set(key, [filePath]);
     };
-    for (const name of RESUME_DIR_NAMES) {
-        const resumeDir = path.join(dataDir, name);
+    const indexDir = (resumeDir) => {
         if (!fs.existsSync(resumeDir))
-            continue;
+            return;
         for (const filePath of walkFiles(resumeDir)) {
             const stem = path.parse(filePath).name;
             push(byExactStem, stem.toLowerCase(), filePath);
-            const m = stem.match(/^(\d+)(?:$|[_\-\s])/);
+            const m = stem.match(/^(\d+)/);
             if (m)
                 push(byResumeId, m[1], filePath);
         }
+    };
+    for (const name of RESUME_DIR_NAMES) {
+        indexDir(path.join(dataDir, name));
+    }
+    for (const extra of extraResumeSearchDirs) {
+        indexDir(extra);
     }
     return { dataDir, byExactStem, byResumeId };
 }
@@ -433,7 +466,7 @@ export function buildImportStats(rows, dataDir) {
             titles.add(title);
         if (resumeId) {
             resumeIds.add(resumeId);
-            if (row['Resume Attach'] === 'Yes' && !findResumeFile(dataDir, resumeId)) {
+            if (resumeId && !findResumeFile(dataDir, resumeId)) {
                 missingResumeFiles.push(resumeId);
             }
         }

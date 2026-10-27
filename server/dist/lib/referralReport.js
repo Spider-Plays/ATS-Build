@@ -66,6 +66,9 @@ function finalizeNames(buckets) {
 export async function buildReferralReport(opts) {
     const { groupBy, from, to } = opts;
     const inRange = (d) => inDateRange(d, from, to);
+    const statuses = opts.statuses ?? [];
+    const statusFilterActive = statuses.length > 0;
+    const statusWhere = statusFilterActive ? { status: { in: statuses } } : undefined;
     const [candidates, requirements, interviews, offers, users] = await Promise.all([
         prisma.candidate.findMany({
             where: { referredByUserId: { not: null } },
@@ -83,9 +86,11 @@ export async function buildReferralReport(opts) {
             },
         }),
         prisma.requirement.findMany({
+            where: statusWhere,
             select: {
                 id: true,
                 client: true,
+                projectName: true,
                 title: true,
                 jobCode: true,
                 department: true,
@@ -116,6 +121,11 @@ export async function buildReferralReport(opts) {
         }),
     ]);
     const reqById = new Map(requirements.map((r) => [r.id, r]));
+    const reqAllowed = (reqId) => {
+        if (!statusFilterActive)
+            return true;
+        return !!reqId && reqById.has(reqId);
+    };
     const userById = new Map(users.map((u) => [u.id, u]));
     const candById = new Map(candidates.map((c) => [c.id, c]));
     const referralCandIds = new Set(candidates.map((c) => c.id));
@@ -130,10 +140,10 @@ export async function buildReferralReport(opts) {
             const label = user?.department?.trim() || UNASSIGNED;
             return { key: `department:${label}`, label };
         }
-        if (groupBy === 'client') {
-            const client = c.requirementId ? reqById.get(c.requirementId)?.client : null;
-            const label = client?.trim() || UNASSIGNED;
-            return { key: `client:${label}`, label };
+        if (groupBy === 'project') {
+            const project = c.requirementId ? reqById.get(c.requirementId)?.projectName : null;
+            const label = project?.trim() || UNASSIGNED;
+            return { key: `project:${label}`, label };
         }
         const label = user?.name?.trim() || 'Unknown referrer';
         const subtitle = user?.department ?? user?.referralCode ?? undefined;
@@ -202,6 +212,8 @@ export async function buildReferralReport(opts) {
     };
     for (const c of candidates) {
         if (!isSubmission(c))
+            continue;
+        if (!reqAllowed(c.requirementId))
             continue;
         const subAt = submissionDate(c);
         const g = groupOf(c);
@@ -280,9 +292,11 @@ export async function buildReferralReport(opts) {
         const cand = candById.get(i.candidateId);
         if (!cand)
             continue;
+        const reqId = i.requirementId || cand.requirementId;
+        if (!reqAllowed(reqId))
+            continue;
         const g = groupOf(cand);
         const row = getRow(g);
-        const reqId = i.requirementId || cand.requirementId;
         const pos = getPos(g.key, reqId);
         const eventDate = inRange(i.scheduledAt) ? i.scheduledAt : i.createdAt;
         row.interviews += 1;
@@ -302,9 +316,11 @@ export async function buildReferralReport(opts) {
         const ctc = offerCtcToAnnualInr(o);
         if (!(ctc > 0))
             continue;
+        const reqId = o.requirementId || cand.requirementId;
+        if (!reqAllowed(reqId))
+            continue;
         const g = groupOf(cand);
         const row = getRow(g);
-        const reqId = o.requirementId || cand.requirementId;
         const pos = getPos(g.key, reqId);
         row.onboardedCtc += ctc;
         if (pos)

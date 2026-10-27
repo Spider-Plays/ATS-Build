@@ -178,6 +178,7 @@ export function buildManpowerRequirementPayload(reqId, row, recruiterIds, fallba
         hiringManager: hiringManagerId,
         status: reqStatus,
         hiringStage: 'SOURCING',
+        trackerStatus: nullIfNa(rowGet(row, 'Requisition Status-CR')),
         liveAt: reqStatus === 'LIVE' ? createdAt || new Date() : null,
         onHoldAt: reqStatus === 'ON_HOLD' ? holdStartDate || new Date() : null,
         openings: Math.max(Number(rowGet(row, 'No of Position')) || 1, 1),

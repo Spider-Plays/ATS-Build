@@ -10,9 +10,11 @@ const STATEMENTS = [
     'ALTER TABLE "Requirement" ADD COLUMN IF NOT EXISTS "hireCategory" TEXT',
     'ALTER TABLE "Requirement" ADD COLUMN IF NOT EXISTS "holdStartDate" TIMESTAMP(3)',
     'ALTER TABLE "Requirement" ADD COLUMN IF NOT EXISTS "holdEndDate" TIMESTAMP(3)',
+    'ALTER TABLE "Requirement" ADD COLUMN IF NOT EXISTS "trackerStatus" TEXT',
     `ALTER TABLE "Requirement" ADD COLUMN IF NOT EXISTS "positionSlots" TEXT NOT NULL DEFAULT '[]'`,
+    'ALTER TABLE "Requirement" ADD COLUMN IF NOT EXISTS "raisedOn" TIMESTAMP(3)',
 ];
-/** Idempotent column adds for requisition field overhaul (Neon / deploy). */
+/** Idempotent column adds for requisition fields, including the raised date used by repurpose. */
 export async function ensureRequirementRequisitionColumns() {
     for (const sql of STATEMENTS) {
         await prisma.$executeRawUnsafe(sql);

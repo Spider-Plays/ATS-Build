@@ -28,7 +28,7 @@ export function assertOfferTransition(from, to) {
         throw new Error(`Cannot transition offer from ${from} to ${to}`);
     }
 }
-export const OFFER_DETAIL_EDITOR_ROLES = ['SUPER_ADMIN', 'HR_HEAD', 'HR_MANAGER'];
+export const OFFER_DETAIL_EDITOR_ROLES = ['SUPER_ADMIN', 'HR_HEAD', 'TA_MANAGER'];
 const HR_EDITABLE_STATUSES = [
     'DRAFT',
     'NEGOTIATION',
@@ -40,6 +40,8 @@ export function canEditOfferFields(status) {
     return status === 'DRAFT' || status === 'NEGOTIATION';
 }
 export function canEditOfferDetails(role, status) {
+    if (role === 'DEVELOPER')
+        return true;
     if (OFFER_DETAIL_EDITOR_ROLES.includes(role)) {
         return HR_EDITABLE_STATUSES.includes(status);
     }

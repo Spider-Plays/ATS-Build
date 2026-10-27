@@ -8,13 +8,12 @@
 import '../config/loadEnv.js';
 import { prisma } from '../lib/prisma.js';
 import { databaseHostLabel } from '../config/loadEnv.js';
-import { isProductionNeonDatabaseUrl } from '../config/databaseEnv.js';
 import { DEFAULT_SKILL_CATALOG } from '../config/defaultSkills.js';
 import { syncDefaultSkillCatalog } from '../lib/skillCatalog.js';
 async function main() {
     const host = databaseHostLabel();
-    if (isProductionNeonDatabaseUrl(process.env.DATABASE_URL)) {
-        console.error(`Refusing to seed skills on production Neon (${host}). Use ATS_ENV=staging.`);
+    if (!host?.includes('localhost') && !host?.includes('127.0.0.1')) {
+        console.error(`Refusing to seed skills on non-local database (${host ?? 'unknown'}).`);
         process.exit(1);
     }
     console.log(`Seeding IT skill catalog on ${host ?? '(unknown)'}...`);

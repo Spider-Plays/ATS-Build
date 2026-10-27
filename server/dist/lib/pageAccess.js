@@ -4,7 +4,8 @@ export const CONFIGURABLE_ROLES = [
     'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
-    'HR_MANAGER',
+    'TA_MANAGER',
+    'HUMAN_RESOURCE',
     'FINANCE_HEAD',
     'RECRUITER',
     'TEAM_LEAD',
@@ -27,6 +28,10 @@ export const PAGE_KEYS = [
     'offer_compensation_config',
     'offer_letter_template',
     'self_service',
+    'ta_process',
+    'policies',
+    'training',
+    'mis',
     'admin_users',
     'notifications',
     'settings',
@@ -62,6 +67,26 @@ export const PAGE_DEFINITIONS = [
         label: 'Self Service',
         description: 'Employee self-service portal and change requests',
     },
+    {
+        key: 'ta_process',
+        label: 'TA Process',
+        description: 'Under construction. Talent acquisition process guide.',
+    },
+    {
+        key: 'policies',
+        label: 'Policies',
+        description: 'Under construction. Company policy library.',
+    },
+    {
+        key: 'training',
+        label: 'Training',
+        description: 'Under construction. Training materials.',
+    },
+    {
+        key: 'mis',
+        label: 'MIS',
+        description: 'Under construction. MIS dashboard.',
+    },
     { key: 'admin_users', label: 'User Management', description: 'Admin user administration' },
     { key: 'notifications', label: 'Notifications', description: 'In-app notifications' },
     { key: 'settings', label: 'Settings', description: 'Account and app settings' },
@@ -83,10 +108,13 @@ export const DEFAULT_ROLE_PAGES = {
         'offers',
         'offer_letter_template',
         'self_service',
+        'ta_process',
+        'policies',
+        'training',
         'notifications',
         'settings',
     ],
-    HR_MANAGER: [
+    TA_MANAGER: [
         'dashboard',
         'requirements',
         'reports',
@@ -98,8 +126,18 @@ export const DEFAULT_ROLE_PAGES = {
         'interviews',
         'offers',
         'self_service',
+        'ta_process',
+        'policies',
+        'training',
         'notifications',
         'settings',
+    ],
+    HUMAN_RESOURCE: [
+        'dashboard',
+        'offers',
+        'offer_compensation_config',
+        'offer_letter_template',
+        'self_service',
     ],
     RECRUITER: [
         'dashboard',
@@ -112,6 +150,9 @@ export const DEFAULT_ROLE_PAGES = {
         'interviews',
         'offers',
         'self_service',
+        'ta_process',
+        'policies',
+        'training',
         'notifications',
         'settings',
     ],
@@ -134,6 +175,14 @@ export const DEFAULT_ROLE_PAGES = {
     INTERVIEWER: ['dashboard', 'interviews', 'self_service', 'notifications', 'settings'],
     FINANCE_HEAD: ['dashboard', 'offer_compensation_config', 'self_service', 'notifications', 'settings'],
 };
+const UNDER_CONSTRUCTION_PAGE_KEYS = ['ta_process', 'policies', 'training', 'mis'];
+/** Rows saved before these pages existed do not list them. Grant the role default until one is stored. */
+function includeUnconfiguredUnderConstructionPages(role, pages) {
+    if (UNDER_CONSTRUCTION_PAGE_KEYS.some((key) => pages.includes(key)))
+        return pages;
+    const extras = defaultPagesForRole(role).filter((key) => UNDER_CONSTRUCTION_PAGE_KEYS.includes(key));
+    return [...new Set([...pages, ...extras])];
+}
 function parsePages(raw) {
     try {
         const arr = JSON.parse(raw || '[]');
@@ -166,8 +215,21 @@ export function sanitizePagesForRole(role, pages) {
     return result;
 }
 export async function getAllowedPagesForRole(role) {
-    if (role === 'SUPER_ADMIN') {
+    const pages = await pagesAssignedToRole(role);
+    const { filterPublishedPages } = await import('./pagePublication.js');
+    return filterPublishedPages(role, pages);
+}
+async function pagesAssignedToRole(role) {
+    if (role === 'DEVELOPER') {
         return [...PAGE_KEYS];
+    }
+    if (role === 'SUPER_ADMIN') {
+        const row = await prisma.rolePageAccess.findUnique({ where: { role } });
+        if (!row)
+            return [...PAGE_KEYS];
+        const parsed = parsePages(row.pages);
+        const pages = parsed.length > 0 ? sanitizePagesForRole(role, parsed) : [...PAGE_KEYS];
+        return includeUnconfiguredUnderConstructionPages(role, pages);
     }
     if (role === 'CANDIDATE' || role === 'VENDOR' || role === 'EMPLOYEE') {
         return [];
@@ -177,35 +239,29 @@ export async function getAllowedPagesForRole(role) {
     let pages;
     if (row) {
         const parsed = parsePages(row.pages);
-        const stored = parsed.length > 0 ? parsed : defaults;
-        // Union with defaults so newly added pages (e.g. requirements for account managers) appear without manual DB patch
-        pages = [...new Set([...stored, ...defaults])];
+        pages = parsed.length > 0 ? parsed : defaults;
     }
     else {
         pages = defaults;
     }
-    return sanitizePagesForRole(role, pages);
+    return includeUnconfiguredUnderConstructionPages(role, sanitizePagesForRole(role, pages));
 }
 export async function getAllRolePageAccess() {
     const rows = await prisma.rolePageAccess.findMany();
     const byRole = new Map(rows.map((r) => [r.role, r]));
     const result = {};
     for (const role of CONFIGURABLE_ROLES) {
-        if (role === 'SUPER_ADMIN') {
-            result[role] = { pages: [...PAGE_KEYS] };
-            continue;
-        }
         const row = byRole.get(role);
         const raw = row?.pages ? parsePages(row.pages) : defaultPagesForRole(role);
         result[role] = {
-            pages: sanitizePagesForRole(role, raw),
+            pages: includeUnconfiguredUnderConstructionPages(role, sanitizePagesForRole(role, raw)),
             updatedAt: row?.updatedAt.toISOString(),
         };
     }
     return result;
 }
 export async function setRolePageAccess(role, pages) {
-    if (role === 'SUPER_ADMIN') {
+    if (role === 'DEVELOPER') {
         return [...PAGE_KEYS];
     }
     let sanitized = sanitizePages(pages);
@@ -252,6 +308,14 @@ export function pathnameToPageKey(pathname) {
         return 'offer_letter_template';
     if (pathname.startsWith('/offers'))
         return 'offers';
+    if (pathname.startsWith('/self-service/ta-process'))
+        return 'ta_process';
+    if (pathname.startsWith('/self-service/policies'))
+        return 'policies';
+    if (pathname.startsWith('/self-service/training'))
+        return 'training';
+    if (pathname.startsWith('/features/mis'))
+        return 'mis';
     if (pathname.startsWith('/self-service'))
         return 'self_service';
     if (pathname.startsWith('/admin/users'))

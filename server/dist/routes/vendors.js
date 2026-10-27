@@ -1,10 +1,11 @@
+import { BCRYPT_ROUNDS } from '../lib/passwordPolicy.js';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { mapUser } from '../utils/mappers.js';
 import { mapVendor } from '../utils/mapVendor.js';
-import { requireAuth, requireActiveUser, requireRoles } from '../middleware/auth.js';
+import { requireAuth, requireActiveUser, requireExactRoles, requireRoles } from '../middleware/auth.js';
 import { generateTempPassword } from '../lib/password.js';
 import { sendVendorInviteEmail } from '../services/email.js';
 import { logActivity } from '../services/activityLog.js';
@@ -17,8 +18,12 @@ import { createVendorOnboardingForNewVendor } from './vendorOnboarding.js';
 import { mapActivityLog } from '../utils/mappers.js';
 import { generateVendorCode } from '../lib/vendorCode.js';
 import { REQUIREMENT_ASSIGNMENT_ROLES } from '../lib/requirementPermissions.js';
+import { parseFeatureTags } from '../lib/userTags.js';
+import { getUserEmailsByRoles } from '../lib/emailRecipients.js';
+import { sendStaffNotificationEmail } from '../services/email.js';
+import { env } from '../config/env.js';
 const router = Router();
-const VENDOR_MANAGERS = ['ADMIN', 'HR_HEAD', 'HR_MANAGER', 'RECRUITER', 'TEAM_LEAD'];
+const VENDOR_MANAGERS = ['ADMIN', 'HR_HEAD', 'TA_MANAGER', 'RECRUITER', 'TEAM_LEAD'];
 async function getVendorOnboardingStatus(vendorId) {
     const row = await prisma.vendorOnboarding.findUnique({
         where: { vendorId },
@@ -37,6 +42,140 @@ async function assertVendorApprovedForOps(vendorId) {
     return null;
 }
 router.use(requireAuth, requireActiveUser, requireRoles(...INTERNAL_ROLES));
+const VENDOR_CREATORS = ['SUPER_ADMIN', 'DEVELOPER'];
+async function actorHasTaOperation(userId) {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { permissions: true },
+    });
+    return parseFeatureTags(user?.permissions).includes('ta_operation');
+}
+function mapCreationRequest(row) {
+    return {
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        contactName: row.contactName,
+        phone: row.phone,
+        notes: row.notes,
+        status: row.status,
+        requestedBy: row.requestedBy,
+        requestedByName: row.requestedByName,
+        taReviewReason: row.taReviewReason,
+        taReviewedByName: row.taReviewedByName,
+        taReviewedAt: row.taReviewedAt?.toISOString() ?? null,
+        vendorId: row.vendorId,
+        createdAt: row.createdAt.toISOString(),
+    };
+}
+router.get('/creation-requests', async (req, res) => {
+    const role = req.auth.role;
+    const isCreator = role === 'SUPER_ADMIN' || role === 'DEVELOPER';
+    const isTaManager = role === 'TA_MANAGER';
+    const isOps = await actorHasTaOperation(req.auth.userId);
+    if (!isCreator && !isTaManager && !isOps) {
+        return res.status(403).json({ error: 'You cannot view vendor requests' });
+    }
+    const rows = await prisma.vendorCreationRequest.findMany({
+        where: isCreator || isTaManager ? undefined : { requestedBy: req.auth.userId },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+    });
+    res.json(rows.map(mapCreationRequest));
+});
+router.post('/creation-requests', async (req, res) => {
+    const allowed = await actorHasTaOperation(req.auth.userId);
+    if (!allowed) {
+        return res.status(403).json({ error: 'Only TA Operation can request a new vendor' });
+    }
+    const body = z
+        .object({
+        name: z.string().min(1),
+        email: z.string().email(),
+        contactName: z.string().min(1, 'SPOC name is required'),
+        phone: z.string().optional(),
+        notes: z.string().optional(),
+    })
+        .parse(req.body);
+    const actor = await prisma.user.findUnique({ where: { id: req.auth.userId } });
+    const row = await prisma.vendorCreationRequest.create({
+        data: {
+            name: body.name.trim(),
+            email: body.email.toLowerCase().trim(),
+            contactName: body.contactName.trim(),
+            phone: body.phone?.trim() || null,
+            notes: body.notes?.trim() || null,
+            status: 'PENDING_TA',
+            requestedBy: req.auth.userId,
+            requestedByName: actor?.name ?? req.auth.email,
+        },
+    });
+    const managers = await getUserEmailsByRoles(['TA_MANAGER']);
+    const url = `${env.clientOrigin.replace(/\/$/, '')}/vendors`;
+    await Promise.all(managers.map((r) => sendStaffNotificationEmail({
+        to: r.email,
+        recipientName: r.name,
+        kind: 'vendorCreationRequest',
+        subject: `New vendor request — ${row.name}`,
+        headline: 'Vendor creation request',
+        body: `${row.requestedByName} asked to add ${row.name} (SPOC ${row.contactName}, ${row.email}). Review it on the Vendors page: ${url}`,
+    })));
+    res.status(201).json(mapCreationRequest(row));
+});
+router.post('/creation-requests/:id/decision', requireExactRoles('TA_MANAGER'), async (req, res) => {
+    const body = z
+        .object({
+        action: z.enum(['APPROVE', 'REJECT']),
+        reason: z.string().min(1, 'Reason is required'),
+    })
+        .parse(req.body);
+    const row = await prisma.vendorCreationRequest.findUnique({ where: { id: req.params.id } });
+    if (!row)
+        return res.status(404).json({ error: 'Request not found' });
+    if (row.status !== 'PENDING_TA') {
+        return res.status(400).json({ error: 'Request is not awaiting TA Manager approval' });
+    }
+    const actor = await prisma.user.findUnique({ where: { id: req.auth.userId } });
+    const updated = await prisma.vendorCreationRequest.update({
+        where: { id: row.id },
+        data: {
+            status: body.action === 'APPROVE' ? 'READY' : 'REJECTED',
+            taReviewReason: body.reason.trim(),
+            taReviewedBy: req.auth.userId,
+            taReviewedByName: actor?.name ?? req.auth.email,
+            taReviewedAt: new Date(),
+        },
+    });
+    if (body.action === 'APPROVE') {
+        const creators = await getUserEmailsByRoles(['SUPER_ADMIN', 'DEVELOPER']);
+        const url = `${env.clientOrigin.replace(/\/$/, '')}/vendors/new?requestId=${row.id}`;
+        await Promise.all(creators.map((r) => sendStaffNotificationEmail({
+            to: r.email,
+            recipientName: r.name,
+            kind: 'vendorCreationApproved',
+            subject: `Create vendor — ${row.name}`,
+            headline: 'TA Manager approved a new vendor',
+            body: `${row.name} is approved. Create the vendor and add SPOC ${row.contactName} (${row.email}): ${url}`,
+        })));
+    }
+    else {
+        const requester = await prisma.user.findUnique({
+            where: { id: row.requestedBy },
+            select: { email: true, name: true },
+        });
+        if (requester) {
+            await sendStaffNotificationEmail({
+                to: requester.email,
+                recipientName: requester.name,
+                kind: 'vendorCreationRejected',
+                subject: `Vendor request rejected — ${row.name}`,
+                headline: 'Vendor request was not approved',
+                body: `Your request to add ${row.name} was rejected. Feedback: ${body.reason.trim()}`,
+            });
+        }
+    }
+    res.json(mapCreationRequest(updated));
+});
 router.get('/', requireRoles(...VENDOR_MANAGERS), async (req, res) => {
     try {
         const listWhere = await buildVendorListWhere(req.auth);
@@ -133,7 +272,7 @@ router.get('/:id', requireRoles(...VENDOR_MANAGERS), async (req, res) => {
         })),
     });
 });
-router.post('/', requireRoles(...VENDOR_MANAGERS), async (req, res) => {
+router.post('/', requireExactRoles(...VENDOR_CREATORS), async (req, res) => {
     try {
         const body = z
             .object({
@@ -146,6 +285,7 @@ router.post('/', requireRoles(...VENDOR_MANAGERS), async (req, res) => {
             website: z.string().optional(),
             address: z.string().optional(),
             notes: z.string().optional(),
+            requestId: z.string().optional(),
         })
             .parse(req.body);
         const primaryEmail = body.email.toLowerCase().trim();
@@ -154,6 +294,18 @@ router.post('/', requireRoles(...VENDOR_MANAGERS), async (req, res) => {
             return res.status(409).json({
                 error: `A user already exists for ${primaryEmail}. Use a different primary email so the vendor invite can be sent.`,
             });
+        }
+        let creationRequest = null;
+        if (body.requestId) {
+            creationRequest = await prisma.vendorCreationRequest.findUnique({
+                where: { id: body.requestId },
+                select: { id: true, status: true },
+            });
+            if (!creationRequest)
+                return res.status(404).json({ error: 'Vendor request not found' });
+            if (creationRequest.status !== 'READY') {
+                return res.status(400).json({ error: 'This request is not approved for vendor creation' });
+            }
         }
         const code = await generateVendorCode(body.name);
         const contactName = body.contactName.trim();
@@ -170,7 +322,7 @@ router.post('/', requireRoles(...VENDOR_MANAGERS), async (req, res) => {
             },
         });
         const tempPassword = generateTempPassword();
-        const passwordHash = await bcrypt.hash(tempPassword, 10);
+        const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
         const user = await prisma.user.create({
             data: {
                 email: primaryEmail,
@@ -188,6 +340,7 @@ router.post('/', requireRoles(...VENDOR_MANAGERS), async (req, res) => {
             name: user.name,
             tempPassword,
             vendorName: vendor.name,
+            vendorId: vendor.id,
         });
         let inviteEmailWarning;
         let inviteDevHint;
@@ -205,6 +358,17 @@ router.post('/', requireRoles(...VENDOR_MANAGERS), async (req, res) => {
                     inviteDevHint = EMAIL_TEMP_PASSWORD_DEV_HINT;
                 }
             }
+        }
+        if (creationRequest) {
+            await prisma.vendorCreationRequest.update({
+                where: { id: creationRequest.id },
+                data: {
+                    status: 'FULFILLED',
+                    vendorId: vendor.id,
+                    fulfilledBy: req.auth.userId,
+                    fulfilledAt: new Date(),
+                },
+            });
         }
         try {
             await createVendorOnboardingForNewVendor(vendor.id);
@@ -406,7 +570,7 @@ router.post('/:id/invite', requireRoles(...VENDOR_MANAGERS), async (req, res) =>
     if (existing)
         return res.status(409).json({ error: 'A user with this email already exists' });
     const tempPassword = generateTempPassword();
-    const passwordHash = await bcrypt.hash(tempPassword, 10);
+    const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
     const user = await prisma.user.create({
         data: {
             email,
@@ -423,6 +587,7 @@ router.post('/:id/invite', requireRoles(...VENDOR_MANAGERS), async (req, res) =>
         name: user.name,
         tempPassword,
         vendorName: vendor.name,
+        vendorId: vendor.id,
     });
     if (!emailResult.sent) {
         logTemporaryPassword('Vendor user invite', email, tempPassword);
@@ -464,7 +629,7 @@ router.post('/:id/reinvite', requireRoles('SUPER_ADMIN'), async (req, res) => {
             });
         }
         const tempPassword = generateTempPassword();
-        const passwordHash = await bcrypt.hash(tempPassword, 10);
+        const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
         if (!user) {
             user = await prisma.user.create({
                 data: {
@@ -495,6 +660,7 @@ router.post('/:id/reinvite', requireRoles('SUPER_ADMIN'), async (req, res) => {
             name: user.name,
             tempPassword,
             vendorName: vendor.name,
+            vendorId: vendor.id,
         });
         let emailWarning;
         let devHint;

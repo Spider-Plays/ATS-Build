@@ -1,0 +1,1 @@
+import{j as c}from"./vendor-query-D4SHj8q5.js";import{cn as o,h as m}from"./index-DAZU837q.js";function x({checked:e,onChange:t,disabled:s=!1,ariaLabel:a,id:n,className:r}){const i=l=>{t(l.currentTarget.selected)};return c.jsx(o,{id:n,className:m("inline-flex shrink-0",r),selected:e,disabled:s,"aria-label":a,onInput:i})}export{x as S};

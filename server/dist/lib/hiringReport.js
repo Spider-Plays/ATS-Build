@@ -79,18 +79,21 @@ function groupFromReq(groupBy, r) {
         const label = r.accountManager?.trim() || UNASSIGNED;
         return { key: `am:${label}`, label };
     }
-    const label = r.client?.trim() || UNASSIGNED;
-    return { key: `client:${label}`, label };
+    const label = r.projectName?.trim() || UNASSIGNED;
+    return { key: `project:${label}`, label };
 }
 export async function buildHiringReport(opts) {
     const { groupBy, from, to } = opts;
     const inRange = (d) => inDateRange(d, from, to);
     const now = new Date();
+    const statusWhere = opts.statuses && opts.statuses.length > 0 ? { status: { in: opts.statuses } } : undefined;
     const [requirements, candidates, interviews, offers] = await Promise.all([
         prisma.requirement.findMany({
+            where: statusWhere,
             select: {
                 id: true,
                 client: true,
+                projectName: true,
                 title: true,
                 jobCode: true,
                 department: true,

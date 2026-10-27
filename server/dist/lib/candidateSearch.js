@@ -227,7 +227,7 @@ async function ftsRankedIds(queryText, mode) {
           400
         ),
         ${tsqueryExpr},
-        'MaxWords=20, MinWords=8, MaxFragments=1'
+        'MaxWords=20, MinWords=8, MaxFragments=1, StartSel=[[[hl]]], StopSel=[[[/hl]]]'
       ) AS headline
     FROM "Candidate" c
     WHERE ${SEARCH_DOCUMENT_SQL} @@ ${tsqueryExpr}

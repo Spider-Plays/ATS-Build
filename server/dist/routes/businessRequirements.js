@@ -16,6 +16,8 @@ import { enrichBusinessRequirementActivityLogDetails, parseBusinessStageHistory,
 import { diffBusinessRequirementChanges } from '../lib/businessRequirementChangeLog.js';
 import { syncClientDealEngagementFromRequirements } from '../lib/syncClientDealEngagement.js';
 import { generateJobDescription } from '../lib/jdGenerate.js';
+import { generateJobDescriptionWithGroq } from '../lib/groqJd.js';
+import { STAFF_MUTATE } from '../lib/roles.js';
 const router = Router();
 router.use(requireAuth, requireActiveUser);
 function parseStageHistory(raw) {
@@ -164,10 +166,10 @@ router.post('/', requireRoles(...BUSINESS_MUTATE_ROLES), async (req, res) => {
     });
     res.status(201).json(mapBusinessRequirement(row));
 });
-router.post('/generate-job-description', requireRoles(...BUSINESS_MUTATE_ROLES), async (req, res) => {
+router.post('/generate-job-description', requireRoles(...BUSINESS_MUTATE_ROLES, ...STAFF_MUTATE), async (req, res) => {
     const body = req.body;
     try {
-        const jobDescription = generateJobDescription({
+        const input = {
             title: typeof body.title === 'string' ? body.title : '',
             seniorityLevel: typeof body.seniorityLevel === 'string' ? body.seniorityLevel : '',
             experienceMinYears: typeof body.experienceMinYears === 'number' ? body.experienceMinYears : undefined,
@@ -175,7 +177,10 @@ router.post('/generate-job-description', requireRoles(...BUSINESS_MUTATE_ROLES),
             primarySkills: parseSkillList(body.primarySkills),
             secondarySkills: parseSkillList(body.secondarySkills),
             department: typeof body.department === 'string' ? body.department : undefined,
-        });
+            client: typeof body.client === 'string' ? body.client : undefined,
+        };
+        const fromGroq = await generateJobDescriptionWithGroq(input);
+        const jobDescription = fromGroq ?? generateJobDescription(input);
         res.json({ jobDescription });
     }
     catch (err) {

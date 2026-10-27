@@ -1,3 +1,4 @@
+import { sanitizeRichHtml } from './htmlSanitize.js';
 import { DEFAULT_ORG_SETTINGS, EMPLOYMENT_CLAUSE_PAGES } from './offerLetterLegal.js';
 export const DEFAULT_COVER_PAGE_HTML = `<p><strong>Name:</strong> {{candidateName}}</p>
 <p><strong>Address:</strong><br/>{{candidateAddress}}</p>
@@ -41,11 +42,11 @@ export function mergeOfferLetterTemplate(partial) {
         return { ...DEFAULT_OFFER_LETTER_TEMPLATE, clausePages: [...DEFAULT_OFFER_LETTER_TEMPLATE.clausePages] };
     return {
         orgSettings: { ...DEFAULT_OFFER_LETTER_TEMPLATE.orgSettings, ...partial.orgSettings },
-        coverPageHtml: partial.coverPageHtml ?? DEFAULT_OFFER_LETTER_TEMPLATE.coverPageHtml,
-        agreementIntroHtml: partial.agreementIntroHtml ?? DEFAULT_OFFER_LETTER_TEMPLATE.agreementIntroHtml,
+        coverPageHtml: sanitizeRichHtml(partial.coverPageHtml ?? DEFAULT_OFFER_LETTER_TEMPLATE.coverPageHtml),
+        agreementIntroHtml: sanitizeRichHtml(partial.agreementIntroHtml ?? DEFAULT_OFFER_LETTER_TEMPLATE.agreementIntroHtml),
         clausePages: partial.clausePages && partial.clausePages.length > 0
-            ? partial.clausePages
+            ? partial.clausePages.map(sanitizeRichHtml)
             : [...DEFAULT_OFFER_LETTER_TEMPLATE.clausePages],
-        declarationPageHtml: partial.declarationPageHtml ?? DEFAULT_OFFER_LETTER_TEMPLATE.declarationPageHtml,
+        declarationPageHtml: sanitizeRichHtml(partial.declarationPageHtml ?? DEFAULT_OFFER_LETTER_TEMPLATE.declarationPageHtml),
     };
 }

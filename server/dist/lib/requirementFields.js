@@ -86,13 +86,133 @@ export function parseOptionalEnum(value, allowed) {
     const v = value.trim().toUpperCase();
     return allowed.includes(v) ? v : null;
 }
+function catalogMatchKey(value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replace(/&/g, ' and ')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\band\b/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+const EMPLOYMENT_TYPE_LABELS = {
+    REGULAR: 'Regular',
+    CONSULTANT: 'Consultant',
+    CONTRACT: 'Contract',
+    GRADUATE_HIRE: 'Graduate Hire',
+};
+const JOB_TYPE_LABELS = {
+    TECHNICAL: 'Technical',
+    NON_TECHNICAL: 'Non-Technical',
+};
+const BUSINESS_TYPE_LABELS = {
+    MANAGED_SERVICES: 'Managed Services',
+    HUMAN_RESOURCE: 'Human Resource',
+    GENERAL_ADMIN: 'General Admin',
+    BUSINESS_DEVELOPMENT: 'Business Development',
+    IGS_POOL: 'IGS-Pool',
+    OTT: 'OTT',
+    NON_OTT: 'Non OTT',
+    TEST_OPS: 'Test Ops',
+    SALES_AND_MARKETING: 'Sales and Marketing',
+    IT_SYSTEM_ADMIN: 'IT/System Admin',
+    FINANCE_ACCOUNTS: 'Finance / Accounts',
+    STAFF_AUGMENTATION: 'Staff Augmentation',
+};
+const DOMAIN_LABELS = {
+    HEALTHCARE: 'Healthcare',
+    BANKING_FINANCIAL: 'Banking & Financial',
+    INSURANCE: 'Insurance',
+    AIRLINES: 'Airlines',
+    EDUCATION_EDTECH: 'Education or Ed-Tech',
+    ECOMMERCE_RETAIL: 'E-Commerce & Retail',
+    OTT: 'OTT',
+    GAMING: 'Gaming',
+    TELECOMMUNICATION: 'Telecommunication',
+    AUTOMOTIVE: 'Automotive',
+    LOGISTICS: 'Logistics',
+    HR_ADMIN: 'Human Resource & Admin',
+    SALES_BD: 'Sales and Business Development',
+};
+const REQUIREMENT_FOR_LABELS = {
+    NEW_POSITION: 'New Position',
+    REPLACEMENT: 'Replacement',
+    CONTRACT_CONVERSION: 'Contract Conversion',
+    INTERN_CONVERSION: 'Intern Conversion',
+};
+const HIRE_CATEGORY_LABELS = {
+    LATERAL: 'Lateral',
+    FRESHER: 'Fresher',
+    CONSULTANT: 'Consultant',
+    CONTRACT: 'Contract',
+};
+/**
+ * Accept a catalog code or its display label (legacy import stored labels).
+ * Text that matches neither is kept, so an edit does not wipe imported values.
+ */
+export function resolveStoredEnum(value, allowed, labels) {
+    if (typeof value !== 'string' || !value.trim())
+        return null;
+    const raw = value.trim();
+    const direct = raw.toUpperCase();
+    if (allowed.includes(direct))
+        return direct;
+    const coded = direct
+        .replace(/&/g, 'AND')
+        .replace(/[^A-Z0-9]+/g, '_')
+        .replace(/^_|_$/g, '');
+    if (allowed.includes(coded))
+        return coded;
+    const key = catalogMatchKey(raw);
+    for (const code of allowed) {
+        if (catalogMatchKey(code) === key || catalogMatchKey(labels[code] ?? '') === key)
+            return code;
+    }
+    return raw;
+}
 export function parseOptionalDate(value) {
     if (value === null || value === undefined)
         return null;
     if (typeof value !== 'string' || !value.trim())
         return null;
+    const calendar = parseCalendarDate(value);
+    if (calendar)
+        return calendar;
     const d = new Date(value.trim());
     return Number.isNaN(d.getTime()) ? null : d;
+}
+/** `yyyy-MM-dd` as a local calendar date (noon, so the day does not shift). */
+export function parseCalendarDate(value) {
+    if (typeof value !== 'string')
+        return null;
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.trim());
+    if (!match)
+        return null;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31)
+        return null;
+    const d = new Date(year, month - 1, day, 12, 0, 0, 0);
+    if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day)
+        return null;
+    return d;
+}
+/** Fiscal quarter label, e.g. `Q2 2026` (Jul–Sep). */
+export function fiscalQuarterLabel(date) {
+    const month = date.getMonth();
+    const year = date.getFullYear();
+    if (month >= 3 && month <= 5)
+        return `Q1 ${year}`;
+    if (month >= 6 && month <= 8)
+        return `Q2 ${year}`;
+    if (month >= 9 && month <= 11)
+        return `Q3 ${year}`;
+    return `Q4 ${year - 1}`;
+}
+export function calendarMonthKey(date) {
+    return String(date.getMonth() + 1).padStart(2, '0');
 }
 export function parseOptionalString(value, maxLen) {
     if (typeof value !== 'string')
@@ -102,19 +222,42 @@ export function parseOptionalString(value, maxLen) {
         return null;
     return s.slice(0, maxLen);
 }
-/** Whole-number CTC in LPA, stored as a digit string. */
-function parseOptionalSalaryLpa(value) {
-    if (value === '' || value === null || value === undefined)
+/** Whole-number CTC stored as a digit string. Allows a full amount such as 2400000 (₹24,00,000). */
+const SALARY_BAND_MAX = 999_999_999;
+function parseSalaryAmountDigits(raw) {
+    let s = raw
+        .replace(/₹/g, '')
+        .replace(/\brs\.?/gi, '')
+        .replace(/,/g, '')
+        .replace(/\s/g, '');
+    if (/^\d+\.0+$/.test(s))
+        s = s.replace(/\.0+$/, '');
+    if (/^\d+\.\d+$/.test(s)) {
+        const rounded = Math.round(Number(s));
+        if (!Number.isSafeInteger(rounded) || rounded < 1)
+            return null;
+        s = String(rounded);
+    }
+    if (!/^\d+$/.test(s))
         return null;
-    const n = typeof value === 'number' ? value : Number(String(value).trim());
-    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1 || n > 999)
+    const n = Number(s);
+    if (!Number.isSafeInteger(n) || n < 1 || n > SALARY_BAND_MAX)
         return null;
     return String(n);
 }
+function parseOptionalSalaryLpa(value) {
+    if (value === '' || value === null || value === undefined)
+        return null;
+    const raw = typeof value === 'number' ? String(value) : String(value).trim();
+    if (!raw)
+        return null;
+    return parseSalaryAmountDigits(raw);
+}
 function parseRequiredSalaryLpa(value, label) {
     const s = parseOptionalSalaryLpa(value);
-    if (!s)
-        throw new RequirementFieldError(`${label} must be a whole number between 1 and 999`);
+    if (!s) {
+        throw new RequirementFieldError(`${label} must be a whole number from 1 to 99,99,99,999`);
+    }
     return s;
 }
 function parseEducationList(value) {
@@ -220,7 +363,8 @@ export function pickRequirementExtrasForCreate(body) {
         workMode,
         salaryBand: parseRequiredSalaryLpa(body.salaryBand, 'Salary / CTC'),
         targetStartDate: parseRequiredDate(body.targetStartDate, 'Target start date'),
-        hiringDeadline: parseRequiredDate(body.hiringDeadline, 'Hiring deadline'),
+        hiringDeadline: parseOptionalDate(body.hiringDeadline),
+        raisedOn: parseCalendarDate(body.raisedOn) ?? new Date(),
         seniorityLevel,
         /** Keep legacy display fields in sync with modern enums. */
         globalJobType: parseOptionalString(body.globalJobType, 120) ??
@@ -266,23 +410,29 @@ export function pickRequirementExtrasPatch(body) {
         validateExperienceRange(out.experienceMinYears ?? null, out.experienceMaxYears ?? null);
     }
     if (has('employmentType')) {
-        out.employmentType = parseOptionalEnum(body.employmentType, EMPLOYMENT_TYPES);
+        out.employmentType = resolveStoredEnum(body.employmentType, EMPLOYMENT_TYPES, EMPLOYMENT_TYPE_LABELS);
     }
     if (has('workMode'))
-        out.workMode = parseOptionalEnum(body.workMode, WORK_MODES);
+        out.workMode = resolveStoredEnum(body.workMode, WORK_MODES, WORK_MODE_LABELS);
     if (has('salaryBand')) {
         const salaryBand = parseOptionalSalaryLpa(body.salaryBand);
-        if (body.salaryBand !== '' && body.salaryBand != null && salaryBand === null) {
-            throw new RequirementFieldError('Salary / CTC must be a whole number between 1 and 999');
+        if (salaryBand) {
+            out.salaryBand = salaryBand;
         }
-        out.salaryBand = salaryBand;
+        else if (body.salaryBand === '' || body.salaryBand == null) {
+            out.salaryBand = null;
+        }
+        else {
+            // Keep imported free-text bands (ranges, comments) instead of failing the save.
+            out.salaryBand = parseOptionalString(String(body.salaryBand), 80);
+        }
     }
     if (has('targetStartDate'))
         out.targetStartDate = parseOptionalDate(body.targetStartDate);
     if (has('hiringDeadline'))
         out.hiringDeadline = parseOptionalDate(body.hiringDeadline);
     if (has('seniorityLevel')) {
-        out.seniorityLevel = parseOptionalEnum(body.seniorityLevel, SENIORITY_LEVELS);
+        out.seniorityLevel = resolveStoredEnum(body.seniorityLevel, SENIORITY_LEVELS, SENIORITY_LABELS);
         if (out.seniorityLevel && !has('globalJobType')) {
             out.globalJobType =
                 SENIORITY_LABELS[out.seniorityLevel] ?? out.seniorityLevel;
@@ -292,21 +442,22 @@ export function pickRequirementExtrasPatch(body) {
         out.globalJobType = parseOptionalString(body.globalJobType, 120);
     if (has('hireType'))
         out.hireType = parseOptionalString(body.hireType, 120);
-    if (has('businessType'))
-        out.businessType = parseOptionalEnum(body.businessType, BUSINESS_TYPES);
+    if (has('businessType')) {
+        out.businessType = resolveStoredEnum(body.businessType, BUSINESS_TYPES, BUSINESS_TYPE_LABELS);
+    }
     if (has('domain'))
-        out.domain = parseOptionalEnum(body.domain, DOMAINS);
+        out.domain = resolveStoredEnum(body.domain, DOMAINS, DOMAIN_LABELS);
     if (has('jobType'))
-        out.jobType = parseOptionalEnum(body.jobType, JOB_TYPES);
+        out.jobType = resolveStoredEnum(body.jobType, JOB_TYPES, JOB_TYPE_LABELS);
     if (has('employmentChannel')) {
-        out.employmentChannel = parseOptionalEnum(body.employmentChannel, EMPLOYMENT_CHANNELS);
+        out.employmentChannel = resolveStoredEnum(body.employmentChannel, EMPLOYMENT_CHANNELS, EMPLOYMENT_CHANNEL_LABELS);
         if (out.employmentChannel && !has('hireType')) {
             out.hireType =
                 EMPLOYMENT_CHANNEL_LABELS[out.employmentChannel] ?? out.employmentChannel;
         }
     }
     if (has('requirementFor')) {
-        out.requirementFor = parseOptionalEnum(body.requirementFor, REQUIREMENT_FOR_OPTIONS);
+        out.requirementFor = resolveStoredEnum(body.requirementFor, REQUIREMENT_FOR_OPTIONS, REQUIREMENT_FOR_LABELS);
     }
     if (has('replacementEmployeeName')) {
         out.replacementEmployeeName = parseOptionalString(body.replacementEmployeeName, 200);
@@ -315,7 +466,7 @@ export function pickRequirementExtrasPatch(body) {
         out.education = JSON.stringify(parseEducationList(body.education));
     }
     if (has('hireCategory')) {
-        out.hireCategory = parseOptionalEnum(body.hireCategory, HIRE_CATEGORIES);
+        out.hireCategory = resolveStoredEnum(body.hireCategory, HIRE_CATEGORIES, HIRE_CATEGORY_LABELS);
     }
     if (has('holdStartDate') || has('holdEndDate')) {
         const { holdStartDate, holdEndDate } = parseHoldDates(body.holdStartDate, body.holdEndDate);
@@ -354,7 +505,9 @@ export function pickRequirementExtrasPatch(body) {
             locationCity: has('locationCity')
                 ? parseOptionalString(body.locationCity, 120)
                 : undefined,
-            workMode: has('workMode') ? parseOptionalEnum(body.workMode, WORK_MODES) : undefined,
+            workMode: has('workMode')
+                ? resolveStoredEnum(body.workMode, WORK_MODES, WORK_MODE_LABELS)
+                : undefined,
             isRemote: has('isRemote') ? Boolean(body.isRemote) : undefined,
         });
     }

@@ -1,3 +1,4 @@
+import { applyDocumentCsp } from '../lib/authResponse.js';
 import { Router } from 'express';
 import { syncRequirementHiringState } from '../lib/hiring.js';
 import { prisma } from '../lib/prisma.js';
@@ -5,7 +6,7 @@ import { mapFeedback } from '../utils/mappers.js';
 import { requireAuth, requireActiveUser, requireRoles } from '../middleware/auth.js';
 import { logActivity, logCandidateInterviewActivity } from '../services/activityLog.js';
 import { INTERNAL_ROLES } from '../lib/roles.js';
-import { assertCanViewCandidate, CandidateAccessError, } from '../lib/candidateAccess.js';
+import { assertCanViewCandidate, assertCanViewInterview, CandidateAccessError, parseInterviewerIds, } from '../lib/candidateAccess.js';
 import { buildFeedbackReportHtml } from '../lib/feedbackReport.js';
 import { advanceCandidateAfterInterviewFeedback } from '../lib/interviewFeedbackAdvance.js';
 const router = Router();
@@ -17,7 +18,18 @@ const VALID_RECOMMENDATIONS = [
     'NO_HIRE',
     'STRONG_NO_HIRE',
 ];
+/** Roles that may record feedback on an interview they are not a panelist on. */
+const FEEDBACK_OVERRIDE_ROLES = ['ADMIN', 'SUPER_ADMIN', 'DEVELOPER'];
 router.get('/by-interview/:interviewId', async (req, res) => {
+    try {
+        await assertCanViewInterview(req.auth, req.params.interviewId);
+    }
+    catch (err) {
+        if (err instanceof CandidateAccessError) {
+            return res.status(403).json({ error: err.message });
+        }
+        throw err;
+    }
     const rows = await prisma.feedback.findMany({
         where: { interviewId: req.params.interviewId },
         orderBy: { createdAt: 'desc' },
@@ -119,6 +131,7 @@ router.get('/:id/download', async (req, res) => {
         jobTitle: candidate?.jobTitle ?? candidate?.role,
     });
     const safeName = (candidate?.name ?? 'feedback').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_');
+    applyDocumentCsp(res);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="Interview_Feedback_${safeName}.html"`);
     res.send(html);
@@ -150,11 +163,23 @@ router.post('/', async (req, res) => {
     const formData = typeof body.formData === 'string'
         ? body.formData
         : JSON.stringify(body.formData ?? {});
+    if (typeof body.interviewId !== 'string' || !body.interviewId) {
+        return res.status(400).json({ error: 'interviewId is required' });
+    }
+    const target = await prisma.interview.findUnique({ where: { id: body.interviewId } });
+    if (!target)
+        return res.status(404).json({ error: 'Interview not found' });
+    // Feedback is always recorded as the caller, and only by panel members.
+    const isPanelist = parseInterviewerIds(target.interviewerIds).includes(req.auth.userId);
+    if (!isPanelist && !FEEDBACK_OVERRIDE_ROLES.includes(req.auth.role)) {
+        return res.status(403).json({ error: 'Only interview panel members can submit feedback' });
+    }
+    body.candidateId = target.candidateId;
     const row = await prisma.feedback.create({
         data: {
-            interviewId: body.interviewId,
-            interviewerId: body.interviewerId ?? req.auth.userId,
-            candidateId: body.candidateId,
+            interviewId: target.id,
+            interviewerId: req.auth.userId,
+            candidateId: target.candidateId,
             rating: Number(body.rating) || 0,
             technicalRating: body.technicalRating != null ? Number(body.technicalRating) : null,
             communicationRating: body.communicationRating != null ? Number(body.communicationRating) : null,
@@ -188,6 +213,45 @@ router.post('/', async (req, res) => {
     const interviewer = await prisma.user.findUnique({ where: { id: row.interviewerId } });
     if (interview?.requirementId) {
         await syncRequirementHiringState(interview.requirementId);
+        const { queueWorkflow, requirementMailValues, sendWorkflowMail } = await import('../lib/workflowMail.js');
+        queueWorkflow((async () => {
+            const packed = await requirementMailValues(interview.requirementId, {
+                candidateName: '',
+                interviewRound: interview.type.replace(/_/g, ' '),
+                recommendation: row.recommendation,
+                rating: String(row.rating),
+                feedbackBody: row.comments || '',
+            });
+            if (!packed)
+                return;
+            const candidate = await prisma.candidate.findUnique({
+                where: { id: row.candidateId },
+                select: { name: true },
+            });
+            const feedbackText = [
+                `Candidate: ${candidate?.name ?? ''}`,
+                `Round: ${interview.type}`,
+                `Recommendation: ${row.recommendation}`,
+                `Rating: ${row.rating}`,
+                '',
+                row.comments,
+            ].join('\n');
+            await sendWorkflowMail({
+                key: 'interviewFeedback',
+                context: {
+                    requirementId: interview.requirementId,
+                    recruiterIds: packed.recruiterIds,
+                    values: { ...packed.values, candidateName: candidate?.name ?? '', feedbackBody: feedbackText },
+                },
+                attachments: [
+                    {
+                        filename: `feedback-${candidate?.name ?? 'candidate'}.txt`,
+                        contentType: 'text/plain',
+                        content: Buffer.from(feedbackText, 'utf8'),
+                    },
+                ],
+            });
+        })());
     }
     res.status(201).json({
         ...mapFeedback(row),

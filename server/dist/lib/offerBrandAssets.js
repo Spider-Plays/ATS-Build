@@ -1,4 +1,4 @@
-import { getStitchMarkPng } from './emailBrandAssets.js';
+import { getStitchMarkPng } from '../email-templates/index.js';
 const BRAND = {
     primary: '#1a5fb4',
     markChipBg: '#2e76cc',

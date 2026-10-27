@@ -1,3 +1,4 @@
+import { expensiveRateLimiter } from '../middleware/rateLimit.js';
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { mapCandidate } from '../utils/mappers.js';
@@ -11,17 +12,32 @@ import { deleteResumeFile, isAllowedResumeFile, resolveResumeMime, saveResumeFil
 import { loadCandidateResume } from '../lib/candidateResume.js';
 import { DUPLICATE_CANDIDATE_EMAIL_MESSAGE, DUPLICATE_CANDIDATE_PAN_MESSAGE, findCandidateByEmail, findCandidateByPan, isValidPanFormat, } from '../lib/candidateDuplicate.js';
 import { buildCandidateResumePayload, extractResumeText, parseResumeFields, } from '../lib/resumeParse.js';
-import { getCatalogSkillNames } from '../lib/skillCatalog.js';
+import { getCatalogSkillNames, listSkillCatalog } from '../lib/skillCatalog.js';
 import { serializeSkills, parseSkillList } from '../lib/skills.js';
-import { computeMatchScore, computeCandidateRequirementMatch, loadCandidateResumeText, } from '../lib/profileMatching.js';
+import { computeMatchScore, computeCandidateRequirementMatch, loadCandidateResumeText, refreshStoredMatchScores, } from '../lib/profileMatching.js';
 import { assertCanMutateCandidate, assertCanViewCandidate, buildCandidateListWhere, CandidateAccessError, } from '../lib/candidateAccess.js';
 import { assertCanAddCandidatesToRequirement, assertCanViewRequirement, RequirementAccessError, } from '../lib/requirementAccess.js';
 import { assertCanChangeCandidateStatus } from '../lib/candidateStagePermissions.js';
-import { buildRequirementTagUpdate, isCandidatePipelineStatus, isJoinedStatus, repairLinkedCandidateStatuses, resolveCreateStatus, } from '../lib/candidateStatuses.js';
+import { buildRequirementTagUpdate, isCandidatePipelineStatus, repairLinkedCandidateStatuses, resolveCreateStatus, } from '../lib/candidateStatuses.js';
 import { notifyCandidateStatusChange, notifyNewCandidate } from '../lib/emailDispatch.js';
 import { isEmailConfigured, sendJobDescriptionEmail } from '../services/email.js';
 import { buildCandidateSearchIndexFields, parseCtcLakhs, } from '../lib/candidateFieldNormalize.js';
 import { CandidateSearchQueryError, executeCandidateSearch, parseCandidateSearchQuery, } from '../lib/candidateSearch.js';
+async function withFreshMatchScores(rows) {
+    const catalog = (await listSkillCatalog()).map((skill) => ({
+        name: skill.name,
+        category: skill.category,
+    }));
+    const refreshed = await refreshStoredMatchScores(rows, (ids) => prisma.requirement.findMany({ where: { id: { in: ids } } }), catalog);
+    const changed = refreshed.filter((row, index) => row.matchScore !== rows[index]?.matchScore);
+    if (changed.length) {
+        await prisma.$transaction(changed.map((row) => prisma.candidate.update({
+            where: { id: row.id },
+            data: { matchScore: row.matchScore },
+        })));
+    }
+    return refreshed;
+}
 const router = Router();
 router.use(requireAuth, requireActiveUser, requireRoles(...INTERNAL_ROLES));
 const referrerSelect = {
@@ -41,7 +57,7 @@ async function loadReferrersById(ids) {
     });
     return new Map(users.map((u) => [u.id, u]));
 }
-router.get('/search', async (req, res) => {
+router.get('/search', expensiveRateLimiter, async (req, res) => {
     if (req.auth.role === 'INTERVIEWER') {
         return res.status(403).json({ error: 'Forbidden' });
     }
@@ -118,10 +134,10 @@ router.get('/', async (req, res) => {
         const auth = req.auth;
         const listWhere = await buildCandidateListWhere(auth);
         await repairLinkedCandidateStatuses();
-        const rows = await prisma.candidate.findMany({
+        const rows = await withFreshMatchScores(await prisma.candidate.findMany({
             where: listWhere,
             orderBy: [{ appliedDate: 'desc' }, { createdAt: 'desc' }],
-        });
+        }));
         const requirementIds = [
             ...new Set(rows.map((r) => r.requirementId).filter((id) => !!id)),
         ];
@@ -173,13 +189,13 @@ router.get('/by-requirement/:requirementId', async (req, res) => {
     }
     const listWhere = await buildCandidateListWhere(req.auth);
     await repairLinkedCandidateStatuses({ requirementId: req.params.requirementId });
-    const rows = await prisma.candidate.findMany({
+    const rows = await withFreshMatchScores(await prisma.candidate.findMany({
         where: {
             requirementId: req.params.requirementId,
             ...listWhere,
         },
         orderBy: { appliedDate: 'desc' },
-    });
+    }));
     res.json(rows.map((c) => mapCandidate(c)));
 });
 router.post('/parse-resume', requireRoles(...STAFF_MUTATE), handleUploadResume, async (req, res) => {
@@ -214,11 +230,20 @@ router.get('/check-email', async (req, res) => {
     }
     res.json({
         exists: true,
-        candidateId: existing.id,
-        name: existing.name,
+        ...(await visibleDuplicate(req.auth, existing)),
         error: DUPLICATE_CANDIDATE_EMAIL_MESSAGE,
     });
 });
+/** Name and ID of a duplicate are returned only to users who may already see that candidate. */
+async function visibleDuplicate(auth, existing) {
+    try {
+        await assertCanViewCandidate(auth, existing.id);
+        return { candidateId: existing.id, name: existing.name };
+    }
+    catch {
+        return {};
+    }
+}
 router.get('/check-pan', async (req, res) => {
     const pan = typeof req.query.pan === 'string' ? req.query.pan : '';
     const excludeId = typeof req.query.excludeId === 'string' ? req.query.excludeId.trim() : undefined;
@@ -231,8 +256,7 @@ router.get('/check-pan', async (req, res) => {
     }
     res.json({
         exists: true,
-        candidateId: existing.id,
-        name: existing.name,
+        ...(await visibleDuplicate(req.auth, existing)),
         error: DUPLICATE_CANDIDATE_PAN_MESSAGE,
     });
 });
@@ -248,7 +272,7 @@ router.get('/:id/resume', async (req, res) => {
         if (!loaded)
             return res.status(404).json({ error: 'Resume file missing' });
         res.setHeader('Content-Type', loaded.mime);
-        res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(loaded.fileName)}"`);
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(loaded.fileName)}"`);
         res.send(loaded.buffer);
     }
     catch (err) {
@@ -391,7 +415,10 @@ router.get('/:id/match-breakdown', async (req, res) => {
     });
     if (!requirement)
         return res.status(404).json({ error: 'Requirement not found' });
-    const catalog = await getCatalogSkillNames();
+    const catalog = (await listSkillCatalog()).map((skill) => ({
+        name: skill.name,
+        category: skill.category,
+    }));
     const { score, breakdown } = await computeCandidateRequirementMatch(candidate, requirement, catalog);
     if (Math.round(candidate.matchScore) !== score) {
         await prisma.candidate.update({
@@ -590,6 +617,24 @@ router.post('/', requireRoles(...STAFF_MUTATE), async (req, res) => {
         where: { id: req.auth.userId },
         select: { name: true },
     });
+    const { queueWorkflow, requirementMailValues, sendWorkflowMail } = await import('../lib/workflowMail.js');
+    queueWorkflow((async () => {
+        const packed = row.requirementId ? await requirementMailValues(row.requirementId) : null;
+        await sendWorkflowMail({
+            key: 'candidateCreated',
+            context: {
+                requirementId: row.requirementId,
+                recruiterIds: [req.auth.userId],
+                values: {
+                    ...(packed?.values ?? {}),
+                    candidateName: row.name,
+                    candidateEmail: row.email ?? '',
+                    jobTitle: packed?.values.jobTitle || row.jobTitle || '',
+                    reqId: packed?.values.reqId || '',
+                },
+            },
+        });
+    })());
     notifyNewCandidate({
         id: row.id,
         name: row.name,
@@ -598,8 +643,9 @@ router.post('/', requireRoles(...STAFF_MUTATE), async (req, res) => {
         requirementId: row.requirementId,
         source: row.source,
     }, { submittedBy: creator?.name });
-    if (row.requirementId)
-        await syncRequirementHiringState(row.requirementId);
+    if (row.requirementId) {
+        await syncRequirementHiringState(row.requirementId, { notify: true });
+    }
     res.status(201).json(mapCandidate(row));
 });
 router.patch('/:id', requireRoles(...STAFF_MUTATE), async (req, res) => {
@@ -759,11 +805,13 @@ router.patch('/:id', requireRoles(...STAFF_MUTATE), async (req, res) => {
                 updatedAt: new Date(),
             },
         });
+        const pipelineChanged = (b.status !== undefined && b.status !== existing.status) ||
+            existing.requirementId !== row.requirementId;
         if (existing.requirementId && existing.requirementId !== row.requirementId) {
-            await syncRequirementHiringState(existing.requirementId);
+            await syncRequirementHiringState(existing.requirementId, { notify: true });
         }
         if (row.requirementId) {
-            await syncRequirementHiringState(row.requirementId);
+            await syncRequirementHiringState(row.requirementId, { notify: pipelineChanged });
         }
         const [requirement, recruiter, referrer] = await Promise.all([
             row.requirementId
@@ -908,8 +956,8 @@ router.patch('/:id/status', requireRoles(...STAFF_MUTATE), async (req, res) => {
             where: { id: req.params.id },
             data,
         });
-        if (isJoinedStatus(status) && row.requirementId) {
-            await syncRequirementHiringState(row.requirementId);
+        if (row.requirementId) {
+            await syncRequirementHiringState(row.requirementId, { notify: true });
         }
         await logActivity({
             entityType: 'CANDIDATE',
@@ -1037,8 +1085,9 @@ router.delete('/:id', requireRoles('SUPER_ADMIN', 'ADMIN', 'HR_HEAD'), async (re
         await prisma.user.delete({ where: { id: portalUser.id } });
     }
     await prisma.candidate.delete({ where: { id: row.id } });
-    if (row.requirementId)
-        await syncRequirementHiringState(row.requirementId);
+    if (row.requirementId) {
+        await syncRequirementHiringState(row.requirementId, { notify: true });
+    }
     await logActivity({
         entityType: 'CANDIDATE',
         entityId: row.id,

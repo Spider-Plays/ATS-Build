@@ -6,12 +6,12 @@ import { CandidateAccessError } from '../lib/candidateAccess.js';
 const router = Router();
 router.use(requireAuth, requireActiveUser);
 router.get('/', async (req, res) => {
-    const limit = Number(req.query.limit) || 100;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
     const rows = await listActivityLogsForAuth(req.auth, limit);
     res.json(rows.map(mapActivityLog));
 });
 router.get('/entity/:entityId', async (req, res) => {
-    const limit = Number(req.query.limit) || 50;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 500);
     try {
         const rows = await listActivityLogsForEntity(req.auth, req.params.entityId, limit);
         res.json(rows.map(mapActivityLog));
@@ -23,20 +23,5 @@ router.get('/entity/:entityId', async (req, res) => {
         throw e;
     }
 });
-router.post('/', async (req, res) => {
-    const body = req.body;
-    if (!body.entityType || !body.entityId || !body.action) {
-        return res.status(400).json({ error: 'entityType, entityId, and action are required' });
-    }
-    const { logActivity } = await import('../services/activityLog.js');
-    await logActivity({
-        entityType: body.entityType,
-        entityId: body.entityId,
-        action: body.action,
-        performedBy: req.auth.userId,
-        performerRole: req.auth.role,
-        details: body.details,
-    });
-    res.status(201).json({ ok: true });
-});
+// Audit entries are written server-side only; there is intentionally no POST endpoint.
 export default router;

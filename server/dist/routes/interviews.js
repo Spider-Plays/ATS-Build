@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { mapInterview } from '../utils/mappers.js';
-import { requireAuth, requireActiveUser, requireRoles } from '../middleware/auth.js';
+import { requireAuth, requireActiveUser, requireExactRoles, requireRoles } from '../middleware/auth.js';
 import { logActivity, logCandidateInterviewActivity } from '../services/activityLog.js';
 import { INTERNAL_ROLES, INTERVIEW_SCHEDULERS } from '../lib/roles.js';
 import { notifyInterviewCancelled, notifyInterviewScheduled, notifyInterviewUpdated, prepareInterviewCalendar, } from '../lib/emailDispatch.js';
@@ -9,8 +9,9 @@ import { assertCanScheduleStage, assertCandidateInInterviewStage, assertIntervie
 import { assertCanViewCandidate, assertCanViewInterview, buildInterviewListWhere, CandidateAccessError, } from '../lib/candidateAccess.js';
 import { loadCandidateResume } from '../lib/candidateResume.js';
 import { isAdditionalPlanStageOrder, listInterviewPanelLevels, } from '../lib/interviewPanelCatalog.js';
+import { requirementIdsForAuth } from '../lib/requirementAccess.js';
 const router = Router();
-router.use(requireAuth, requireActiveUser, requireRoles(...INTERNAL_ROLES));
+router.use(requireAuth, requireActiveUser, requireRoles(...INTERNAL_ROLES, 'ACCOUNT_MANAGER'));
 function interviewEndTime(scheduledAt, durationMinutes) {
     const end = new Date(scheduledAt);
     end.setMinutes(end.getMinutes() + (durationMinutes ?? 60));
@@ -131,6 +132,35 @@ async function enrichInterviews(rows) {
         };
     });
 }
+function istDayBounds(now = new Date()) {
+    const day = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(now);
+    const start = new Date(`${day}T00:00:00+05:30`);
+    return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
+}
+/** Interviews today on requirements this hiring or account manager owns. Calendar stays personal. */
+router.get('/on-my-requirements-today', async (req, res) => {
+    const role = req.auth.role;
+    if (role !== 'HIRING_MANAGER' && role !== 'ACCOUNT_MANAGER') {
+        return res.json({ count: 0 });
+    }
+    const requirementIds = await requirementIdsForAuth(req.auth);
+    if (requirementIds.length === 0)
+        return res.json({ count: 0 });
+    const { start, end } = istDayBounds();
+    const count = await prisma.interview.count({
+        where: {
+            requirementId: { in: requirementIds },
+            status: { not: 'CANCELLED' },
+            scheduledAt: { gte: start, lt: end },
+        },
+    });
+    res.json({ count });
+});
 router.get('/', async (req, res) => {
     const listWhere = await buildInterviewListWhere(req.auth);
     const rows = await prisma.interview.findMany({
@@ -175,7 +205,7 @@ router.get('/:id/candidate-resume', async (req, res) => {
         if (!loaded)
             return res.status(404).json({ error: 'Resume file missing' });
         res.setHeader('Content-Type', loaded.mime);
-        res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(loaded.fileName)}"`);
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(loaded.fileName)}"`);
         res.send(loaded.buffer);
     }
     catch (err) {
@@ -202,7 +232,7 @@ router.get('/:id', async (req, res) => {
     const [enriched] = await enrichInterviews([row]);
     res.json(enriched);
 });
-router.post('/', requireRoles(...INTERVIEW_SCHEDULERS), async (req, res) => {
+router.post('/', requireExactRoles(...INTERVIEW_SCHEDULERS), async (req, res) => {
     const body = req.body;
     const planStageId = typeof body.planStageId === 'string' ? body.planStageId : '';
     if (!planStageId) {
@@ -289,7 +319,7 @@ async function sendScheduledAndRespond(res, row, body, req, calendarOptions) {
     const [enriched] = await enrichInterviews([synced]);
     res.status(201).json(enriched);
 }
-router.patch('/:id', requireRoles(...INTERVIEW_SCHEDULERS), async (req, res) => {
+router.patch('/:id', requireExactRoles(...INTERVIEW_SCHEDULERS), async (req, res) => {
     const existing = await prisma.interview.findUnique({ where: { id: req.params.id } });
     if (!existing)
         return res.status(404).json({ error: 'Not found' });
@@ -437,7 +467,7 @@ router.patch('/:id', requireRoles(...INTERVIEW_SCHEDULERS), async (req, res) => 
     const [enriched] = await enrichInterviews([synced]);
     res.json(enriched);
 });
-router.patch('/:id/status', requireRoles(...INTERVIEW_SCHEDULERS), async (req, res) => {
+router.patch('/:id/status', requireExactRoles(...INTERVIEW_SCHEDULERS), async (req, res) => {
     const existing = await prisma.interview.findUnique({ where: { id: req.params.id } });
     if (!existing)
         return res.status(404).json({ error: 'Not found' });

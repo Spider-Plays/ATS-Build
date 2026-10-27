@@ -17,11 +17,20 @@ export async function ensureRolePageAccessPatches() {
         ACCOUNT_MANAGER: ['requirements', 'reports', 'self_service'],
         HIRING_MANAGER: ['requirements', 'reports', 'self_service'],
         HR_HEAD: ['reports', 'self_service'],
-        HR_MANAGER: ['reports', 'self_service'],
+        TA_MANAGER: ['reports', 'self_service'],
         FINANCE_HEAD: ['self_service'],
         RECRUITER: ['reports', 'self_service'],
         TEAM_LEAD: ['reports', 'self_service'],
         INTERVIEWER: ['self_service'],
+    };
+    const exactPages = {
+        HUMAN_RESOURCE: [
+            'dashboard',
+            'offers',
+            'offer_compensation_config',
+            'offer_letter_template',
+            'self_service',
+        ],
     };
     for (const role of CONFIGURABLE_ROLES) {
         if (role === 'SUPER_ADMIN')
@@ -29,10 +38,13 @@ export async function ensureRolePageAccessPatches() {
         const defaults = defaultPagesForRole(role);
         const row = await prisma.rolePageAccess.findUnique({ where: { role } });
         const stored = row ? parsePagesJson(row.pages) : [];
+        const locked = exactPages[role];
         const base = stored.length > 0 ? stored : defaults;
-        const merged = sanitizePagesForRole(role, [
-            ...new Set([...base, ...defaults, ...(extraPages[role] ?? [])]),
-        ]);
+        const merged = locked
+            ? sanitizePagesForRole(role, locked)
+            : sanitizePagesForRole(role, [
+                ...new Set([...base, ...defaults, ...(extraPages[role] ?? [])]),
+            ]);
         if (merged.length === base.length && merged.every((p) => base.includes(p))) {
             continue;
         }

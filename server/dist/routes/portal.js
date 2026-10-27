@@ -1,3 +1,4 @@
+import { expensiveRateLimiter } from '../middleware/rateLimit.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
@@ -445,7 +446,7 @@ router.post('/positions/:id/apply', async (req, res) => {
             title: requirement.title,
         },
     });
-    await syncRequirementHiringState(requirement.id);
+    await syncRequirementHiringState(requirement.id, { notify: true });
     res.status(201).json({
         alreadyApplied: false,
         candidate: mapCandidate(row, { requirement }),
@@ -655,7 +656,7 @@ router.get('/offers/:id', async (req, res) => {
         letterHtml: ctx?.letterHtml ?? offer.letterHtml,
     });
 });
-router.get('/offers/:id/letter/pdf', async (req, res) => {
+router.get('/offers/:id/letter/pdf', expensiveRateLimiter, async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: req.auth.userId } });
     if (!user)
         return res.status(404).json({ error: 'User not found' });

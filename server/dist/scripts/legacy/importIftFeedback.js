@@ -12,7 +12,7 @@ import { prisma } from '../../lib/prisma.js';
 import { ensureInterviewPlan } from '../../lib/interviewPlan.js';
 import { DEV_PASSWORD } from '../../config/devUsers.js';
 import { parseLegacyCsv } from '../../lib/legacyImport/parseCsv.js';
-import { buildIftFormData, groupIftRows, isPlaceholderPerson, } from '../../lib/legacyImport/iftFeedback.js';
+import { buildIftFormData, formRecommendation, groupIftRows, iftToFormRating, mapIftToForm, isPlaceholderPerson, } from '../../lib/legacyImport/iftFeedback.js';
 import { ensureStitchUser, loadStitchUserLookup, normalizePersonName, } from '../../lib/legacyImport/ensureStitchUser.js';
 function parseArgs(argv) {
     let csvPath = '';
@@ -116,14 +116,20 @@ async function upsertRoundFeedback(opts) {
     else {
         stats.interviewsUpdated++;
     }
-    const formData = buildIftFormData(payload);
+    const req = await prisma.requirement.findUnique({
+        where: { id: requirementId },
+        select: { seniorityLevel: true },
+    });
+    const form = mapIftToForm(payload, req?.seniorityLevel);
+    const formData = buildIftFormData(payload, form);
+    const communication = form.competencies.find((c) => /communication/i.test(c.topic))?.rating;
     const feedbackData = {
         interviewerId,
         rating: payload.rating,
-        technicalRating: payload.technicalRating ?? payload.rating,
-        communicationRating: payload.rating,
+        technicalRating: payload.technicalRating ? iftToFormRating(payload.technicalRating) : payload.rating,
+        communicationRating: communication || payload.rating,
         comments: payload.comments,
-        recommendation: payload.recommendation,
+        recommendation: formRecommendation(payload.recommendation, payload.rating),
         formData,
     };
     const existing = await prisma.feedback.findFirst({
@@ -167,7 +173,7 @@ export async function run(argv = []) {
         ? { byEmail: new Map(), byName: new Map(), emailName: new Map() }
         : await loadStitchUserLookup();
     const passwordHash = dryRun ? 'dry-run' : await bcrypt.hash(DEV_PASSWORD, 10);
-    // Ensure every IFT interviewer exists as INTERVIEWER (@stitch-ats.in if new).
+    // Ensure every IFT interviewer exists as INTERVIEWER (@ats.igsglobal.co if new).
     const interviewerNames = new Set();
     for (const g of groups) {
         if (g.l1?.interviewerName && !isPlaceholderPerson(g.l1.interviewerName)) {

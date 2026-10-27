@@ -1,13 +1,13 @@
 import express from 'express';
 import 'express-async-errors';
 import cors from 'cors';
+import helmet from 'helmet';
 import { Prisma } from '@prisma/client';
 import { env } from './config/env.js';
 import { resolveApiBuildId } from './config/buildId.js';
 import { prisma } from './lib/prisma.js';
 import { isEmailConfigured } from './services/email.js';
 import { databaseHostLabel } from './config/loadEnv.js';
-import { isProductionNeonDatabaseUrl, isStagingRuntime } from './config/databaseEnv.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import businessRequirementRoutes from './routes/businessRequirements.js';
@@ -15,6 +15,7 @@ import clientDealRoutes from './routes/clientDeals.js';
 import requirementRoutes from './routes/requirements.js';
 import candidateRoutes from './routes/candidates.js';
 import interviewRoutes from './routes/interviews.js';
+import interviewRsvpRoutes from './routes/interviewRsvp.js';
 import offerRoutes from './routes/offers.js';
 import feedbackRoutes from './routes/feedback.js';
 import activityLogRoutes from './routes/activityLogs.js';
@@ -25,6 +26,7 @@ import vendorRoutes from './routes/vendors.js';
 import vendorOnboardingRoutes from './routes/vendorOnboarding.js';
 import vendorPortalRoutes from './routes/vendorPortal.js';
 import referralPortalRoutes from './routes/referralPortal.js';
+import referralReviewRoutes from './routes/referralReview.js';
 import skillRoutes from './routes/skills.js';
 import departmentRoutes from './routes/departments.js';
 import clientRoutes from './routes/clients.js';
@@ -41,14 +43,26 @@ import marketTrendsRoutes from './routes/marketTrends.js';
 import notificationRoutes from './routes/notifications.js';
 import privacyRoutes from './routes/privacy.js';
 import featureFlagsRoutes from './routes/featureFlags.js';
+import emailToggleRoutes from './routes/emailToggles.js';
+import databaseBackupRoutes from './routes/databaseBackups.js';
+import pagePublicationRoutes from './routes/pagePublication.js';
+import openRequisitionReportRoutes from './routes/openRequisitionReport.js';
+import { appLogMiddleware } from './lib/appLog.js';
 export const app = express();
-// Render (and Cloudflare) sit behind a reverse proxy — required for rate limiting and client IP.
-if (process.env.RENDER === 'true' || env.isProduction) {
-    app.set('trust proxy', 1);
-}
-const devOrigins = [
+// One reverse proxy (local frontend proxy or the host in front of the API) sets X-Forwarded-For.
+app.set('trust proxy', 1);
+app.use(helmet({
+    // The SPA is served by the frontend host; the API only returns JSON and files.
+    contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
+    crossOriginResourcePolicy: { policy: 'same-site' },
+}));
+const PRODUCTION_ORIGINS = ['https://ats.igsglobal.co'];
+// Local development origins are never trusted in production.
+const devOrigins = env.isProduction ? PRODUCTION_ORIGINS : [
+    ...PRODUCTION_ORIGINS,
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'http://ats.igsglobal.co:3000',
     'http://localhost:3001',
     'http://127.0.0.1:3001',
     'http://localhost:3002',
@@ -60,14 +74,12 @@ const devOrigins = [
 ];
 function isAllowedOrigin(origin) {
     const normalized = origin.replace(/\/$/, '');
+    const appOrigin = env.clientOrigin.replace(/\/$/, '');
+    if (normalized === appOrigin)
+        return true;
     if (devOrigins.includes(normalized) || env.clientOrigins.includes(normalized))
         return true;
-    if (!env.isProduction)
-        return false;
-    return (/^https:\/\/(www\.)?stitch-ats\.in$/.test(normalized) ||
-        /^https:\/\/[\w-]+\.stitch-ats\.in$/.test(normalized) ||
-        /^https:\/\/([\w-]+\.)*[\w-]+\.pages\.dev$/.test(normalized) ||
-        /^https:\/\/ats\.[\w-]+\.workers\.dev$/.test(normalized));
+    return false;
 }
 app.use(cors({
     origin(origin, callback) {
@@ -79,12 +91,13 @@ app.use(cors({
     },
     credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+app.use(appLogMiddleware);
 app.get('/', (_req, res) => {
     res.json({
         service: 'Stitch ATS',
         health: '/api/health',
-        hint: 'Open your Cloudflare Pages site for the app UI — this URL is the API only.',
+        hint: `Open the app at ${env.clientOrigin}.`,
     });
 });
 app.get('/api/health', async (_req, res) => {
@@ -98,19 +111,7 @@ app.get('/api/health', async (_req, res) => {
             database: 'connected',
             buildId,
             email: isEmailConfigured() ? 'configured' : 'not_configured',
-            atsEnv: process.env.ATS_ENV === 'local'
-                ? 'local'
-                : process.env.ATS_ENV === 'igs'
-                    ? 'igs'
-                    : isStagingRuntime()
-                        ? 'staging'
-                        : 'production',
             databaseHost,
-            databaseTier: databaseHost
-                ? isProductionNeonDatabaseUrl(process.env.DATABASE_URL)
-                    ? 'production-neon'
-                    : 'non-production-neon'
-                : undefined,
         });
     }
     catch {
@@ -129,6 +130,7 @@ app.use('/api/client-deals', clientDealRoutes);
 app.use('/api/requirements', requirementRoutes);
 app.use('/api/candidates', candidateRoutes);
 app.use('/api/interviews', interviewRoutes);
+app.use('/api/interview-rsvp', interviewRsvpRoutes);
 app.use('/api/offers', offerRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/activity-logs', activityLogRoutes);
@@ -139,6 +141,7 @@ app.use('/api/vendors', vendorRoutes);
 app.use('/api/vendor-onboarding', vendorOnboardingRoutes);
 app.use('/api/vendor-portal', vendorPortalRoutes);
 app.use('/api/referral-portal', referralPortalRoutes);
+app.use('/api/referral-review', referralReviewRoutes);
 app.use('/api/skills', skillRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/clients', clientRoutes);
@@ -155,6 +158,10 @@ app.use('/api/market-trends', marketTrendsRoutes);
 app.use('/api/privacy', privacyRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/feature-flags', featureFlagsRoutes);
+app.use('/api/email-toggles', emailToggleRoutes);
+app.use('/api/database-backups', databaseBackupRoutes);
+app.use('/api/page-publication', pagePublicationRoutes);
+app.use('/api/open-requisition-report', openRequisitionReportRoutes);
 app.use((err, _req, res, _next) => {
     console.error(err);
     const prismaConnCodes = new Set(['P1000', 'P1001', 'P1002', 'P1008', 'P1011', 'P1017']);
@@ -164,7 +171,7 @@ app.use((err, _req, res, _next) => {
         return res.status(503).json({
             error: env.isProduction
                 ? 'Database unavailable.'
-                : 'Database unavailable. Wake your Neon project in the console or check DATABASE_URL in server/.env.',
+                : 'Database unavailable. Check that Postgres is running and DATABASE_URL in .env is correct.',
         });
     }
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2021') {

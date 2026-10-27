@@ -92,17 +92,18 @@ export function computeHoldPausedDays(holdStartDate, holdEndDate, now = new Date
 }
 export function computeRequirementAgeSnapshot(r, now = new Date()) {
     const end = r.closedAt && r.closedAt.getTime() <= now.getTime() ? r.closedAt : now;
-    // SLA / product ageing starts on approval (liveAt), not on draft creation.
-    const ageStart = r.liveAt ?? r.createdAt;
-    const totalAgeDays = r.liveAt
-        ? Math.max(0, calendarDaysBetween(r.liveAt, end))
+    // Ageing starts from the raised date when the requirement has been repurposed.
+    const ageStart = r.raisedOn ?? r.liveAt ?? r.createdAt;
+    const agingAnchor = r.raisedOn ?? r.liveAt;
+    const totalAgeDays = agingAnchor
+        ? Math.max(0, calendarDaysBetween(agingAnchor, end))
         : r.status === 'LIVE' || r.status === 'ON_HOLD' || r.status === 'APPROVED'
             ? Math.max(0, calendarDaysBetween(ageStart, end))
             : 0;
     const holdPausedDays = computeHoldPausedDays(r.holdStartDate, r.holdEndDate, end);
     let activeAgeDays = null;
-    if (r.liveAt) {
-        activeAgeDays = Math.max(0, calendarDaysBetween(r.liveAt, end) - holdPausedDays);
+    if (agingAnchor) {
+        activeAgeDays = Math.max(0, calendarDaysBetween(agingAnchor, end) - holdPausedDays);
     }
     else if (r.status === 'LIVE' || r.status === 'ON_HOLD') {
         activeAgeDays = Math.max(0, totalAgeDays - holdPausedDays);

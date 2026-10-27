@@ -9,7 +9,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 function isQaStagingDeploy() {
   if (process.env.ATS_ENV === 'staging') return true
   const signals = [process.env.APP_URL ?? '', process.env.CLIENT_ORIGIN ?? '']
-  return signals.some((value) => value.includes('qa.stitch-ats.in'))
+  return signals.some((value) => value.includes('ats.igsglobal.co'))
 }
 
 function databaseUrlFromEnvFile(filename) {

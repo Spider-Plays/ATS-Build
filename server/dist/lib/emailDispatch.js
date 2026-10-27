@@ -1,49 +1,15 @@
 import { prisma } from './prisma.js';
 import { logActivity } from '../services/activityLog.js';
 import { env } from '../config/env.js';
-import { sendAdminPasswordEmail, sendCandidateStatusEmail, sendInterviewCancelledEmail, sendInterviewReminderEmail, sendInterviewScheduledEmail, sendInterviewUpdatedEmail, sendInviteEmail, sendInterviewerAssignedEmail, sendNewCandidateNotificationEmail, sendOfferDeclinedEmail, sendOfferAcceptedEmail, sendReferralStatusEmail, sendReferralSubmittedEmail, sendStaffNotificationEmail, sendRequirementAgingAlertEmail, sendVendorAssignmentEmail, } from '../services/email.js';
+import { sendAdminPasswordEmail, sendCandidateStatusEmail, sendInviteEmail, sendNewCandidateNotificationEmail, sendOfferDeclinedEmail, sendOfferAcceptedEmail, sendReferralStatusEmail, sendReferralSubmittedEmail, sendStaffNotificationEmail, sendRequirementAgingAlertEmail, sendVendorAssignmentEmail, sendInterviewReminderEmail, } from '../services/email.js';
 import { getInterviewerUsers, getRequirementAgingAlertRecipients, getRequirementRecruiterEmails, getUserEmailsByIds, getUserEmailsByRoles, getVendorUserEmails, } from './emailRecipients.js';
-import { buildInterviewIcsAttachment, interviewRowToCalendarContext, syncInterviewCalendar, } from './interviewCalendar.js';
+import { interviewRowToCalendarContext, syncInterviewCalendar } from './interviewCalendar.js';
+import { isEmailKindEnabled } from './emailToggles.js';
 function fireAndForget(promise) {
     promise.catch((err) => console.error('[email]', err instanceof Error ? err.message : err));
 }
 async function sendToMany(recipients, send) {
     await Promise.allSettled(recipients.map((r) => send(r)));
-}
-async function buildCalendarInvite(ctx) {
-    const meta = await (async () => {
-        const candidate = await prisma.candidate.findUnique({
-            where: { id: ctx.candidateId },
-            select: { name: true, email: true },
-        });
-        const requirement = await prisma.requirement.findUnique({
-            where: { id: ctx.requirementId },
-            select: { title: true, jobCode: true },
-        });
-        const interviewers = await getInterviewerUsers(ctx.interviewerIds);
-        const stageLabel = ctx.stageName ?? ctx.type.replace(/_/g, ' ');
-        const jobTitle = requirement?.title ?? 'Open role';
-        const jobCode = requirement?.jobCode ? ` (${requirement.jobCode})` : '';
-        const candidateName = candidate?.name ?? 'Candidate';
-        const summary = `${stageLabel} interview — ${candidateName}`;
-        const descriptionParts = [
-            `${stageLabel} interview for ${candidateName}`,
-            `Role: ${jobTitle}${jobCode}`,
-            ctx.description?.trim(),
-            ctx.meetingLink ? `Join: ${ctx.meetingLink}` : undefined,
-            ctx.location ? `Location: ${ctx.location}` : undefined,
-        ].filter(Boolean);
-        const attendees = [];
-        if (candidate?.email)
-            attendees.push({ email: candidate.email, name: candidate.name });
-        for (const interviewer of interviewers) {
-            if (!attendees.some((a) => a.email.toLowerCase() === interviewer.email.toLowerCase())) {
-                attendees.push(interviewer);
-            }
-        }
-        return { summary, description: descriptionParts.join('\n'), attendees };
-    })();
-    return buildInterviewIcsAttachment(ctx, meta);
 }
 export function notifyStaffUserCreated(user, tempPassword) {
     fireAndForget(sendInviteEmail({
@@ -81,112 +47,19 @@ export async function prepareInterviewCalendar(row, options) {
         calendarSequence: synced.calendarSequence,
     };
 }
-export function notifyInterviewScheduled(interview) {
-    fireAndForget((async () => {
-        const candidate = await prisma.candidate.findUnique({ where: { id: interview.candidateId } });
-        if (!candidate)
-            return;
-        const stage = interview.planStageId
-            ? await prisma.interviewPlanStage.findUnique({ where: { id: interview.planStageId } })
-            : null;
-        const ctx = await interviewRowToCalendarContext({ ...interview, planStageId: interview.planStageId }, { stageName: stage?.name });
-        const calendarInvite = await buildCalendarInvite(ctx);
-        const scheduledAt = interview.scheduledAt.toLocaleString();
-        const type = (stage?.name ?? interview.type).replace(/_/g, ' ');
-        if (candidate.email) {
-            await sendInterviewScheduledEmail({
-                to: candidate.email,
-                candidateName: candidate.name,
-                type,
-                scheduledAt,
-                meetingLink: interview.meetingLink ?? undefined,
-                location: interview.location ?? undefined,
-                calendarInvite,
-            });
-        }
-        const interviewers = await getInterviewerUsers(interview.interviewerIds);
-        await sendToMany(interviewers, (u) => sendInterviewerAssignedEmail({
-            to: u.email,
-            recipientName: u.name,
-            candidateName: candidate.name,
-            type,
-            scheduledAt,
-            meetingLink: interview.meetingLink ?? undefined,
-            location: interview.location ?? undefined,
-            headline: 'Interview assigned to you',
-            calendarInvite,
-        }));
-    })());
-}
+/** Outlook sends the interview. Stitch does not send a second interview email. */
+export function notifyInterviewScheduled(_interview) { }
 export function notifyInterviewUpdated(interview, options) {
-    fireAndForget((async () => {
-        const candidate = await prisma.candidate.findUnique({ where: { id: interview.candidateId } });
-        if (!candidate)
-            return;
-        const stage = interview.planStageId
-            ? await prisma.interviewPlanStage.findUnique({ where: { id: interview.planStageId } })
-            : null;
-        const ctx = await interviewRowToCalendarContext({ ...interview, planStageId: interview.planStageId }, { stageName: stage?.name });
-        const calendarInvite = await buildCalendarInvite(ctx);
-        const scheduledAt = interview.scheduledAt.toLocaleString();
-        const type = (stage?.name ?? interview.type).replace(/_/g, ' ');
-        if (candidate.email) {
-            await sendInterviewUpdatedEmail({
-                to: candidate.email,
-                candidateName: candidate.name,
-                type,
-                scheduledAt,
-                meetingLink: interview.meetingLink ?? undefined,
-                location: interview.location ?? undefined,
-                rescheduled: options.rescheduled,
-                calendarInvite,
-            });
-        }
-        const interviewers = await getInterviewerUsers(interview.interviewerIds);
-        await sendToMany(interviewers, (u) => sendInterviewerAssignedEmail({
-            to: u.email,
-            recipientName: u.name,
-            candidateName: candidate.name,
-            type,
-            scheduledAt,
-            meetingLink: interview.meetingLink ?? undefined,
-            location: interview.location ?? undefined,
-            headline: options.rescheduled ? 'Interview rescheduled' : 'Interview details updated',
-            calendarInvite,
-        }));
-    })());
+    void interview;
+    void options;
 }
 export function notifyInterviewCancelled(interview) {
     fireAndForget((async () => {
-        const candidate = await prisma.candidate.findUnique({ where: { id: interview.candidateId } });
-        if (!candidate)
-            return;
         const stage = interview.planStageId
             ? await prisma.interviewPlanStage.findUnique({ where: { id: interview.planStageId } })
             : null;
         const ctx = await interviewRowToCalendarContext({ ...interview, planStageId: interview.planStageId }, { cancelled: true, stageName: stage?.name });
         await syncInterviewCalendar(ctx);
-        const calendarInvite = await buildCalendarInvite(ctx);
-        const scheduledAt = interview.scheduledAt.toLocaleString();
-        const type = (stage?.name ?? interview.type).replace(/_/g, ' ');
-        if (candidate.email) {
-            await sendInterviewCancelledEmail({
-                to: candidate.email,
-                recipientName: candidate.name,
-                type,
-                scheduledAt,
-                calendarInvite,
-            });
-        }
-        const interviewers = await getInterviewerUsers(interview.interviewerIds);
-        await sendToMany(interviewers, (u) => sendInterviewCancelledEmail({
-            to: u.email,
-            recipientName: u.name,
-            type,
-            scheduledAt,
-            candidateName: candidate.name,
-            calendarInvite,
-        }));
     })());
 }
 export function notifyOfferStatusChange(offer, status) {
@@ -243,6 +116,7 @@ export function notifyOfferSubmittedForApproval(offer) {
         await sendToMany(approvers, (u) => sendStaffNotificationEmail({
             to: u.email,
             recipientName: u.name,
+            kind: 'offerPendingHr',
             subject: `Offer pending HR approval — ${candidate.name}`,
             headline: 'Offer pending approval',
             body: `An offer for <strong>${candidate.name}</strong> is awaiting HR approval. <a href="${env.clientOrigin}/offers/${offer.id}">Review offer</a>`,
@@ -260,6 +134,7 @@ export function notifyOfferPendingExecApproval(offer) {
         await sendToMany(approvers, (u) => sendStaffNotificationEmail({
             to: u.email,
             recipientName: u.name,
+            kind: 'offerPendingExecutive',
             subject: `Offer pending executive approval — ${candidate.name}`,
             headline: 'Executive approval required',
             body: `High-compensation offer for <strong>${candidate.name}</strong> requires executive approval. <a href="${env.clientOrigin}/offers/${offer.id}">Review offer</a>`,
@@ -275,6 +150,7 @@ export function notifyOfferApproved(offer) {
         await sendToMany(recipients, (u) => sendStaffNotificationEmail({
             to: u.email,
             recipientName: u.name,
+            kind: 'offerApprovedStaff',
             subject: `Offer approved — ${candidate.name}`,
             headline: 'Offer approved',
             body: `The offer for <strong>${candidate.name}</strong> has been approved and is ready to send. <a href="${env.clientOrigin}/offers/${offer.id}">View offer</a>`,
@@ -291,6 +167,7 @@ export function notifyOfferRejected(offer) {
         await sendToMany(recipients, (u) => sendStaffNotificationEmail({
             to: u.email,
             recipientName: u.name,
+            kind: 'offerRejectedStaff',
             subject: `Offer rejected — ${candidate.name}`,
             headline: 'Offer rejected',
             body: `The offer for <strong>${candidate.name}</strong> was rejected and returned to draft.${reason} <a href="${env.clientOrigin}/offers/${offer.id}">View offer</a>`,
@@ -323,8 +200,8 @@ export function notifyCandidateStatusChange(candidate, previousStatus) {
         'BANK',
         'ON_HOLD',
     ]);
+    // JOINED referrals get the richer referralJoined workflow mail instead.
     const notifyReferrerStatuses = new Set([
-        'JOINED',
         'SCREEN_REJECT',
         'L1_INTERVIEW_REJECT',
         'MANAGERIAL_INTERVIEW_REJECT',
@@ -345,6 +222,10 @@ export function notifyCandidateStatusChange(candidate, previousStatus) {
         'CANDIDATE_ABORT',
     ]);
     fireAndForget((async () => {
+        if (candidate.referredByUserId && candidate.status === 'JOINED') {
+            const { onReferralJoined } = await import('./referralWorkflow.js');
+            await onReferralJoined(candidate.id);
+        }
         const requirement = candidate.requirementId
             ? await prisma.requirement.findUnique({
                 where: { id: candidate.requirementId },
@@ -380,6 +261,7 @@ export function notifyCandidateStatusChange(candidate, previousStatus) {
             await sendToMany(recruiters, (u) => sendStaffNotificationEmail({
                 to: u.email,
                 recipientName: u.name,
+                kind: 'candidateStatusStaff',
                 subject: `Candidate status updated — ${candidate.name}`,
                 headline: 'Candidate status updated',
                 body: `<strong>${candidate.name}</strong> was marked as <strong>${candidate.status.replace(/_/g, ' ')}</strong> for <strong>${jobTitle}</strong>.`,
@@ -430,6 +312,7 @@ export function notifyVendorAssignment(vendor, requirements) {
             to: u.email,
             recipientName: u.name,
             vendorName: vendor.name,
+            vendorId: vendor.id,
             requirements,
         }));
     })());
@@ -461,37 +344,31 @@ export async function runInterviewReminders() {
             });
             if (alreadySent)
                 continue;
-            const candidate = await prisma.candidate.findUnique({ where: { id: interview.candidateId } });
-            if (!candidate)
+            if (!(await isEmailKindEnabled('interviewReminder')))
                 continue;
-            const ctx = await interviewRowToCalendarContext(interview);
-            const calendarInvite = await buildCalendarInvite(ctx);
-            const scheduledAt = interview.scheduledAt.toLocaleString();
-            const type = interview.type.replace(/_/g, ' ');
-            const hoursUntil = target.hours;
-            if (candidate.email) {
-                await sendInterviewReminderEmail({
-                    to: candidate.email,
-                    recipientName: candidate.name,
-                    type,
-                    scheduledAt,
-                    meetingLink: interview.meetingLink ?? undefined,
-                    location: interview.location ?? undefined,
-                    hoursUntil,
-                    calendarInvite,
-                });
-            }
+            const candidate = await prisma.candidate.findUnique({
+                where: { id: interview.candidateId },
+                select: { name: true, email: true },
+            });
             const interviewers = await getInterviewerUsers(interview.interviewerIds);
-            await sendToMany(interviewers, (u) => sendInterviewReminderEmail({
-                to: u.email,
-                recipientName: u.name,
-                type,
-                scheduledAt,
+            const when = new Intl.DateTimeFormat('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                dateStyle: 'medium',
+                timeStyle: 'short',
+            }).format(interview.scheduledAt);
+            const recipients = [
+                ...(candidate?.email ? [{ email: candidate.email, name: candidate.name }] : []),
+                ...interviewers,
+            ];
+            await sendToMany(recipients, (person) => sendInterviewReminderEmail({
+                to: person.email,
+                recipientName: person.name,
+                type: interview.type,
+                scheduledAt: when,
                 meetingLink: interview.meetingLink ?? undefined,
                 location: interview.location ?? undefined,
-                hoursUntil,
-                candidateName: candidate.name,
-                calendarInvite,
+                hoursUntil: target.hours,
+                candidateName: candidate?.name,
             }));
             await logActivity({
                 entityType: 'INTERVIEW',
@@ -499,7 +376,7 @@ export async function runInterviewReminders() {
                 action: target.action,
                 performedBy: 'system',
                 performerName: 'System',
-                details: { scheduledAt: interview.scheduledAt.toISOString(), hoursUntil },
+                details: { scheduledAt: interview.scheduledAt.toISOString(), hoursUntil: target.hours },
             });
         }
     }
@@ -512,6 +389,7 @@ export function notifyLinkedRequirementCreated(businessReq) {
         await sendToMany(recipients, (u) => sendStaffNotificationEmail({
             to: u.email,
             recipientName: u.name,
+            kind: 'requirementAfterSow',
             subject: `New requirement after SOW: ${businessReq.title}`,
             headline: 'Requirement created',
             body: `<strong>${businessReq.title}</strong>${clientLabel} was added after SOW on the client card. <a href="${env.clientOrigin}/business-requirements/${businessReq.id}">View requirement</a> · <a href="${env.clientOrigin}/business-requirements/client/${businessReq.clientDealId}">View client card</a>`,
@@ -537,6 +415,7 @@ export function notifyBusinessRequirementStageChanged(businessReq) {
         await sendToMany(recipients, (u) => sendStaffNotificationEmail({
             to: u.email,
             recipientName: u.name,
+            kind: 'businessRequirementStage',
             subject: `Business requirement — ${stageLabel}: ${businessReq.title}`,
             headline: isSow ? 'SOW Signed' : 'Deal stage updated',
             body: `<strong>${businessReq.title}</strong>${clientLabel} is now at <strong>${stageLabel}</strong>.${note} <a href="${env.clientOrigin}/business-requirements/${businessReq.id}">View requirement</a>`,
@@ -563,9 +442,13 @@ export async function runRequirementAgingAlerts() {
             jobCode: true,
             status: true,
             liveAt: true,
+            raisedOn: true,
             closedAt: true,
             recruiters: true,
             hiringManager: true,
+            location: true,
+            locationCity: true,
+            hiringStage: true,
         },
     });
     const thresholds = [
@@ -591,15 +474,34 @@ export async function runRequirementAgingAlerts() {
             if (alreadySent)
                 continue;
             const recipients = await getRequirementAgingAlertRecipients(req);
+            const { fillReportSubject, getReportMailControls } = await import('./reportMail.js');
+            const controls = await getReportMailControls();
             const requirementUrl = `${env.clientOrigin.replace(/\/$/, '')}/requirements/${req.id}`;
-            await sendToMany(recipients, (u) => sendRequirementAgingAlertEmail({
+            const headline = target.days === 40 ? 'Requirement aging — 40 days' : 'Requirement aging — 20 days';
+            const subject = fillReportSubject(controls.aging.subject, {
+                headline,
+                jobTitle: req.title,
+                reqId: req.jobCode ?? '',
+                daysOpen: String(agingDays),
+            });
+            const known = new Set(recipients.map((u) => u.email.toLowerCase()));
+            const extraPeople = controls.aging.extraTo
+                .filter((email) => !known.has(email))
+                .map((email) => ({ email, name: email }));
+            await sendToMany([...recipients, ...extraPeople], (u) => sendRequirementAgingAlertEmail({
                 to: u.email,
+                cc: controls.aging.cc,
+                bcc: controls.aging.bcc,
                 recipientName: u.name,
                 title: req.title,
                 jobCode: req.jobCode,
+                location: req.locationCity || req.location,
+                hiringManager: req.hiringManager,
+                pipeline: req.hiringStage,
                 daysOpen: agingDays,
                 threshold: target.days,
                 requirementUrl,
+                subject,
             }));
             await logActivity({
                 entityType: 'REQUIREMENT',
@@ -622,4 +524,86 @@ export function startRequirementAgingAlertJob() {
     const intervalMs = 60 * 60 * 1000;
     fireAndForget(runRequirementAgingAlerts());
     setInterval(() => fireAndForget(runRequirementAgingAlerts()), intervalMs);
+}
+const OPEN_REQ_REPORT_SETTING = 'openRequisitionReportSentOn';
+function istCalendar(now = new Date()) {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+    })
+        .formatToParts(now)
+        .map((part) => [part.type, part.value]));
+    return {
+        date: `${parts.year}-${parts.month}-${parts.day}`,
+        hour: Number(parts.hour),
+        minute: Number(parts.minute),
+        second: Number(parts.second),
+    };
+}
+/** Milliseconds until the next 11:00:00 Asia/Kolkata. */
+function msUntilNextOpenRequisitionReport(now = new Date()) {
+    const { hour, minute, second } = istCalendar(now);
+    const pastEleven = hour > 11 || (hour === 11 && (minute > 0 || second > 0));
+    const hoursAhead = (pastEleven ? 24 : 0) + (11 - hour);
+    const waitMs = ((hoursAhead * 60 - minute) * 60 - second) * 1000;
+    return waitMs < 1000 ? 24 * 60 * 60 * 1000 : waitMs;
+}
+/** Daily open-requisition status mail, targeted for 11:00 Asia/Kolkata. Active requisitions only. */
+export async function runOpenRequisitionReport(now = new Date(), options) {
+    const { isEmailConfigured, sendOpenRequisitionReportEmail } = await import('../services/email.js');
+    const { buildOpenRequisitionReport, renderOpenRequisitionReportHtml } = await import('./openRequisitionReport.js');
+    const { getOpenRequisitionReportRecipients } = await import('./openRequisitionReportRecipients.js');
+    if (!isEmailConfigured())
+        return { sent: false, reason: 'email_not_configured' };
+    const recipients = await getOpenRequisitionReportRecipients();
+    if (recipients.to.length === 0)
+        return { sent: false, reason: 'no_recipients' };
+    const today = istCalendar(now);
+    if (!options?.force && today.hour < 11)
+        return { sent: false, reason: 'before_11_ist' };
+    const marker = await prisma.appSetting.findUnique({ where: { key: OPEN_REQ_REPORT_SETTING } });
+    if (!options?.force && marker?.value === today.date)
+        return { sent: false, reason: 'already_sent' };
+    const asOn = new Intl.DateTimeFormat('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    }).format(now);
+    const report = await buildOpenRequisitionReport(now);
+    const html = renderOpenRequisitionReportHtml(report);
+    const { fillReportSubject, getReportMailControls } = await import('./reportMail.js');
+    const controls = await getReportMailControls();
+    const result = await sendOpenRequisitionReportEmail({
+        to: recipients.to,
+        cc: recipients.cc,
+        bcc: recipients.bcc,
+        html,
+        asOn,
+        subject: fillReportSubject(controls.openRequisitionSubject, { asOn, active: String(report.active) }),
+    });
+    if (!result.sent)
+        return { sent: false, reason: result.reason === 'error' ? result.message : result.reason };
+    await prisma.appSetting.upsert({
+        where: { key: OPEN_REQ_REPORT_SETTING },
+        create: { key: OPEN_REQ_REPORT_SETTING, value: today.date, updatedBy: 'system' },
+        update: { value: today.date, updatedBy: 'system' },
+    });
+    return { sent: true, active: report.active };
+}
+export function startOpenRequisitionReportJob() {
+    const scheduleNext = () => {
+        setTimeout(() => {
+            fireAndForget(runOpenRequisitionReport());
+            scheduleNext();
+        }, msUntilNextOpenRequisitionReport());
+    };
+    fireAndForget(runOpenRequisitionReport());
+    scheduleNext();
 }

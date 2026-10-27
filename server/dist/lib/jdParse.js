@@ -1,4 +1,4 @@
-import { extractSkillsFromText } from './skills.js';
+import { rankSkillsInText } from './skills.js';
 const PREFERRED_SECTION = /(?:^|\n)\s*(?:preferred\s+qualifications?|nice\s+to\s+have|desired\s+skills?|bonus\s+skills?|optional\s+skills?|good\s+to\s+have)\s*[:\-]?\s*/im;
 /** Split JD text into required vs preferred sections when headings are present. */
 function splitJobDescriptionSections(text) {
@@ -12,31 +12,22 @@ function splitJobDescriptionSections(text) {
     };
 }
 /** Extract primary and secondary skills from a job description. */
-export function parseJobDescriptionSkills(text, catalogNames = []) {
+export function parseJobDescriptionSkills(text, catalog = []) {
     const trimmed = text.trim();
     if (!trimmed)
         return { primarySkills: [], secondarySkills: [] };
+    // Whole-word catalog hits, most-mentioned first. Required section → primary; the rest → secondary.
     const { requiredText, preferredText } = splitJobDescriptionSections(trimmed);
-    let primarySkills = extractSkillsFromText(requiredText, catalogNames);
-    let secondarySkills = extractSkillsFromText(preferredText, catalogNames);
+    const required = rankSkillsInText(requiredText, catalog);
+    const preferred = rankSkillsInText(preferredText, catalog);
+    const primaryCount = preferred.length > 0 ? 10 : 8;
+    const primarySkills = required.slice(0, primaryCount);
     const primarySet = new Set(primarySkills);
-    secondarySkills = secondarySkills.filter((skill) => !primarySet.has(skill));
-    if (primarySkills.length === 0 && secondarySkills.length === 0) {
-        const all = extractSkillsFromText(trimmed, catalogNames);
-        return {
-            primarySkills: all.slice(0, 8),
-            secondarySkills: all.slice(8, 16),
-        };
+    const secondarySkills = [...preferred, ...required.slice(primaryCount)]
+        .filter((skill, i, all) => !primarySet.has(skill) && all.indexOf(skill) === i)
+        .slice(0, 12);
+    if (primarySkills.length === 0) {
+        return { primarySkills: secondarySkills.slice(0, 8), secondarySkills: secondarySkills.slice(8) };
     }
-    if (primarySkills.length === 0 && secondarySkills.length > 0) {
-        const splitAt = Math.ceil(secondarySkills.length / 2);
-        return {
-            primarySkills: secondarySkills.slice(0, splitAt),
-            secondarySkills: secondarySkills.slice(splitAt),
-        };
-    }
-    return {
-        primarySkills: primarySkills.slice(0, 12),
-        secondarySkills: secondarySkills.slice(0, 12),
-    };
+    return { primarySkills, secondarySkills };
 }

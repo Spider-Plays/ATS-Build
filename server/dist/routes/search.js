@@ -1,3 +1,4 @@
+import { expensiveRateLimiter } from '../middleware/rateLimit.js';
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { mapCandidate, mapRequirement, mapUser, mapInterview } from '../utils/mappers.js';
@@ -8,7 +9,7 @@ import { buildRequirementListWhere } from '../lib/requirementAccess.js';
 import { buildUserListWhere } from '../lib/userAccess.js';
 const router = Router();
 router.use(requireAuth, requireActiveUser, requireRoles(...INTERNAL_ROLES));
-router.get('/', async (req, res) => {
+router.get('/', expensiveRateLimiter, async (req, res) => {
     const q = String(req.query.q || '').trim();
     if (q.length < 2) {
         return res.json({ candidates: [], requirements: [], users: [], interviews: [] });

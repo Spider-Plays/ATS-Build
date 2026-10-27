@@ -6,12 +6,13 @@ export const REQUIREMENT_AGING_RED_DAYS = 40;
 export const AGING_ALERT_20_ACTION = 'AGING_ALERT_20';
 export const AGING_ALERT_40_ACTION = 'AGING_ALERT_40';
 const OPEN_AGING_STATUSES = new Set(['LIVE', 'ON_HOLD', 'APPROVED']);
-/** Days since approval (liveAt). Null until the requirement is approved. */
+/** Days since the requirement was raised when `raisedOn` is set, otherwise since approval (`liveAt`). */
 export function computeRequirementAgingDays(r, now = new Date()) {
-    if (!r.liveAt)
+    const start = r.raisedOn ?? r.liveAt;
+    if (!start)
         return null;
     const end = r.closedAt && r.closedAt.getTime() <= now.getTime() ? r.closedAt : now;
-    return Math.max(0, calendarDaysBetween(r.liveAt, end));
+    return Math.max(0, calendarDaysBetween(start, end));
 }
 export function requirementAgingFlagFromDays(days) {
     if (days == null || days < 0)

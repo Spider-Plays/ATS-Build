@@ -1,4 +1,4 @@
-/** Stable per-deploy id — Render sets RENDER_GIT_COMMIT on each build. */
+/** Stable build id for local diagnostics or an externally supplied CI build. */
 export function resolveApiBuildId() {
     return (process.env.RENDER_GIT_COMMIT?.trim() ||
         process.env.GIT_COMMIT?.trim() ||

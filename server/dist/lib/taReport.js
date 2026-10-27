@@ -85,7 +85,7 @@ export function buildBudgetFormula(rateInr, positions) {
     return `${formatBudgetLpa(rateInr)} × ${pos} position${pos === 1 ? '' : 's'} = ${formatBudgetLpa(total)}`;
 }
 // ---- Date range helpers (Asia/Kolkata calendar days) --------------------
-// Render/API hosts are typically UTC; TA report periods must match IST business days.
+// API hosts are typically UTC; TA report periods must match IST business days.
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 /** Calendar day key (YYYY-MM-DD) in Asia/Kolkata for an instant. */
 function istDayKey(d) {
@@ -130,7 +130,7 @@ export function normalizePreset(value) {
     if (value === 'thisYear')
         return 'ytd';
     const presets = ['today', 'week', 'mtd', 'ytd', 'custom'];
-    return presets.includes(value) ? value : 'mtd';
+    return presets.includes(value) ? value : 'ytd';
 }
 /** Resolve a preset (plus optional custom from/to ISO days) into concrete IST bounds. */
 export function resolveDateRange(preset, fromStr, toStr, now = new Date()) {
@@ -231,8 +231,8 @@ function noneById() {
 }
 /**
  * TA Report scopes:
- * - HR Head / HR Manager / Team Lead (TA Lead) / Admin: entire org
- * - Recruiter + groupBy client: assigned requirements only, but full job metrics
+ * - HR Head / TA Manager / Team Lead (TA Lead) / Admin: entire org
+ * - Recruiter + groupBy project: assigned requirements only, but full job metrics
  *   (all candidates / interviews / offers on those requirements)
  * - Recruiter + groupBy recruiter: purely individual — own activity only;
  *   teammate pivot rows never appear
@@ -263,8 +263,8 @@ async function resolveTaReportScopes(auth, groupBy) {
                 allowedReqIds: [],
             };
         }
-        // Client view: assigned jobs with the full requirement funnel (not personal-only).
-        if (groupBy === 'client') {
+        // Project view: assigned jobs with the full requirement funnel (not personal-only).
+        if (groupBy === 'project') {
             return {
                 reqWhere: { id: { in: assignedIds } },
                 candWhere: { requirementId: { in: assignedIds } },
@@ -503,7 +503,7 @@ export async function buildTaReport(auth, opts) {
     const matchesPeriodFields = (r) => matchesReqQuarter(r.quarter ?? (r.createdAt ? quarterKeyFromDate(r.createdAt) : null), quarterFilters) &&
         matchesReqMonth(r.reqMonth ?? (r.createdAt ? monthKeyFromDate(r.createdAt) : null), monthFilters);
     const { reqWhere: scopeReqWhere, candWhere, interviewWhere, offerWhere, allowedReqIds } = await resolveTaReportScopes(auth, groupBy);
-    /** Recruiter + Recruiter pivot: personal metrics only. Client pivot uses full job funnels. */
+    /** Recruiter + Recruiter pivot: personal metrics only. Project pivot uses full job funnels. */
     const individualRecruiterId = auth.role === 'RECRUITER' && groupBy === 'recruiter' ? auth.userId : null;
     const reqWhere = statusFilter
         ? { AND: [scopeReqWhere, { status: { in: [...statusFilter] } }] }
@@ -514,6 +514,7 @@ export async function buildTaReport(auth, opts) {
             select: {
                 id: true,
                 client: true,
+                projectName: true,
                 title: true,
                 jobCode: true,
                 department: true,
@@ -586,7 +587,7 @@ export async function buildTaReport(auth, opts) {
     const candById = new Map(candidates.map((c) => [c.id, c]));
     const allowedReqSet = allowedReqIds ? new Set(allowedReqIds) : null;
     // Interviews/offers may reference requirements outside the scoped list (reassigned
-    // candidates, deleted access paths). Load those so client grouping + position rows work.
+    // candidates, deleted access paths). Load those so project grouping + position rows work.
     // Recruiters stay limited to assigned requirements only.
     const missingReqIds = [
         ...new Set([
@@ -610,6 +611,7 @@ export async function buildTaReport(auth, opts) {
             select: {
                 id: true,
                 client: true,
+                projectName: true,
                 title: true,
                 jobCode: true,
                 department: true,
@@ -803,10 +805,10 @@ export async function buildTaReport(auth, opts) {
             positionNameBuckets.get(positionBucketKey(rowKey, reqId))?.[metric].set(mapKey, entry);
         }
     };
-    const clientGroupFromReqId = (reqId) => {
-        const client = reqId ? reqById.get(reqId)?.client : null;
-        const label = client && client.trim() ? client.trim() : UNASSIGNED;
-        return { key: `client:${label}`, label };
+    const projectGroupFromReqId = (reqId) => {
+        const project = reqId ? reqById.get(reqId)?.projectName : null;
+        const label = project && project.trim() ? project.trim() : UNASSIGNED;
+        return { key: `project:${label}`, label };
     };
     const recruiterGroup = (createdBy) => {
         if (!createdBy)
@@ -818,19 +820,19 @@ export async function buildTaReport(auth, opts) {
         if (groupBy === 'recruiter') {
             return recruiterGroup(individualRecruiterId ?? c.createdBy);
         }
-        return clientGroupFromReqId(c.requirementId);
+        return projectGroupFromReqId(c.requirementId);
     };
     // Stock (openings / age / budget):
     // - With quarter/month filters: all matching tagged requirements (same as Requirements list)
     // - Without: jobs whose live/created date falls in the selected date range
-    if (groupBy === 'client') {
+    if (groupBy === 'project') {
         for (const r of requirements) {
             if (!hasPeriodFieldFilters) {
                 const anchor = r.liveAt ?? r.createdAt;
                 if (!inRange(anchor))
                     continue;
             }
-            const g = clientGroupFromReqId(r.id);
+            const g = projectGroupFromReqId(r.id);
             applyStockMetrics(g.key, g.label, r);
         }
     }
@@ -960,7 +962,7 @@ export async function buildTaReport(auth, opts) {
             continue;
         const g = groupBy === 'recruiter'
             ? recruiterGroup(individualRecruiterId ?? i.scheduledBy ?? cand?.createdBy ?? null)
-            : clientGroupFromReqId(reqId);
+            : projectGroupFromReqId(reqId);
         const row = getRow(g.key, g.label);
         const pos = getPosition(g.key, g.label, reqId);
         const eventDate = inRange(i.scheduledAt) ? i.scheduledAt : i.createdAt;
@@ -995,7 +997,7 @@ export async function buildTaReport(auth, opts) {
             continue;
         const g = groupBy === 'recruiter'
             ? recruiterGroup(individualRecruiterId ?? cand?.createdBy ?? null)
-            : clientGroupFromReqId(o.requirementId);
+            : projectGroupFromReqId(o.requirementId);
         const row = getRow(g.key, g.label);
         const pos = getPosition(g.key, g.label, o.requirementId);
         const offerDate = o.respondedAt ?? o.sentAt ?? o.createdAt;

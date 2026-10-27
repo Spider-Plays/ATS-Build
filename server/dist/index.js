@@ -13,7 +13,9 @@ import { ensureClientDealTable } from './lib/ensureClientDealTable.js';
 import { ensureRequirementAccountManagerColumn } from './lib/ensureRequirementAccountManagerColumn.js';
 import { ensureRequirementRequisitionColumns } from './lib/ensureRequirementRequisitionColumns.js';
 import { ensureInterviewScheduledByColumn } from './lib/ensureInterviewScheduledByColumn.js';
+import { ensureUserProfileColumns } from './lib/ensureUserProfileColumns.js';
 import { ensurePrimaryDevUsers } from './lib/ensurePrimaryDevUsers.js';
+import { ensureTaManagerRole } from './lib/ensureTaManagerRole.js';
 import { ensureRolePageAccessPatches } from './lib/ensureRolePageAccessPatches.js';
 import { ensureRefreshTokenTable } from './lib/ensureRefreshTokenTable.js';
 import { ensureChangeRequestTable } from './lib/ensureChangeRequestTable.js';
@@ -21,8 +23,11 @@ import { ensureAppSettingTable } from './lib/ensureAppSettingTable.js';
 import { ensureCityCatalogTable } from './lib/ensureCityCatalogTable.js';
 import { syncDefaultCityCatalog } from './lib/cityCatalog.js';
 import { ensureMarketTrendsTables } from './lib/ensureMarketTrendsTables.js';
-import { startInterviewReminderJob, startRequirementAgingAlertJob } from './lib/emailDispatch.js';
+import { startInterviewReminderJob, startOpenRequisitionReportJob, startRequirementAgingAlertJob } from './lib/emailDispatch.js';
 import { startCandidateScreeningJob } from './lib/candidateStatuses.js';
+import { startReferralExpiryJob } from './lib/referralWorkflow.js';
+import { startDatabaseBackupJob } from './lib/databaseBackup.js';
+import { startAppLogRolloverJob } from './lib/appLog.js';
 try {
     assertPrismaClientModels();
 }
@@ -51,13 +56,19 @@ async function prepareDatabase() {
     await ensureRequirementAccountManagerColumn();
     await ensureRequirementRequisitionColumns();
     await ensureInterviewScheduledByColumn();
+    await ensureUserProfileColumns();
     await ensurePrimaryDevUsers();
     await ensureChangeRequestTable();
+    await ensureTaManagerRole();
     await ensureRolePageAccessPatches();
     await ensureRefreshTokenTable();
     startInterviewReminderJob();
     startRequirementAgingAlertJob();
+    startOpenRequisitionReportJob();
     startCandidateScreeningJob();
+    startReferralExpiryJob();
+    startDatabaseBackupJob();
+    startAppLogRolloverJob();
 }
 async function start() {
     try {
@@ -67,21 +78,13 @@ async function start() {
         console.warn('Database not reachable or schema prep failed — some routes may error until Postgres is reachable:', e instanceof Error ? e.message : e);
     }
     const dbHost = databaseHostLabel();
-    const envLabel = process.env.ATS_ENV === 'local'
-        ? 'localhost (.env.local)'
-        : process.env.ATS_ENV === 'staging'
-            ? 'QA staging'
-            : process.env.ATS_ENV === 'production'
-                ? 'production (.env)'
-                : process.env.ATS_ENV === 'igs'
-                    ? 'IGS (.env.igs)'
-                    : 'local';
-    const server = app.listen(env.port, () => {
-        console.log(`API running at http://localhost:${env.port} [${envLabel}${dbHost ? ` → ${dbHost}` : ''}]`);
+    const server = app.listen(env.port, env.host, () => {
+        console.log(`API running at http://localhost:${env.port}${dbHost ? ` -> ${dbHost}` : ''}`);
+        console.log(`Email links use ${env.clientOrigin}`);
     });
     server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-            console.error(`Port ${env.port} is already in use. Stop the other process or change PORT in server/.env`);
+            console.error(`Port ${env.port} is already in use. Stop the other process or change PORT in the root .env`);
             process.exit(1);
         }
         throw err;

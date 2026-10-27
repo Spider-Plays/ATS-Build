@@ -92,8 +92,10 @@ export async function rotateRefreshToken(rawRefresh, req) {
 }
 export async function revokeRefreshToken(rawRefresh) {
     const tokenHash = hashRefreshToken(rawRefresh);
+    const row = await prisma.refreshToken.findUnique({ where: { tokenHash }, select: { userId: true } });
     await prisma.refreshToken.updateMany({
         where: { tokenHash, revokedAt: null },
         data: { revokedAt: new Date() },
     });
+    return row?.userId ?? null;
 }

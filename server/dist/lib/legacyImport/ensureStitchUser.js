@@ -47,7 +47,7 @@ export function slugFromName(name) {
     return firstname;
 }
 export function stitchEmailFromName(name) {
-    return `${slugFromName(name)}@stitch-ats.in`;
+    return `${slugFromName(name)}@ats.igsglobal.co`;
 }
 /** True when `short` is a proper token-prefix of `full` (e.g. "Pooja" → "Pooja M C"). */
 export function isShorterFormOf(short, full) {
@@ -152,7 +152,7 @@ function resolveByNamePreferFull(lookup, name) {
 }
 /**
  * Find or create a local user. Prefer exact / full-name match.
- * New accounts always get `{name-slug}@stitch-ats.in` with password `password`
+ * New accounts always get `{name-slug}@ats.igsglobal.co` with password `password`
  * (sheet emails are not used as login addresses).
  */
 export async function ensureStitchUser(lookup, opts) {
@@ -194,7 +194,7 @@ export async function ensureStitchUser(lookup, opts) {
     const displayName = name ?? sheetEmail.split('@')[0];
     let finalEmail = stitchEmailFromName(displayName);
     if (lookup.byEmail.has(finalEmail)) {
-        finalEmail = `${slugFromName(displayName)}.${crypto.randomBytes(2).toString('hex')}@stitch-ats.in`;
+        finalEmail = `${slugFromName(displayName)}.${crypto.randomBytes(2).toString('hex')}@ats.igsglobal.co`;
     }
     if (opts.dryRun) {
         const dryId = `dry-run-user-${finalEmail}`;
@@ -223,7 +223,7 @@ export async function ensureStitchUser(lookup, opts) {
             registerStitchUser(lookup, { id: existingByEmail.id, email: existingByEmail.email, name: displayName }, [rawName ?? '', name ?? '']);
             return { id: existingByEmail.id, created: false, email: existingByEmail.email };
         }
-        finalEmail = `${slugFromName(displayName)}.${crypto.randomBytes(2).toString('hex')}@stitch-ats.in`;
+        finalEmail = `${slugFromName(displayName)}.${crypto.randomBytes(2).toString('hex')}@ats.igsglobal.co`;
     }
     const passwordHash = opts.passwordHash ?? (await bcrypt.hash(DEV_PASSWORD, 10));
     try {

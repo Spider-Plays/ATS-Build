@@ -1,3 +1,4 @@
+import { INTERNAL_ROLES } from '../lib/roles.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
@@ -22,7 +23,7 @@ router.get('/', async (_req, res) => {
         state: row.state ?? null,
     })));
 });
-router.post('/', async (req, res) => {
+router.post('/', requireRoles(...INTERNAL_ROLES), async (req, res) => {
     const body = z
         .object({
         city: z.string().min(2).max(120),

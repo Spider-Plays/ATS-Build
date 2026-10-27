@@ -46,6 +46,8 @@ export function buildInterviewIcs(event) {
     if (event.meetingLink) {
         lines.push(foldIcsLine(`URL:${escapeIcsText(event.meetingLink)}`));
     }
+    lines.push('X-MICROSOFT-CDO-INTENDEDSTATUS:BUSY');
+    lines.push('X-MICROSOFT-DISALLOW-COUNTER:TRUE');
     for (const attendee of event.attendees) {
         lines.push(foldIcsLine(`ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${escapeIcsText(attendee.name)}:mailto:${attendee.email}`));
     }
@@ -53,7 +55,7 @@ export function buildInterviewIcs(event) {
     return `${lines.join('\r\n')}\r\n`;
 }
 export function interviewCalendarUid(interviewId) {
-    return `interview-${interviewId}@stitch-ats.in`;
+    return `interview-${interviewId}@ats.igsglobal.co`;
 }
 export function interviewEndTime(scheduledAt, durationMinutes) {
     const end = new Date(scheduledAt);

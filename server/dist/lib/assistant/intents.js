@@ -35,7 +35,8 @@ const STATUS_ALIASES = [
 const USER_ROLE_ALIASES = [
     { role: 'RECRUITER', patterns: [/\brecruiters?\b/] },
     { role: 'INTERVIEWER', patterns: [/\binterviewers?\b/] },
-    { role: 'HR_MANAGER', patterns: [/\bhr managers?\b/] },
+    { role: 'TA_MANAGER', patterns: [/\bta managers?\b/, /\bhr managers?\b/] },
+    { role: 'HUMAN_RESOURCE', patterns: [/\bhuman resources?\b/] },
     { role: 'HR_HEAD', patterns: [/\bhr heads?\b/] },
     { role: 'ADMIN', patterns: [/\badmins?\b/] },
     { role: 'SUPER_ADMIN', patterns: [/\bsuper admins?\b/] },

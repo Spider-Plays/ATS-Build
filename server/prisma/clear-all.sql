@@ -1,4 +1,4 @@
--- Run in Neon Console → SQL Editor (production branch → neondb)
+-- Run against the target Postgres database (e.g. psql "$DATABASE_URL" -f clear-all.sql)
 -- Deletes all app data including demo users. Safe to re-run.
 
 TRUNCATE TABLE

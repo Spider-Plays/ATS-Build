@@ -5,6 +5,7 @@ export const FEATURE_TAG_KEYS = [
     'vendor_submission',
     'mis',
     'market_data',
+    'ta_operation',
 ];
 export const FEATURE_TAG_DEFINITIONS = [
     {
@@ -42,7 +43,24 @@ export const FEATURE_TAG_DEFINITIONS = [
         path: '/market-trends',
         icon: 'trending_up',
     },
+    {
+        key: 'ta_operation',
+        label: 'TA Operation',
+        description: 'Edit the date a job requirement is raised.',
+        path: '/requirements/new',
+        icon: 'event',
+    },
 ];
+/** TA Managers, TA Operation, and unrestricted roles may change the raised date. */
+export function canEditRequirementRaisedOn(role, userTags) {
+    if (!role)
+        return false;
+    if (role === 'DEVELOPER' || role === 'SUPER_ADMIN')
+        return true;
+    if (role === 'TA_MANAGER')
+        return true;
+    return (userTags ?? []).includes('ta_operation');
+}
 export function parseFeatureTags(raw) {
     try {
         const arr = JSON.parse(raw || '[]');

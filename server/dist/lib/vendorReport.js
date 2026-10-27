@@ -67,6 +67,9 @@ export async function buildVendorReport(opts) {
     const { groupBy, from, to } = opts;
     const inRange = (d) => inDateRange(d, from, to);
     const now = Date.now();
+    const statuses = opts.statuses ?? [];
+    const statusFilterActive = statuses.length > 0;
+    const statusWhere = statusFilterActive ? { status: { in: statuses } } : undefined;
     const [candidates, requirements, interviews, offers, vendors, vendorReqs] = await Promise.all([
         prisma.candidate.findMany({
             where: { vendorId: { not: null } },
@@ -85,9 +88,11 @@ export async function buildVendorReport(opts) {
             },
         }),
         prisma.requirement.findMany({
+            where: statusWhere,
             select: {
                 id: true,
                 client: true,
+                projectName: true,
                 title: true,
                 jobCode: true,
                 department: true,
@@ -120,6 +125,11 @@ export async function buildVendorReport(opts) {
         }),
     ]);
     const reqById = new Map(requirements.map((r) => [r.id, r]));
+    const reqAllowed = (reqId) => {
+        if (!statusFilterActive)
+            return true;
+        return !!reqId && reqById.has(reqId);
+    };
     const vendorById = new Map(vendors.map((v) => [v.id, v]));
     const candById = new Map(candidates.map((c) => [c.id, c]));
     const vendorCandIds = new Set(candidates.map((c) => c.id));
@@ -138,10 +148,10 @@ export async function buildVendorReport(opts) {
     const positionNameBuckets = new Map();
     const posKey = (rowKey, reqId) => `${rowKey}::${reqId}`;
     const groupOf = (c) => {
-        if (groupBy === 'client') {
-            const client = c.requirementId ? reqById.get(c.requirementId)?.client : null;
-            const label = client?.trim() || UNASSIGNED;
-            return { key: `client:${label}`, label };
+        if (groupBy === 'project') {
+            const project = c.requirementId ? reqById.get(c.requirementId)?.projectName : null;
+            const label = project?.trim() || UNASSIGNED;
+            return { key: `project:${label}`, label };
         }
         const vendor = c.vendorId ? vendorById.get(c.vendorId) : null;
         const label = vendor?.name?.trim() || 'Unknown vendor';
@@ -220,8 +230,13 @@ export async function buildVendorReport(opts) {
                 label: vendor?.name?.trim() || 'Unknown vendor',
                 subtitle: vendor?.code ?? undefined,
             };
+            const matchingIds = statusFilterActive
+                ? [...reqIds].filter((id) => reqById.has(id))
+                : [...reqIds];
+            if (statusFilterActive && matchingIds.length === 0)
+                continue;
             const row = getRow(g);
-            for (const reqId of reqIds) {
+            for (const reqId of matchingIds) {
                 row._assignedSet.add(reqId);
                 getPos(g.key, reqId)?._assignedSet.add(reqId);
             }
@@ -230,6 +245,8 @@ export async function buildVendorReport(opts) {
     for (const c of candidates) {
         if (!isSubmission(c))
             continue;
+        if (!reqAllowed(c.requirementId))
+            continue;
         const subAt = submissionDate(c);
         const g = groupOf(c);
         const row = getRow(g);
@@ -237,8 +254,11 @@ export async function buildVendorReport(opts) {
         if (groupBy === 'vendor' && c.vendorId) {
             const assigned = assignedByVendor.get(c.vendorId);
             if (assigned) {
-                for (const reqId of assigned)
+                for (const reqId of assigned) {
+                    if (!reqAllowed(reqId))
+                        continue;
                     row._assignedSet.add(reqId);
+                }
             }
         }
         if (inRange(subAt)) {
@@ -316,9 +336,11 @@ export async function buildVendorReport(opts) {
         const cand = candById.get(i.candidateId);
         if (!cand)
             continue;
+        const reqId = i.requirementId || cand.requirementId;
+        if (!reqAllowed(reqId))
+            continue;
         const g = groupOf(cand);
         const row = getRow(g);
-        const reqId = i.requirementId || cand.requirementId;
         const pos = getPos(g.key, reqId);
         const eventDate = inRange(i.scheduledAt) ? i.scheduledAt : i.createdAt;
         row.interviews += 1;
@@ -338,9 +360,11 @@ export async function buildVendorReport(opts) {
         const ctc = offerCtcToAnnualInr(o);
         if (!(ctc > 0))
             continue;
+        const reqId = o.requirementId || cand.requirementId;
+        if (!reqAllowed(reqId))
+            continue;
         const g = groupOf(cand);
         const row = getRow(g);
-        const reqId = o.requirementId || cand.requirementId;
         const pos = getPos(g.key, reqId);
         row.onboardedCtc += ctc;
         if (pos)

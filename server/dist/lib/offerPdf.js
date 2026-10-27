@@ -4,7 +4,7 @@ import puppeteerCore from 'puppeteer-core';
 let browserInstance = null;
 const HEADLESS_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
 function useBundledChromium() {
-    return process.env.RENDER === 'true' || process.platform === 'linux';
+    return process.platform === 'linux';
 }
 function resolveSystemBrowserExecutable() {
     const fromEnv = process.env.PUPPETEER_EXECUTABLE_PATH?.trim();
@@ -77,6 +77,16 @@ export async function renderHtmlToPdf(html) {
     const browser = await getBrowser();
     const page = await browser.newPage();
     try {
+        // Templates are admin-editable HTML: no scripts and no network or file access while rendering.
+        await page.setJavaScriptEnabled(false);
+        await page.setRequestInterception(true);
+        page.on('request', (request) => {
+            const url = request.url();
+            if (url.startsWith('data:') || url === 'about:blank')
+                void request.continue();
+            else
+                void request.abort();
+        });
         await page.setContent(html, { waitUntil: 'load' });
         const pdf = await page.pdf({
             format: 'A4',

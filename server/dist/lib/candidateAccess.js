@@ -3,6 +3,7 @@ import { CAREERS_CANDIDATE_WHERE, ERP_CANDIDATE_WHERE, VENDOR_SUBMISSION_CANDIDA
 import { hasOrgWideAccess } from './orgAccess.js';
 import { parseRecruiterIds, requirementIdsForAuth, requirementIdsForInterviewer, requirementVisibleToAuth } from './requirementAccess.js';
 import { hasFeatureTag, parseFeatureTags } from './userTags.js';
+import { GATED_REFERRAL_STAGES, REFERRAL_VISIBLE_WHERE } from './referralWorkflow.js';
 export class CandidateAccessError extends Error {
     constructor(message) {
         super(message);
@@ -49,12 +50,39 @@ function withFeatureScopes(base, scopes) {
         return base;
     return { OR: [base, ...scopes] };
 }
-/** Org-wide roles see all candidates; others are scoped by role, assignments, and feature tags. */
-export async function buildCandidateListWhere(auth) {
+/**
+ * Org-wide roles see all candidates; others are scoped by role, assignments, and feature tags.
+ * Employee referrals still in review are excluded unless `includeReferralReview` is set, which
+ * adds them back for the referral team, TA Operation, and the recruiter they are assigned to.
+ */
+export async function buildCandidateListWhere(auth, opts = {}) {
+    const scoped = await buildScopedCandidateWhere(auth);
+    if (!opts.includeReferralReview) {
+        return isEmptyWhere(scoped) ? REFERRAL_VISIBLE_WHERE : { AND: [scoped, REFERRAL_VISIBLE_WHERE] };
+    }
+    if (isEmptyWhere(scoped))
+        return scoped;
+    return { OR: [scoped, await referralReviewScope(auth)] };
+}
+function isEmptyWhere(where) {
+    return Object.keys(where).length === 0;
+}
+async function referralReviewScope(auth) {
+    const user = await prisma.user.findUnique({ where: { id: auth.userId }, select: { permissions: true } });
+    const tags = parseFeatureTags(user?.permissions);
+    if (hasFeatureTag(auth.role, tags, 'employee_referral') || hasFeatureTag(auth.role, tags, 'ta_operation')) {
+        return { referralStage: { in: GATED_REFERRAL_STAGES } };
+    }
+    return { referralStage: 'ASSIGNED', referralAssignedToUserId: auth.userId };
+}
+async function buildScopedCandidateWhere(auth) {
     if (hasOrgWideAccess(auth.role)) {
         return {};
     }
-    const tagScopes = await featureTagScopeClauses(auth);
+    // Referrals past the validity window are open to every recruiter.
+    const tagScopes = [...(await featureTagScopeClauses(auth))];
+    if (auth.role !== 'INTERVIEWER')
+        tagScopes.push({ referralStage: 'EXPIRED' });
     if (auth.role === 'INTERVIEWER') {
         const ids = await candidateIdsForInterviewer(auth.userId);
         const base = ids.length > 0 ? { id: { in: ids } } : { id: { in: ['__none__'] } };
@@ -77,7 +105,7 @@ export async function buildCandidateListWhere(auth) {
 export async function buildCandidateMatchPoolWhere(auth, requirementId) {
     const listWhere = await buildCandidateListWhere(auth);
     if (hasOrgWideAccess(auth.role)) {
-        return {};
+        return listWhere;
     }
     const requirement = await prisma.requirement.findUnique({
         where: { id: requirementId },
@@ -106,10 +134,10 @@ export async function buildCandidateMatchPoolWhere(auth, requirementId) {
     })) {
         return listWhere;
     }
-    return { OR: [listWhere, { requirementId: null }] };
+    return { OR: [listWhere, { AND: [{ requirementId: null }, REFERRAL_VISIBLE_WHERE] }] };
 }
-export async function canViewCandidate(auth, candidateId) {
-    const where = await buildCandidateListWhere(auth);
+export async function canViewCandidate(auth, candidateId, opts = { includeReferralReview: true }) {
+    const where = await buildCandidateListWhere(auth, opts);
     // AND — interviewers get { id: { in: [...] } } which must not overwrite candidateId.
     const row = await prisma.candidate.findFirst({
         where: { AND: [{ id: candidateId }, where] },
@@ -123,8 +151,12 @@ export async function assertCanViewCandidate(auth, candidateId) {
         throw new CandidateAccessError('Not allowed to view this candidate');
     }
 }
+/** Referrals in review are changed only through the referral review actions. */
 export async function assertCanMutateCandidate(auth, candidateId) {
-    await assertCanViewCandidate(auth, candidateId);
+    const ok = await canViewCandidate(auth, candidateId, { includeReferralReview: false });
+    if (!ok) {
+        throw new CandidateAccessError('Not allowed to change this candidate');
+    }
 }
 export async function candidateIdsForInterviewer(userId) {
     const interviews = await prisma.interview.findMany({
@@ -154,25 +186,24 @@ export async function interviewIdsForInterviewer(userId) {
     }
     return ids;
 }
+async function assignedInterviewWhere(userId) {
+    const ids = await interviewIdsForInterviewer(userId);
+    return ids.length > 0 ? { id: { in: ids } } : { id: { in: ['__none__'] } };
+}
+/**
+ * Dashboard calendar and interview lists:
+ * - Org-wide (super admin, developer, admin, HR head, TA Manager): every interview.
+ * - Recruiter and team lead: scheduled by them or assigned to them.
+ * - Everyone else (finance head, hiring manager, account manager, interviewer): assigned only.
+ */
 export async function buildInterviewListWhere(auth) {
     if (hasOrgWideAccess(auth.role))
         return {};
-    if (auth.role === 'INTERVIEWER') {
-        const ids = await interviewIdsForInterviewer(auth.userId);
-        return ids.length > 0 ? { id: { in: ids } } : { id: { in: ['__none__'] } };
+    const assigned = await assignedInterviewWhere(auth.userId);
+    if (auth.role === 'RECRUITER' || auth.role === 'TEAM_LEAD') {
+        return { OR: [{ scheduledBy: auth.userId }, assigned] };
     }
-    // Recruiters / team leads / managers see interviews for candidates in their
-    // candidate scope (same as pipeline). Do not require scheduledBy — that hid
-    // seeded rows and interviews scheduled by colleagues on shared candidates.
-    const candidateWhere = await buildCandidateListWhere(auth);
-    const candidates = await prisma.candidate.findMany({
-        where: candidateWhere,
-        select: { id: true },
-    });
-    const candidateIds = candidates.map((c) => c.id);
-    return candidateIds.length > 0
-        ? { candidateId: { in: candidateIds } }
-        : { candidateId: { in: ['__none__'] } };
+    return assigned;
 }
 export async function canViewInterview(auth, interviewId) {
     const where = await buildInterviewListWhere(auth);

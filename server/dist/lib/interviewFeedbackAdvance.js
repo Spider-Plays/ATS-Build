@@ -167,7 +167,7 @@ export async function advanceCandidateAfterInterviewFeedback(opts) {
     }, previousStatus);
     const requirementId = interview.requirementId ?? updated.requirementId;
     if (requirementId) {
-        await syncRequirementHiringState(requirementId);
+        await syncRequirementHiringState(requirementId, { notify: true });
     }
     return { previousStatus, newStatus: nextStatus };
 }

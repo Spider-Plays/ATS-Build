@@ -1,3 +1,4 @@
+import { lookupRateLimiter } from '../middleware/rateLimit.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
@@ -182,7 +183,7 @@ router.post('/parse-resume', handleUploadResume, async (req, res) => {
         res.status(422).json({ error: message });
     }
 });
-router.get('/check-email', async (req, res) => {
+router.get('/check-email', lookupRateLimiter, async (req, res) => {
     const email = typeof req.query.email === 'string' ? req.query.email : '';
     const excludeId = typeof req.query.excludeId === 'string' ? req.query.excludeId.trim() : '';
     if (!email.trim()) {
@@ -194,12 +195,10 @@ router.get('/check-email', async (req, res) => {
     }
     res.json({
         exists: true,
-        candidateId: existing.id,
-        name: existing.name,
         error: DUPLICATE_CANDIDATE_EMAIL_MESSAGE,
     });
 });
-router.get('/check-pan', async (req, res) => {
+router.get('/check-pan', lookupRateLimiter, async (req, res) => {
     const pan = typeof req.query.pan === 'string' ? req.query.pan : '';
     const excludeId = typeof req.query.excludeId === 'string' ? req.query.excludeId.trim() : '';
     if (!pan.trim() || !isValidPanFormat(pan)) {
@@ -211,8 +210,6 @@ router.get('/check-pan', async (req, res) => {
     }
     res.json({
         exists: true,
-        candidateId: existing.id,
-        name: existing.name,
         error: DUPLICATE_CANDIDATE_PAN_MESSAGE,
     });
 });
@@ -515,7 +512,7 @@ router.post('/positions/:id/submit', async (req, res) => {
         requirementId: row.requirementId,
         source: row.source,
     }, { vendorName: ctx.vendor.name, submittedBy: ctx.user.name });
-    await syncRequirementHiringState(requirement.id);
+    await syncRequirementHiringState(requirement.id, { notify: true });
     res.status(201).json(mapCandidate(row, { requirement }));
 });
 router.post('/submissions/:candidateId/resume', handleUploadResume, async (req, res) => {
@@ -630,7 +627,7 @@ router.get('/submissions/:candidateId/resume', async (req, res) => {
     if (!loaded)
         return res.status(404).json({ error: 'Resume file missing' });
     res.setHeader('Content-Type', loaded.mime);
-    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(loaded.fileName)}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(loaded.fileName)}"`);
     res.send(loaded.buffer);
 });
 // ─── Vendor onboarding / evaluation ──────────────────────────────────────────
@@ -671,7 +668,7 @@ router.patch('/onboarding', async (req, res) => {
             return res.status(400).json({ error: 'No onboarding packet required for this vendor' });
         }
         let row = ctx.row;
-        if (row.status === 'SUBMITTED' || row.status === 'APPROVED') {
+        if (row.status === 'SUBMITTED' || row.status === 'TA_APPROVED' || row.status === 'APPROVED') {
             return res.status(400).json({ error: 'Onboarding is locked while awaiting approval or after approval' });
         }
         const body = z
@@ -733,7 +730,7 @@ router.patch('/onboarding/evaluation', async (req, res) => {
             return res.status(400).json({ error: 'No onboarding packet required for this vendor' });
         }
         let row = ctx.row;
-        if (row.status === 'SUBMITTED' || row.status === 'APPROVED') {
+        if (row.status === 'SUBMITTED' || row.status === 'TA_APPROVED' || row.status === 'APPROVED') {
             return res.status(400).json({ error: 'Evaluation is locked while awaiting approval or after approval' });
         }
         if (row.status !== 'EVALUATION' &&
@@ -805,8 +802,8 @@ router.post('/onboarding/submit', async (req, res) => {
             return res.status(400).json({ error: 'No onboarding packet required for this vendor' });
         }
         let row = ctx.row;
-        if (row.status === 'SUBMITTED') {
-            return res.status(400).json({ error: 'Already submitted — waiting for HR approval' });
+        if (row.status === 'SUBMITTED' || row.status === 'TA_APPROVED') {
+            return res.status(400).json({ error: 'Already submitted — waiting for approval' });
         }
         if (row.status === 'APPROVED') {
             return res.status(400).json({ error: 'Onboarding already approved' });
@@ -836,6 +833,11 @@ router.post('/onboarding/submit', async (req, res) => {
                 decidedByName: null,
                 decidedByRole: null,
                 decidedAt: null,
+                taReviewAction: null,
+                taReviewReason: null,
+                taReviewedBy: null,
+                taReviewedByName: null,
+                taReviewedAt: null,
             },
         });
         await logActivity({

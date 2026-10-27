@@ -13,7 +13,7 @@ export function mapVendorOnboarding(row, opts) {
     const status = row.status;
     const includeScoring = opts?.includeScoring === true ||
         (opts?.role != null &&
-            ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'HR_HEAD'].includes(opts.role));
+            ['SUPER_ADMIN', 'ADMIN', 'TA_MANAGER', 'HR_HEAD'].includes(opts.role));
     const category = row.category ?? null;
     const scoring = includeScoring ? parseScoringJson(row.scoringJson) : undefined;
     return {
@@ -39,6 +39,12 @@ export function mapVendorOnboarding(row, opts) {
             improvements: row.evaluatorImprovements ?? null,
             risks: row.evaluatorRisks ?? null,
             recommendation: row.evaluatorRecommendation ?? null,
+        },
+        taReview: {
+            action: row.taReviewAction ?? null,
+            reason: row.taReviewReason ?? null,
+            reviewedByName: row.taReviewedByName ?? null,
+            reviewedAt: row.taReviewedAt?.toISOString() ?? null,
         },
         decision: {
             status: status === 'APPROVED' || status === 'REJECTED' ? status : null,

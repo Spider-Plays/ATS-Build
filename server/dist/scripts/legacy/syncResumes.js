@@ -1,12 +1,12 @@
 /**
  * Push locally stored resume files to a remote ATS API (QA / production).
  *
- * Needed after a local `db:import-legacy` against Neon: metadata lands in the shared DB,
- * but PDF bytes stay on the local machine. The Render API then 404s resume downloads.
+ * Needed after a local `db:import-legacy` against a shared DB: metadata lands in the shared DB,
+ * but PDF bytes stay on the local machine. The remote API then 404s resume downloads.
  *
  * Usage (PowerShell):
  *   npm run db:sync-legacy-resumes -- `
- *     --api-url https://qa.stitch-ats.in `
+ *     --api-url https://qa.ats.igsglobal.co `
  *     --email you@company.com `
  *     --password "..." `
  *     [--data-dir C:\path\to\data] `
@@ -46,7 +46,7 @@ function parseArgs(argv) {
             dryRun = true;
     }
     if (!apiUrl)
-        throw new Error('Missing --api-url (e.g. https://qa.stitch-ats.in)');
+        throw new Error('Missing --api-url (e.g. https://qa.ats.igsglobal.co)');
     if (!email || !password)
         throw new Error('Missing --email / --password for staff login');
     if (!dataDir && !fromLocalDisk) {
