@@ -74,9 +74,6 @@ export function getEmailBrandInlineAttachments(html) {
     }
     return attachments;
 }
-export function emailUsesStitchMark(html) {
-    return html.includes(`cid:${STITCH_MARK_CID}`) || html.includes(`cid:${IGS_LOGO_CID}`);
-}
 /** Login-hero lockup for dark email headers: Stitch + Creating Impact + IGS. */
 export function emailBrandLockupHtml(options) {
     const subtitle = (options?.subtitle ?? 'Creating Impact').trim();

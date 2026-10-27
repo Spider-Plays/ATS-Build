@@ -259,6 +259,28 @@ export function mapCandidate(c, ctx) {
         updatedAt: c.updatedAt.toISOString(),
     };
 }
+/** Internal fields that staff see but vendors, referrers and candidates must not (user IDs, who handled it, bonus notes). */
+const PORTAL_HIDDEN_CANDIDATE_FIELDS = [
+    'createdBy',
+    'submittedByUserId',
+    'recruiterName',
+    'referredByUserId',
+    'referredByName',
+    'referredByEmail',
+    'referredByDepartment',
+    'referredByReferralCode',
+    'referralAssignedToUserId',
+    'referralAssignedAt',
+    'referralBonusNote',
+    'legacyResumeId',
+];
+/** mapCandidate for external portals: the same shape, minus internal-only fields. */
+export function mapCandidateForPortal(...args) {
+    const mapped = { ...mapCandidate(...args) };
+    for (const key of PORTAL_HIDDEN_CANDIDATE_FIELDS)
+        delete mapped[key];
+    return mapped;
+}
 export function mapInterview(i) {
     return {
         id: i.id,

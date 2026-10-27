@@ -89,16 +89,7 @@ export async function assertCanMutateBusinessRequirement(auth, id) {
         throw new BusinessRequirementAccessError('Forbidden');
     }
     return row;
-}
-export function isBusinessTeamRole(role) {
-    return (isAdminRole(role) ||
-        role === 'ACCOUNT_MANAGER' ||
-        role === 'HIRING_MANAGER');
-}
-export function isHrPreviewRole(role) {
-    return role === 'HR_HEAD' || role === 'TA_MANAGER';
-}
-/** Business requirements where the user is account or hiring manager. */
+} /** Business requirements where the user is account or hiring manager. */
 export async function businessRequirementIdsForStakeholder(userId) {
     const { prisma } = await import('./prisma.js');
     const rows = await prisma.businessRequirement.findMany({

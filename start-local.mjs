@@ -95,8 +95,11 @@ async function proxyApi(req, res, requestUrl) {
     })
     const headers = {}
     upstream.headers.forEach((value, key) => {
-      if (key !== 'transfer-encoding' && key !== 'connection') headers[key] = value
+      if (key !== 'transfer-encoding' && key !== 'connection' && key !== 'set-cookie') headers[key] = value
     })
+    // Each Set-Cookie must stay a separate header (the refresh cookie and its clearing).
+    const setCookies = upstream.headers.getSetCookie()
+    if (setCookies.length) headers['set-cookie'] = setCookies
     res.writeHead(upstream.status, headers)
     res.end(Buffer.from(await upstream.arrayBuffer()))
   } catch (error) {
@@ -104,11 +107,24 @@ async function proxyApi(req, res, requestUrl) {
   }
 }
 
-/** Headers a meta-tag CSP cannot set (framing) plus standard hardening for the SPA. */
+/** The CSP the Vite build put in index.html, so it can also be sent as a real response header. */
+function builtContentSecurityPolicy() {
+  try {
+    const html = fs.readFileSync(path.join(frontendRoot, 'index.html'), 'utf8')
+    return html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/)?.[1] ?? ''
+  } catch {
+    return ''
+  }
+}
+
+const builtCsp = builtContentSecurityPolicy()
+
+/** Standard hardening for the SPA: the full CSP plus framing and HSTS, which a meta tag cannot set. */
 const FRONTEND_SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
-  'Content-Security-Policy': "frame-ancestors 'none'",
+  'Content-Security-Policy': builtCsp ? `${builtCsp}; frame-ancestors 'none'` : "frame-ancestors 'none'",
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 }
@@ -123,9 +139,14 @@ function serveFrontend(res, requestUrl) {
   const candidate = path.resolve(frontendRoot, `.${requested}`)
   const safeRoot = `${path.resolve(frontendRoot)}${path.sep}`
   const filePath = candidate.startsWith(safeRoot) ? candidate : path.join(frontendRoot, 'index.html')
-  const resolvedPath = fs.existsSync(filePath) && fs.statSync(filePath).isFile()
-    ? filePath
-    : path.join(frontendRoot, 'index.html')
+  const exists = fs.existsSync(filePath) && fs.statSync(filePath).isFile()
+  // Dot-paths (/.env, /.git/config) are never app routes; 404 them even when nothing is there to leak.
+  const isDotPath = requested.split('/').some((segment) => segment.startsWith('.') && segment !== '.well-known')
+  // Only app routes fall back to index.html; a missing asset or file is a real 404, not the SPA shell.
+  if (isDotPath || (!exists && (requested.startsWith('/assets/') || path.extname(requested)))) {
+    return send(res, 404, 'Not found', FRONTEND_SECURITY_HEADERS)
+  }
+  const resolvedPath = exists ? filePath : path.join(frontendRoot, 'index.html')
 
   fs.readFile(resolvedPath, (error, data) => {
     if (error) return send(res, 404, 'Frontend build not found')

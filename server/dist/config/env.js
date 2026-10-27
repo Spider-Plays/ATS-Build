@@ -5,15 +5,21 @@ import './loadEnv.js';
 import { m365Config } from '../integrations/m365/config.js';
 import { excludeLanIpOrigins, isPrivateOrLocalOrigin, isStagingAppHost, parseClientOrigins, PRODUCTION_APP_URL, resolvePublicAppUrl, } from './appUrl.js';
 const isProduction = process.env.NODE_ENV === 'production';
+/**
+ * Weak development fallbacks (JWT secret, derived MFA key, MFA off, seeded dev accounts) are only
+ * allowed on a machine that opts in with ATS_ENV=local. "Not production" is not enough: a host
+ * that forgot NODE_ENV=production must fail to start rather than run with known secrets.
+ */
+// NODE_TEST_CONTEXT is set by the Node test runner, so unit tests run without a .env file.
+export const isLocalDev = process.env.ATS_ENV === 'local' || process.env.NODE_ENV === 'test' || Boolean(process.env.NODE_TEST_CONTEXT);
 function resolveJwtSecret() {
     const secret = process.env.JWT_SECRET?.trim();
-    if (isProduction) {
-        if (!secret || secret.length < 32) {
-            throw new Error('JWT_SECRET must be set to a strong random string (32+ characters) in production.');
-        }
+    if (secret && secret.length >= 32)
         return secret;
-    }
-    return secret || 'dev-secret';
+    if (!isProduction && isLocalDev)
+        return secret || 'dev-secret';
+    throw new Error('JWT_SECRET must be set to a strong random string (32+ characters). ' +
+        'For local development only, set ATS_ENV=local to allow the built-in dev secret.');
 }
 /** 32-byte AES key (64 hex chars) for encrypting TOTP secrets. */
 function resolveMfaEncryptionKey() {
@@ -24,8 +30,8 @@ function resolveMfaEncryptionKey() {
         }
         return Buffer.from(raw, 'hex');
     }
-    if (isProduction) {
-        throw new Error('MFA_ENCRYPTION_KEY must be set in production.');
+    if (isProduction || !isLocalDev) {
+        throw new Error('MFA_ENCRYPTION_KEY must be set (64 hex characters). For local development only, set ATS_ENV=local.');
     }
     console.warn('[mfa] MFA_ENCRYPTION_KEY is not set — deriving a dev-only key from JWT_SECRET.');
     return crypto.createHash('sha256').update(`mfa:${resolveJwtSecret()}`).digest();
@@ -67,15 +73,15 @@ export const env = {
     host: process.env.API_HOST?.trim() || '127.0.0.1',
     jwtSecret: resolveJwtSecret(),
     mfaEncryptionKey: resolveMfaEncryptionKey(),
-    /** MFA is always enforced in production; locally it can be turned off with MFA_ENFORCED=false. */
-    mfaEnforced: isProduction || process.env.MFA_ENFORCED?.trim().toLowerCase() !== 'false',
+    /** MFA is always enforced except on a local dev machine (ATS_ENV=local) that sets MFA_ENFORCED=false. */
+    mfaEnforced: isProduction || !isLocalDev || process.env.MFA_ENFORCED?.trim().toLowerCase() !== 'false',
     clientOrigin: resolveClientOrigin(clientOrigins),
     clientOrigins,
     resendApiKey: resolveResendApiKey(),
     emailFrom: process.env.EMAIL_FROM || 'Stitch ATS <onboarding@resend.dev>',
     appName: process.env.APP_NAME || 'Stitch ATS',
-    /** Daily 11:00 IST open-requisition report. Comma-separated. */
-    openRequisitionReportTo: (process.env.OPEN_REQUISITION_REPORT_TO || 'karthik.vc@igsglobal.com')
+    /** Daily 11:00 IST open-requisition report. Comma-separated; unset sends nothing until set here or in the app. */
+    openRequisitionReportTo: (process.env.OPEN_REQUISITION_REPORT_TO || '')
         .split(/[,;]/)
         .map((address) => address.trim())
         .filter(Boolean),
@@ -89,6 +95,11 @@ export const env = {
     /** Microsoft Entra application settings for staff SSO. */
     microsoftClientId: process.env.MICROSOFT_CLIENT_ID?.trim() || '',
     microsoftTenantId: process.env.MICROSOFT_TENANT_ID?.trim() || '',
+    /** Email domains a first Microsoft sign-in may link to an ATS user by email. Comma-separated; empty allows any. */
+    microsoftAllowedEmailDomains: (process.env.MICROSOFT_ALLOWED_EMAIL_DOMAINS || '')
+        .split(/[,;]/)
+        .map((domain) => domain.trim().toLowerCase())
+        .filter(Boolean),
     /** Folder for nightly and manual Postgres dumps. Relative paths are from the repo root. */
     databaseBackupDir: process.env.DATABASE_BACKUP_DIR?.trim() || 'backups',
 };

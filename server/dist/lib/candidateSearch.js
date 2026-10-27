@@ -210,6 +210,9 @@ const SEARCH_DOCUMENT_SQL = `
     )
   )
 `;
+/** Most full-text hits ranked per search; results beyond this are not useful to page through. */
+const FTS_MAX_HITS = 5000;
+const FTS_STATEMENT_TIMEOUT_MS = 8000;
 async function ftsRankedIds(queryText, mode) {
     const tsqueryExpr = mode === 'simple'
         ? "plainto_tsquery('english', $1)"
@@ -232,9 +235,15 @@ async function ftsRankedIds(queryText, mode) {
     FROM "Candidate" c
     WHERE ${SEARCH_DOCUMENT_SQL} @@ ${tsqueryExpr}
     ORDER BY rank DESC
+    LIMIT ${FTS_MAX_HITS}
   `;
     try {
-        const rows = await prisma.$queryRawUnsafe(sql, queryText);
+        // The match runs before access filtering, so cap its rows and time: a broad or crafted
+        // query must not tie up the database for everyone else.
+        const rows = await prisma.$transaction(async (tx) => {
+            await tx.$executeRawUnsafe(`SET LOCAL statement_timeout = '${FTS_STATEMENT_TIMEOUT_MS}ms'`);
+            return tx.$queryRawUnsafe(sql, queryText);
+        });
         return rows.map((r) => ({
             id: r.id,
             rank: Number(r.rank) || 0,
@@ -243,6 +252,9 @@ async function ftsRankedIds(queryText, mode) {
     }
     catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        if (/statement timeout|canceling statement/i.test(msg)) {
+            throw new CandidateSearchQueryError('This search is too broad. Add more specific terms or filters.');
+        }
         if (/syntax error|tsquery/i.test(msg)) {
             throw new CandidateSearchQueryError('Invalid boolean search syntax. Use AND / OR / NOT, quotes for phrases, and balanced parentheses.');
         }

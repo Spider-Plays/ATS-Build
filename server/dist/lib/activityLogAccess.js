@@ -3,8 +3,6 @@ import { businessRequirementIdsForStakeholder, canViewBusinessRequirement, } fro
 import { assertCanViewCandidate, buildCandidateListWhere, interviewIdsForInterviewer, INTERVIEWER_VISIBLE_CANDIDATE_ACTIONS, } from './candidateAccess.js';
 import { hasOrgWideAccess, isSuperAdminRole } from './orgAccess.js';
 import { assertCanViewRequirement, requirementIdsForAuth } from './requirementAccess.js';
-/** Stage changes trigger email alerts to stakeholders + super admin. */
-export const BUSINESS_STAGE_NOTIFY_ACTIONS = ['STAGE_CHANGED', 'SOW_SIGNED'];
 async function visibleCandidateIds(auth) {
     const where = await buildCandidateListWhere(auth, { includeReferralReview: true });
     const rows = await prisma.candidate.findMany({ where, select: { id: true } });

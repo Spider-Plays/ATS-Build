@@ -1,5 +1,16 @@
 import { z } from 'zod';
 /**
+ * Catalog labels are plain text. Reject angle brackets and control characters so markup is never
+ * stored, even though the frontend escapes on output. Names like "C++", "C#" and "R&D" stay valid.
+ */
+export function catalogText(min, max, label = 'Name') {
+    return z
+        .string()
+        .min(min, `${label} is required`)
+        .max(max)
+        .refine((value) => !/[<>\u0000-\u001f\u007f]/.test(value), `${label} cannot contain < > or control characters`);
+}
+/**
  * Factory to create reusable catalog route handlers
  * Reduces duplication across catalog endpoints (clients, departments, skills, cities)
  * Each handler can be used with custom middleware as needed
@@ -13,10 +24,7 @@ export class CatalogHandlers {
         this.capitalizedEntity = config.entityName.charAt(0).toUpperCase() + config.entityName.slice(1);
         // Create base schema
         this.baseCreateSchema = z.object({
-            name: z
-                .string()
-                .min(config.nameValidation?.minLength || 1, `${this.capitalizedEntity} name is required`)
-                .max(config.nameValidation?.maxLength || 120),
+            name: catalogText(config.nameValidation?.minLength || 1, config.nameValidation?.maxLength || 120, `${this.capitalizedEntity} name`),
         });
     }
     /**

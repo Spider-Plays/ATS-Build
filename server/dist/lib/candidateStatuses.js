@@ -43,8 +43,6 @@ export const TERMINAL_PIPELINE_STATUSES = new Set([
     'CANDIDATE_ABORT',
     'JOINED',
 ]);
-/** Parked side-states (also excluded from active pipeline). */
-export const PARKED_PIPELINE_STATUSES = new Set(['BANK', 'ON_HOLD']);
 const LEGACY_PRE_PIPELINE_STATUSES = new Set([
     'SOURCED',
     'APPLIED',
@@ -64,9 +62,6 @@ export function isOfferEligibleStatus(status) {
 }
 export function isJoinedStatus(status) {
     return status === 'JOINED' || status === 'HIRED';
-}
-export function isTerminalOrParkedStatus(status) {
-    return TERMINAL_PIPELINE_STATUSES.has(status) || PARKED_PIPELINE_STATUSES.has(status);
 }
 /** Default status when a candidate record is created. */
 export function resolveCreateStatus(_requirementId) {
@@ -104,12 +99,6 @@ export async function repairLinkedCandidateStatuses(filter) {
             updatedAt: new Date(),
         },
     });
-}
-export function autoScreeningDelayMs() {
-    const hours = Number(process.env.CANDIDATE_AUTO_SCREENING_HOURS);
-    if (Number.isFinite(hours) && hours > 0)
-        return hours * 60 * 60 * 1000;
-    return 24 * 60 * 60 * 1000;
 }
 /**
  * Legacy auto-promote SUBMITTED → SCREENING.

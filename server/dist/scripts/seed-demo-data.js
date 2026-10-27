@@ -118,12 +118,6 @@ function buildCompleteDemoFeedback(skills, outcome = 'hire') {
         recommendation: (outcome === 'reject' ? 'NO_HIRE' : 'HIRE'),
     };
 }
-function isInterviewRejectStatus(status) {
-    return (status === 'L1_INTERVIEW_REJECT' ||
-        status === 'MANAGERIAL_INTERVIEW_REJECT' ||
-        status === 'CLIENT_INTERVIEW_REJECT' ||
-        status === 'HR_INTERVIEW_REJECT');
-}
 /** Index of the plan stage where the candidate was rejected (default L1/L2/HR plan). */
 function rejectStageIndex(status) {
     switch (status) {
@@ -1342,6 +1336,7 @@ async function upsertUser(u) {
             department: u.department,
             passwordHash,
             status: 'ACTIVE',
+            emailVerifiedAt: new Date(),
             ...(u.vendorId !== undefined && { vendorId: u.vendorId }),
         },
         create: {
@@ -1354,6 +1349,7 @@ async function upsertUser(u) {
             permissions: '[]',
             themePreference: 'light',
             authProvider: 'local',
+            emailVerifiedAt: new Date(),
             ...(u.vendorId !== undefined && { vendorId: u.vendorId }),
         },
     });

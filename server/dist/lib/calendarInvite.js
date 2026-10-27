@@ -54,9 +54,6 @@ export function buildInterviewIcs(event) {
     lines.push('END:VEVENT', 'END:VCALENDAR');
     return `${lines.join('\r\n')}\r\n`;
 }
-export function interviewCalendarUid(interviewId) {
-    return `interview-${interviewId}@ats.igsglobal.co`;
-}
 export function interviewEndTime(scheduledAt, durationMinutes) {
     const end = new Date(scheduledAt);
     end.setMinutes(end.getMinutes() + (durationMinutes ?? 60));

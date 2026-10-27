@@ -22,11 +22,7 @@ export const BUSINESS_STAGES = [
 ];
 export const CLIENT_DEAL_STAGE_KEYS = CLIENT_DEAL_STAGES.map((s) => s.key);
 export const REQUIREMENT_DEAL_STAGE_KEYS = REQUIREMENT_DEAL_STAGES.map((s) => s.key);
-export const LINKED_REQUIREMENT_STAGE_KEYS = LINKED_REQUIREMENT_STAGES.map((s) => s.key);
 export const BUSINESS_STAGE_KEYS = BUSINESS_STAGES.map((s) => s.key);
-export function isLinkedRequirementStageKey(value) {
-    return LINKED_REQUIREMENT_STAGE_KEYS.includes(value);
-}
 export function linkedRequirementStagePercentage(stage) {
     const found = LINKED_REQUIREMENT_STAGES.find((s) => s.key === stage);
     return found?.percentage ?? 0;

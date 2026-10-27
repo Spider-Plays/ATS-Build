@@ -1,8 +1,5 @@
 import { prisma } from './prisma.js';
 import { DEFAULT_DEPARTMENT_CATALOG } from '../config/defaultDepartments.js';
-let cachedNames = null;
-let cacheAt = 0;
-const CACHE_MS = 60_000;
 export async function ensureDefaultDepartmentCatalog() {
     const existing = await prisma.departmentCatalog.findMany({ select: { name: true } });
     const existingLower = new Set(existing.map((row) => row.name.toLowerCase()));
@@ -13,7 +10,6 @@ export async function ensureDefaultDepartmentCatalog() {
         data: toCreate.map((name) => ({ name })),
         skipDuplicates: true,
     });
-    cachedNames = null;
 }
 export async function listDepartmentCatalog() {
     await ensureDefaultDepartmentCatalog();
@@ -22,16 +18,5 @@ export async function listDepartmentCatalog() {
         select: { id: true, name: true },
     });
 }
-export async function getCatalogDepartmentNames() {
-    const now = Date.now();
-    if (cachedNames && now - cacheAt < CACHE_MS)
-        return cachedNames;
-    await ensureDefaultDepartmentCatalog();
-    const rows = await prisma.departmentCatalog.findMany({ select: { name: true } });
-    cachedNames = rows.map((r) => r.name);
-    cacheAt = now;
-    return cachedNames;
-}
 export function invalidateDepartmentCatalogCache() {
-    cachedNames = null;
 }

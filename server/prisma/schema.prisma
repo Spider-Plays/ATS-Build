@@ -40,6 +40,8 @@ model User {
   failedLoginAttempts  Int      @default(0)
   /// Set after 5 consecutive failures; only Super Admin / Developer can clear it.
   lockedAt             DateTime?
+  /// Set once the owner proves they control the email (verification link, Google sign-in, or emailed credentials). Enforced for CANDIDATE accounts.
+  emailVerifiedAt      DateTime?
   /// Incremented on password change / disable to invalidate access JWTs.
   tokenVersion         Int      @default(0)
   vendorId             String?
@@ -423,6 +425,10 @@ model Candidate {
   joiningMonth           String?
   joiningQuarter         String?
   submittedAt            DateTime?
+  /// Set by the data-retention job once personal data has been stripped from this row.
+  anonymizedAt           DateTime?
+  /// Retention group that triggered the anonymisation (unsuccessful, stale, hired, ...).
+  retentionGroup         String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }

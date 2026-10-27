@@ -6,8 +6,6 @@ import { Prisma } from '@prisma/client';
 import { env } from './config/env.js';
 import { resolveApiBuildId } from './config/buildId.js';
 import { prisma } from './lib/prisma.js';
-import { isEmailConfigured } from './services/email.js';
-import { databaseHostLabel } from './config/loadEnv.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import businessRequirementRoutes from './routes/businessRequirements.js';
@@ -53,7 +51,10 @@ export const app = express();
 app.set('trust proxy', 1);
 app.use(helmet({
     // The SPA is served by the frontend host; the API only returns JSON and files.
-    contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
+    contentSecurityPolicy: {
+        useDefaults: false,
+        directives: { defaultSrc: ["'none'"], baseUri: ["'none'"], formAction: ["'none'"], frameAncestors: ["'none'"] },
+    },
     crossOriginResourcePolicy: { policy: 'same-site' },
 }));
 const PRODUCTION_ORIGINS = ['https://ats.igsglobal.co'];
@@ -62,7 +63,6 @@ const devOrigins = env.isProduction ? PRODUCTION_ORIGINS : [
     ...PRODUCTION_ORIGINS,
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-    'http://ats.igsglobal.co:3000',
     'http://localhost:3001',
     'http://127.0.0.1:3001',
     'http://localhost:3002',
@@ -74,6 +74,9 @@ const devOrigins = env.isProduction ? PRODUCTION_ORIGINS : [
 ];
 function isAllowedOrigin(origin) {
     const normalized = origin.replace(/\/$/, '');
+    // Production only trusts HTTPS origins, even if CLIENT_ORIGIN lists a localhost/dev address.
+    if (env.isProduction && !normalized.startsWith('https://'))
+        return false;
     const appOrigin = env.clientOrigin.replace(/\/$/, '');
     if (normalized === appOrigin)
         return true;
@@ -92,6 +95,11 @@ app.use(cors({
     credentials: true,
 }));
 app.use(express.json({ limit: '1mb' }));
+// API responses carry personal data; never let browsers or proxies keep them. Routes may override.
+app.use('/api', (_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+});
 app.use(appLogMiddleware);
 app.get('/', (_req, res) => {
     res.json({
@@ -100,27 +108,17 @@ app.get('/', (_req, res) => {
         hint: `Open the app at ${env.clientOrigin}.`,
     });
 });
+// Public, so it says only whether the API is up. buildId is an opaque build hash the SPA
+// compares to detect a new deploy (src/lib/deploySync.ts); it reveals no configuration.
 app.get('/api/health', async (_req, res) => {
     const buildId = resolveApiBuildId();
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
         await prisma.$queryRaw `SELECT 1`;
-        const databaseHost = databaseHostLabel();
-        res.json({
-            ok: true,
-            database: 'connected',
-            buildId,
-            email: isEmailConfigured() ? 'configured' : 'not_configured',
-            databaseHost,
-        });
+        res.json({ ok: true, buildId });
     }
     catch {
-        res.status(503).json({
-            ok: false,
-            database: 'unavailable',
-            buildId,
-            email: isEmailConfigured() ? 'configured' : 'not_configured',
-        });
+        res.status(503).json({ ok: false, buildId });
     }
 });
 app.use('/api/auth', authRoutes);
@@ -162,7 +160,17 @@ app.use('/api/email-toggles', emailToggleRoutes);
 app.use('/api/database-backups', databaseBackupRoutes);
 app.use('/api/page-publication', pagePublicationRoutes);
 app.use('/api/open-requisition-report', openRequisitionReportRoutes);
+// Express's default 404 page echoes the request path back as HTML; answer with fixed JSON instead.
+app.use((_req, res) => {
+    res.status(404).json({ error: 'Not found' });
+});
 app.use((err, _req, res, _next) => {
+    // Malformed or oversized request bodies are client errors, not server faults.
+    const bodyErrorType = err?.type;
+    if (bodyErrorType === 'entity.parse.failed')
+        return res.status(400).json({ error: 'Malformed request body' });
+    if (bodyErrorType === 'entity.too.large')
+        return res.status(413).json({ error: 'Request body too large' });
     console.error(err);
     const prismaConnCodes = new Set(['P1000', 'P1001', 'P1002', 'P1008', 'P1011', 'P1017']);
     if (err instanceof Prisma.PrismaClientInitializationError ||
@@ -226,6 +234,13 @@ app.use((err, _req, res, _next) => {
                     : 'Server Prisma client is out of date. Stop the API, run `npm run db:generate --prefix server`, then restart `npm run dev`.',
             });
         }
+    }
+    // Record missing (update/delete on an unknown id) or an id Postgres cannot parse: a client error, not a 500.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        return res.status(404).json({ error: 'Not found' });
+    }
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2023') {
+        return res.status(400).json({ error: 'Invalid id' });
     }
     if (err && typeof err === 'object' && 'issues' in err) {
         return res.status(400).json({ error: 'Validation failed' });

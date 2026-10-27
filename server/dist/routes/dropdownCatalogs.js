@@ -1,21 +1,22 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { catalogText } from '../lib/catalogRouteFactory.js';
 import { getDropdownCatalogs, resetDropdownCatalogs, setDropdownCatalogs, } from '../lib/dropdownCatalogSettings.js';
 import { requireAuth, requireActiveUser, requireRoles } from '../middleware/auth.js';
 import { INTERNAL_ROLES } from '../lib/roles.js';
 const router = Router();
 const labeledOptionSchema = z.object({
-    value: z.string().min(1).max(80),
-    label: z.string().min(1).max(120),
+    value: catalogText(1, 80, 'Value'),
+    label: catalogText(1, 120, 'Label'),
 });
 const cityOptionSchema = z.object({
-    city: z.string().min(2).max(120),
-    state: z.string().max(120).nullable().optional(),
+    city: catalogText(2, 120, 'City'),
+    state: catalogText(0, 120, 'State').nullable().optional(),
 });
 const catalogsSchema = z.object({
     cities: z.array(cityOptionSchema).min(1),
-    candidateSources: z.array(z.string().min(1).max(120)).min(1),
-    referralRelationships: z.array(z.string().min(1).max(120)).min(1),
+    candidateSources: z.array(catalogText(1, 120, 'Option')).min(1),
+    referralRelationships: z.array(catalogText(1, 120, 'Option')).min(1),
     employmentTypes: z.array(labeledOptionSchema).min(1),
     workModes: z.array(labeledOptionSchema).min(1),
     seniorityLevels: z.array(labeledOptionSchema).min(1),

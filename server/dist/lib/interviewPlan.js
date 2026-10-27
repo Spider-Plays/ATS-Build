@@ -60,12 +60,6 @@ export async function ensureInterviewPlan(requirementId, options) {
         include: { stages: { orderBy: { order: 'asc' } } },
     });
 }
-export async function ensurePlansForAllRequirements() {
-    const reqs = await prisma.requirement.findMany({ select: { id: true } });
-    for (const r of reqs) {
-        await ensureInterviewPlan(r.id);
-    }
-}
 export function mapPlanResponse(plan) {
     return {
         id: plan.id,

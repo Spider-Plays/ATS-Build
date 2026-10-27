@@ -145,7 +145,3 @@ export async function assertCanAddCandidatesToRequirement(auth, requirementId) {
     }
     throw new RequirementAccessError('Not allowed to add candidate profiles to this requirement');
 }
-/** Sync check: accepted assignee (not pending). */
-export function isAcceptedRequirementRecruiter(recruitersRaw, userId) {
-    return parseRecruiterIds(recruitersRaw).includes(userId);
-}

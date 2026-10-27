@@ -1,6 +1,7 @@
 import { INTERNAL_ROLES } from '../lib/roles.js';
 import { Router } from 'express';
 import { z } from 'zod';
+import { catalogText } from '../lib/catalogRouteFactory.js';
 import { prisma } from '../lib/prisma.js';
 import { formatCityName, invalidateCityCatalogCache, listCityCatalog, syncDefaultCityCatalog, } from '../lib/cityCatalog.js';
 import { getDropdownCatalogs } from '../lib/dropdownCatalogSettings.js';
@@ -26,8 +27,8 @@ router.get('/', async (_req, res) => {
 router.post('/', requireRoles(...INTERNAL_ROLES), async (req, res) => {
     const body = z
         .object({
-        city: z.string().min(2).max(120),
-        state: z.string().max(120).optional(),
+        city: catalogText(2, 120, 'City'),
+        state: catalogText(0, 120, 'State').optional(),
     })
         .parse(req.body);
     const city = formatCityName(body.city);
@@ -47,8 +48,8 @@ router.post('/', requireRoles(...INTERNAL_ROLES), async (req, res) => {
 router.patch('/:id', requireRoles('SUPER_ADMIN'), async (req, res) => {
     const body = z
         .object({
-        city: z.string().min(2).max(120).optional(),
-        state: z.string().max(120).nullable().optional(),
+        city: catalogText(2, 120, 'City').optional(),
+        state: catalogText(0, 120, 'State').nullable().optional(),
     })
         .parse(req.body);
     const row = await prisma.cityCatalog.findUnique({ where: { id: req.params.id } });

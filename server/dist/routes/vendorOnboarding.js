@@ -240,7 +240,7 @@ router.post('/vendor/:vendorId/decision', requireAuth, requireActiveUser, requir
     }
     catch (err) {
         if (err instanceof z.ZodError) {
-            return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
+            return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
         }
         console.error('POST /api/vendor-onboarding/decision failed:', err);
         res.status(500).json({ error: clientErrorMessage(err) });

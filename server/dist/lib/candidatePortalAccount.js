@@ -1,31 +1,22 @@
 import { BCRYPT_ROUNDS } from './passwordPolicy.js';
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma.js';
-const MIN_PORTAL_PASSWORD_LENGTH = 8;
-/** Digits-only phone string used as the candidate portal password. */
-export function normalizePhoneForPortalPassword(phone) {
-    if (!phone?.trim())
-        return null;
-    const digits = phone.replace(/\D/g, '');
-    if (digits.length < MIN_PORTAL_PASSWORD_LENGTH)
-        return null;
-    return digits;
-}
+import { generateTempPassword } from './password.js';
+import { bumpTokenVersionAndRevoke } from './sessionTokens.js';
+/**
+ * Gives the candidate a portal login for their offer. The password is random and single-use
+ * (they must change it at first sign-in), and is only delivered to the candidate's own email.
+ * Emailing it counts as proof of the address, and any older sessions on the account are revoked.
+ */
 export async function ensureCandidatePortalAccount(candidate) {
     const email = candidate.email.trim().toLowerCase();
     if (!email) {
         return { ok: false, error: 'Candidate must have an email address before the offer can be sent.' };
     }
-    const password = normalizePhoneForPortalPassword(candidate.phone);
-    if (!password) {
-        return {
-            ok: false,
-            error: 'Candidate must have a valid phone number (at least 8 digits) before the offer can be sent.',
-        };
-    }
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const password = generateTempPassword();
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-    const phoneDigits = candidate.phone?.trim() || password;
+    const phoneNumber = candidate.phone?.trim() || undefined;
+    const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
         if (existing.role !== 'CANDIDATE') {
             return {
@@ -37,11 +28,16 @@ export async function ensureCandidatePortalAccount(candidate) {
             where: { id: existing.id },
             data: {
                 passwordHash,
-                phoneNumber: phoneDigits,
+                mustChangePassword: true,
+                emailVerifiedAt: existing.emailVerifiedAt ?? new Date(),
+                failedLoginAttempts: 0,
+                lockedAt: null,
+                ...(phoneNumber ? { phoneNumber } : {}),
                 name: candidate.name.trim() || existing.name,
                 status: 'ACTIVE',
             },
         });
+        await bumpTokenVersionAndRevoke(existing.id);
         return { ok: true, created: false, password };
     }
     await prisma.user.create({
@@ -52,8 +48,10 @@ export async function ensureCandidatePortalAccount(candidate) {
             role: 'CANDIDATE',
             status: 'ACTIVE',
             department: 'Candidate',
-            phoneNumber: phoneDigits,
+            phoneNumber: phoneNumber ?? null,
             authProvider: 'local',
+            mustChangePassword: true,
+            emailVerifiedAt: new Date(),
         },
     });
     return { ok: true, created: true, password };

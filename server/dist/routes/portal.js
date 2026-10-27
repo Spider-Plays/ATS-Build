@@ -5,7 +5,7 @@ import { prisma } from '../lib/prisma.js';
 import { DUPLICATE_CANDIDATE_EMAIL_MESSAGE, DUPLICATE_CANDIDATE_PAN_MESSAGE, findCandidateByEmail, findCandidateByPan, } from '../lib/candidateDuplicate.js';
 import { getCandidateProfileMissing, isCandidateProfileComplete, PROFILE_FIELD_LABELS, } from '../lib/candidateProfileComplete.js';
 import { computeMatchScore } from '../lib/profileMatching.js';
-import { mapCandidate, mapInterview, mapOffer, mapRequirement } from '../utils/mappers.js';
+import { mapCandidate, mapCandidateForPortal, mapInterview, mapOffer, mapRequirement } from '../utils/mappers.js';
 import { requireAuth, requireActiveUser, requireRoles } from '../middleware/auth.js';
 import { logActivity } from '../services/activityLog.js';
 import { handleUploadResume } from '../middleware/uploadResume.js';
@@ -161,7 +161,6 @@ router.put('/profile', async (req, res) => {
     if (duplicatePan) {
         return res.status(409).json({
             error: DUPLICATE_CANDIDATE_PAN_MESSAGE,
-            existingCandidateId: duplicatePan.id,
         });
     }
     let row;
@@ -293,7 +292,7 @@ router.post('/profile/resume', handleUploadResume, async (req, res) => {
         return res.status(400).json({ error: 'Only PDF, DOC, and DOCX files are allowed' });
     }
     const mime = resolveResumeMime(req.file.mimetype, req.file.originalname);
-    const stored = await saveResumeFile(candidate.id, mime, req.file.buffer, req.file.originalname, candidate.resumeStorageKey);
+    await saveResumeFile(candidate.id, mime, req.file.buffer, req.file.originalname, candidate.resumeStorageKey);
     let resumePayload = {
         resumeText: null,
         primarySkills: candidate.primarySkills,
@@ -617,7 +616,7 @@ router.get('/me', async (req, res) => {
     res.json({
         linked: true,
         ...profileStatus,
-        candidate: mapCandidate(candidate, { requirement: linkedRequirement }),
+        candidate: mapCandidateForPortal(candidate, { requirement: linkedRequirement }),
         requirement: requirementVisible && linkedRequirement ? mapRequirement(linkedRequirement) : null,
         requirementHidden: !!linkedRequirement && !requirementVisible,
         requirementMessage,

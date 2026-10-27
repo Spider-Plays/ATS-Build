@@ -169,18 +169,30 @@ const spec = {
     { name: 'Interview Panels', description: 'Default interview panel levels' },
     { name: 'Offer Settings', description: 'Compensation and letter templates' },
     { name: 'M365 Integration', description: 'Microsoft 365 email integration (API key)' },
+    { name: 'MFA', description: 'TOTP multi-factor authentication (every role except CANDIDATE)' },
+    { name: 'Client Deals', description: 'Commercial deals that group business requirements' },
+    { name: 'Referral Review', description: 'Staff review queue and bonuses for employee referrals' },
+    { name: 'Vendor Onboarding', description: 'Staff review of vendor onboarding packets' },
+    { name: 'Reports', description: 'Hiring, TA, referral and vendor reports' },
+    { name: 'Change Requests', description: 'Self-service change requests' },
+    { name: 'Catalogs', description: 'Cities and shared dropdown lists' },
+    { name: 'Market Trends', description: 'Skill pay bands and city multipliers' },
+    { name: 'Notifications', description: 'In-app notification read state' },
+    { name: 'Assistant', description: 'In-app help assistant' },
+    { name: 'Interview RSVP', description: 'Accept/decline links in interview emails (no login; signed token)' },
+    { name: 'Workspace Admin', description: 'Developer and Super Admin controls: email delivery, backups, retention, page publication, feature flags' },
   ],
   paths: {},
   components: {
     securitySchemes: {
-      bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'JWT from POST /api/auth/login (~7 day lifetime)' },
+      bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Access JWT from sign-in (~15 minutes); renew with POST /api/auth/refresh' },
       integrationApiKey: { type: 'apiKey', in: 'header', name: 'X-Integration-Api-Key', description: 'M365_INTEGRATION_API_KEY env var' },
     },
     schemas: {
       Error: { type: 'object', properties: { error: { type: 'string' }, details: { type: 'object' }, code: { type: 'string' } }, required: ['error'] },
       UserRole: {
         type: 'string',
-        enum: ['SUPER_ADMIN', 'ADMIN', 'HR_HEAD', 'HR_MANAGER', 'FINANCE_HEAD', 'RECRUITER', 'TEAM_LEAD', 'HIRING_MANAGER', 'ACCOUNT_MANAGER', 'INTERVIEWER', 'CANDIDATE', 'VENDOR', 'EMPLOYEE'],
+        enum: ['SUPER_ADMIN', 'DEVELOPER', 'ADMIN', 'HR_HEAD', 'TA_MANAGER', 'HUMAN_RESOURCE', 'FINANCE_HEAD', 'RECRUITER', 'TEAM_LEAD', 'HIRING_MANAGER', 'ACCOUNT_MANAGER', 'INTERVIEWER', 'CANDIDATE', 'VENDOR', 'EMPLOYEE'],
       },
       UserStatus: { type: 'string', enum: ['ACTIVE', 'DISABLED'] },
       ThemePreference: { type: 'string', enum: ['light', 'dark', 'system'] },
@@ -209,16 +221,33 @@ const spec = {
       Session: {
         type: 'object',
         properties: {
-          token: { type: 'string', description: 'JWT bearer token' },
+          token: { type: 'string', description: 'Access JWT (~15 minutes)' },
+          expiresIn: { type: 'integer', description: 'Access token lifetime in seconds' },
           user: { $ref: '#/components/schemas/User' },
           allowedPages: { type: 'array', items: { type: 'string' } },
+          deviceToken: { type: 'string', description: 'Only after MFA with rememberDevice: skips MFA on this device for 15 days' },
+          backupCodes: { type: 'array', items: { type: 'string' }, description: 'Only after MFA enrolment: 10 one-time codes, shown once' },
         },
         required: ['token', 'user'],
+      },
+      MfaChallenge: {
+        type: 'object',
+        description: 'Returned by POST /api/auth/login instead of a session for every role except CANDIDATE when MFA is enforced.',
+        properties: {
+          mfaRequired: { type: 'boolean', enum: [true] },
+          mfaSetupRequired: { type: 'boolean', description: 'true = user must enrol (setup/start → setup/confirm); false = verify a code' },
+          mfaToken: { type: 'string', description: 'Challenge token, valid 5 minutes; cannot call other APIs' },
+        },
+        required: ['mfaRequired', 'mfaSetupRequired', 'mfaToken'],
       },
       LoginRequest: {
         type: 'object',
         required: ['email', 'password'],
-        properties: { email: { type: 'string', format: 'email' }, password: { type: 'string', minLength: 1 } },
+        properties: {
+          email: { type: 'string', format: 'email' },
+          password: { type: 'string', minLength: 1 },
+          deviceToken: { type: 'string', description: 'Remembered-device token from an earlier MFA sign-in' },
+        },
       },
       RegisterCandidateRequest: {
         type: 'object',
@@ -227,7 +256,7 @@ const spec = {
           firstName: { type: 'string', minLength: 1 },
           lastName: { type: 'string', minLength: 1 },
           email: { type: 'string', format: 'email' },
-          password: { type: 'string', minLength: 8 },
+          password: { type: 'string', minLength: 12 },
         },
       },
       ChangePasswordRequest: {
@@ -235,14 +264,14 @@ const spec = {
         required: ['currentPassword', 'newPassword'],
         properties: {
           currentPassword: { type: 'string' },
-          newPassword: { type: 'string', minLength: 8 },
+          newPassword: { type: 'string', minLength: 12 },
         },
       },
       ForgotPasswordRequest: { type: 'object', required: ['email'], properties: { email: { type: 'string', format: 'email' } } },
       ResetPasswordRequest: {
         type: 'object',
         required: ['token', 'newPassword'],
-        properties: { token: { type: 'string' }, newPassword: { type: 'string', minLength: 8 } },
+        properties: { token: { type: 'string' }, newPassword: { type: 'string', minLength: 12 } },
       },
       OkMessage: { type: 'object', properties: { ok: { type: 'boolean' }, message: { type: 'string' } } },
       CandidateStatus: {
@@ -322,7 +351,7 @@ const spec = {
           department: { type: 'string', maxLength: 120 },
           phoneNumber: { type: 'string', maxLength: 40 },
           address: { type: 'string', maxLength: 500 },
-          temporaryPassword: { type: 'string', minLength: 8 },
+          temporaryPassword: { type: 'string', minLength: 12 },
           sendInviteEmail: { type: 'boolean', default: true },
         },
       },
@@ -368,11 +397,16 @@ p['/api/auth/register-candidate'] = op('post', 'Register candidate account', {
   requestBody: { required: true, content: { 'application/json': { schema: ref('RegisterCandidateRequest') } } },
   responses: { 201: { description: 'Created', content: { 'application/json': { schema: ref('Session') } } }, 409: errorResponse },
 })
-p['/api/auth/login'] = op('post', 'Staff or portal login', {
+p['/api/auth/login'] = op('post', 'Password sign-in (all portals)', {
   tags: ['Auth'],
   security: [],
+  description: 'Candidates get a session. Every other role gets an MFA challenge unless `deviceToken` is a remembered device. 5 wrong passwords lock the account (423 `ACCOUNT_LOCKED`).',
   requestBody: { required: true, content: { 'application/json': { schema: ref('LoginRequest') } } },
-  responses: { 200: { description: 'OK', content: { 'application/json': { schema: ref('Session') } } } },
+  responses: {
+    200: { description: 'Session, or MFA challenge', content: { 'application/json': { schema: { oneOf: [ref('Session'), ref('MfaChallenge')] } } } },
+    423: errorResponse,
+    429: errorResponse,
+  },
 })
 p['/api/auth/me'] = jwtOp('get', 'Current user profile', 'Any active user', {
   tags: ['Auth'],
@@ -401,7 +435,7 @@ p['/api/auth/reset-password'] = op('post', 'Reset password with token', {
 
 // Users
 p['/api/users'] = {
-  ...jwtOp('get', 'List users', 'ADMIN, HR_HEAD, HR_MANAGER, RECRUITER, TEAM_LEAD, HIRING_MANAGER, INTERVIEWER', {
+  ...jwtOp('get', 'List users', 'ADMIN, HR_HEAD, TA_MANAGER, RECRUITER, TEAM_LEAD, HIRING_MANAGER, INTERVIEWER', {
     tags: ['Users'],
     responses: { 200: { description: 'User array', content: { 'application/json': { schema: { type: 'array', items: ref('User') } } } } },
   }),
@@ -462,7 +496,7 @@ p['/api/users/{id}/send-password-reset-link'] = jwtOp('post', 'Email password re
 p['/api/users/{id}/reset-password'] = jwtOp('post', 'Admin reset password', 'SUPER_ADMIN', {
   tags: ['Users'],
   parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
-  requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { newPassword: { type: 'string', minLength: 8 }, generateTemporary: { type: 'boolean' } } } } } },
+  requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { newPassword: { type: 'string', minLength: 12 }, generateTemporary: { type: 'boolean' } } } } } },
   responses: { 200: { description: 'OK', content: { 'application/json': { schema: { type: 'object', properties: { ok: { type: 'boolean' }, temporaryPassword: { type: 'string' }, message: { type: 'string' } } } } } } },
 })
 p['/api/users/{id}/tags'] = jwtOp('patch', 'Set user feature tags', 'SUPER_ADMIN', {
@@ -494,6 +528,9 @@ function addPaths(entries) {
 
 const idParam = { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }
 const jsonBody = (schema) => ({ required: true, content: { 'application/json': { schema } } })
+// Duplicate lookups are POST so emails and PANs never appear in URLs or access logs.
+const emailLookupBody = jsonBody({ type: 'object', required: ['email'], properties: { email: { type: 'string', format: 'email' }, excludeId: { type: 'string' } } })
+const panLookupBody = jsonBody({ type: 'object', required: ['pan'], properties: { pan: { type: 'string' }, excludeId: { type: 'string' } } })
 const arrResp = (itemRef, desc = 'Array') => ({ description: desc, content: { 'application/json': { schema: { type: 'array', items: ref(itemRef) } } } })
 const objResp = (itemRef, desc = 'Object') => ({ description: desc, content: { 'application/json': { schema: ref(itemRef) } } })
 
@@ -507,7 +544,7 @@ addPaths([
     }).post,
   }],
   ['/api/business-requirements/{id}', {
-    get: jwtOp('get', 'Get business requirement', 'Mutate roles + HR_HEAD/HR_MANAGER preview', { tags: ['Business Requirements'], parameters: [idParam], responses: { 200: objResp('BusinessRequirement') } }).get,
+    get: jwtOp('get', 'Get business requirement', 'Mutate roles + HR_HEAD/TA_MANAGER preview', { tags: ['Business Requirements'], parameters: [idParam], responses: { 200: objResp('BusinessRequirement') } }).get,
     patch: jwtOp('patch', 'Update business requirement', 'ACCOUNT_MANAGER, HIRING_MANAGER, ADMIN', { tags: ['Business Requirements'], parameters: [idParam], requestBody: { content: { 'application/json': { schema: { type: 'object', additionalProperties: true } } } }, responses: { 200: objResp('BusinessRequirement') } }).patch,
   }],
   ['/api/business-requirements/{id}/stage', {
@@ -526,7 +563,7 @@ addPaths([
     }).post,
   }],
   ['/api/business-requirements/{id}/activity-logs', {
-    get: jwtOp('get', 'Business requirement activity logs', 'Mutate roles + HR_HEAD/HR_MANAGER preview', {
+    get: jwtOp('get', 'Business requirement activity logs', 'Mutate roles + HR_HEAD/TA_MANAGER preview', {
       tags: ['Business Requirements'],
       parameters: [idParam, { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } }],
       responses: { 200: arrResp('ActivityLog') },
@@ -606,7 +643,7 @@ addPaths([
     }).patch,
   }],
   ['/api/requirements/{id}/hiring-stage', {
-    patch: jwtOp('patch', 'Update hiring stage', 'RECRUITER, HR_MANAGER, TEAM_LEAD', {
+    patch: jwtOp('patch', 'Update hiring stage', 'RECRUITER, TA_MANAGER, TEAM_LEAD', {
       tags: ['Requirements'],
       parameters: [idParam],
       requestBody: jsonBody({ type: 'object', required: ['hiringStage'], properties: { hiringStage: ref('HiringStage') } }),
@@ -695,11 +732,11 @@ addPaths([
     }).post,
   }],
   ['/api/candidates/check-email', {
-    get: jwtOp('get', 'Check if email exists', 'Internal', {
+    post: jwtOp('post', 'Check if email exists', 'Internal', {
       tags: ['Candidates'],
-      parameters: [{ name: 'email', in: 'query', required: true, schema: { type: 'string', format: 'email' } }],
+      requestBody: emailLookupBody,
       responses: { 200: { description: 'Existence check' } },
-    }).get,
+    }).post,
   }],
   ['/api/candidates/{id}', {
     get: jwtOp('get', 'Get candidate', 'Internal + access', { tags: ['Candidates'], parameters: [idParam], responses: { 200: objResp('Candidate') } }).get,
@@ -786,7 +823,7 @@ addPaths([
 
 // Offers
 const offerIdParam = [idParam]
-const offerRoles = 'Offer roles (SUPER_ADMIN, ADMIN, HR_HEAD, HR_MANAGER, RECRUITER, TEAM_LEAD)'
+const offerRoles = 'Offer roles (SUPER_ADMIN, ADMIN, HR_HEAD, TA_MANAGER, RECRUITER, TEAM_LEAD)'
 addPaths([
   ['/api/offers', {
     get: jwtOp('get', 'List offers', offerRoles, { tags: ['Offers'], responses: { 200: arrResp('Offer') } }).get,
@@ -870,11 +907,6 @@ addPaths([
   ['/api/feedback/{id}/download', { get: jwtOp('get', 'Download feedback HTML', 'Internal + access', { tags: ['Feedback'], parameters: [idParam], responses: { 200: { description: 'HTML attachment', content: { 'text/html': { schema: { type: 'string' } } } } } }).get }],
   ['/api/activity-logs', {
     get: jwtOp('get', 'Recent activity logs', 'Internal', { tags: ['Activity Logs'], parameters: [{ name: 'limit', in: 'query', schema: { type: 'integer', default: 100 } }], responses: { 200: arrResp('ActivityLog') } }).get,
-    post: jwtOp('post', 'Create activity log', 'Internal', {
-      tags: ['Activity Logs'],
-      requestBody: jsonBody({ type: 'object', required: ['entityType', 'entityId', 'action'], properties: { entityType: { type: 'string' }, entityId: { type: 'string' }, action: { type: 'string' }, details: { type: 'object' } } }),
-      responses: { 201: { description: 'Created', content: { 'application/json': { schema: { type: 'object', properties: { ok: { type: 'boolean' } } } } } } },
-    }).post,
   }],
   ['/api/activity-logs/entity/{entityId}', {
     get: jwtOp('get', 'Logs for entity', 'Internal', {
@@ -949,7 +981,7 @@ addPaths([
   ['/api/vendor-portal/positions', { get: jwtOp('get', 'Assigned positions', vendorOnly, { tags: ['Vendor Portal'], responses: { 200: { description: 'Positions' } } }).get }],
   ['/api/vendor-portal/positions/{id}', { get: jwtOp('get', 'Position detail', vendorOnly, { tags: ['Vendor Portal'], parameters: [idParam], responses: { 200: { description: 'Position' } } }).get }],
   ['/api/vendor-portal/parse-resume', { post: jwtOp('post', 'Parse resume', vendorOnly, { tags: ['Vendor Portal'], requestBody: { required: true, content: { 'multipart/form-data': { schema: ref('ResumeUpload') } } }, responses: { 200: { description: 'Parsed fields' } } }).post }],
-  ['/api/vendor-portal/check-email', { get: jwtOp('get', 'Check email', vendorOnly, { tags: ['Vendor Portal'], parameters: [{ name: 'email', in: 'query', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Existence' } } }).get }],
+  ['/api/vendor-portal/check-email', { post: jwtOp('post', 'Check email', vendorOnly, { tags: ['Vendor Portal'], requestBody: emailLookupBody, responses: { 200: { description: 'Existence' } } }).post }],
   ['/api/vendor-portal/submissions', { get: jwtOp('get', 'My submissions', vendorOnly, { tags: ['Vendor Portal'], responses: { 200: arrResp('Candidate') } }).get }],
   ['/api/vendor-portal/submissions/{candidateId}', {
     get: jwtOp('get', 'Submission detail', vendorOnly, { tags: ['Vendor Portal'], parameters: [{ name: 'candidateId', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: objResp('Candidate') } }).get,
@@ -971,7 +1003,7 @@ addPaths([
   ['/api/referral-portal/referrals', { get: jwtOp('get', 'My referrals', referralPortal, { tags: ['Referral Portal'], responses: { 200: arrResp('Candidate') } }).get }],
   ['/api/referral-portal/referrals/{id}', { get: jwtOp('get', 'Referral detail', referralPortal, { tags: ['Referral Portal'], parameters: [idParam], responses: { 200: objResp('Candidate') } }).get }],
   ['/api/referral-portal/parse-resume', { post: jwtOp('post', 'Parse resume', referralPortal, { tags: ['Referral Portal'], requestBody: { required: true, content: { 'multipart/form-data': { schema: ref('ResumeUpload') } } }, responses: { 200: { description: 'Parsed fields' } } }).post }],
-  ['/api/referral-portal/check-email', { get: jwtOp('get', 'Check email', referralPortal, { tags: ['Referral Portal'], parameters: [{ name: 'email', in: 'query', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Existence' } } }).get }],
+  ['/api/referral-portal/check-email', { post: jwtOp('post', 'Check email', referralPortal, { tags: ['Referral Portal'], requestBody: emailLookupBody, responses: { 200: { description: 'Existence' } } }).post }],
   ['/api/referral-portal/positions/{id}/submit', { post: jwtOp('post', 'Submit referral', referralPortal, { tags: ['Referral Portal'], parameters: [idParam], requestBody: { content: { 'application/json': { schema: { type: 'object', additionalProperties: true } } } }, responses: { 201: objResp('Candidate') } }).post }],
   ['/api/referral-portal/referrals/{candidateId}/resume', { post: jwtOp('post', 'Upload referral resume', referralPortal, { tags: ['Referral Portal'], parameters: [{ name: 'candidateId', in: 'path', required: true, schema: { type: 'string' } }], requestBody: { required: true, content: { 'multipart/form-data': { schema: ref('ResumeUpload') } } }, responses: { 200: objResp('Candidate') } }).post }],
 ])
@@ -990,11 +1022,11 @@ addPaths(catalogCrud('Departments', 'departments'))
 addPaths(catalogCrud('Clients', 'clients'))
 
 addPaths([
-  ['/api/role-access/definitions', { get: jwtOp('get', 'Page and role definitions', 'SUPER_ADMIN', { tags: ['Role Access'], responses: { 200: { description: 'Definitions' } } }).get }],
+  ['/api/role-access/definitions', { get: jwtOp('get', 'Page and role definitions', 'DEVELOPER', { tags: ['Role Access'], responses: { 200: { description: 'Definitions' } } }).get }],
   ['/api/role-access/me', { get: jwtOp('get', 'My allowed pages', 'Any authenticated', { tags: ['Role Access'], responses: { 200: { description: 'Role and pages' } } }).get }],
-  ['/api/role-access', { get: jwtOp('get', 'Full access matrix', 'SUPER_ADMIN', { tags: ['Role Access'], responses: { 200: { description: 'Access config' } } }).get }],
+  ['/api/role-access', { get: jwtOp('get', 'Full access matrix', 'DEVELOPER', { tags: ['Role Access'], responses: { 200: { description: 'Access config' } } }).get }],
   ['/api/role-access/{role}', {
-    put: jwtOp('put', 'Set role page access', 'SUPER_ADMIN', {
+    put: jwtOp('put', 'Set role page access', 'DEVELOPER', {
       tags: ['Role Access'],
       parameters: [{ name: 'role', in: 'path', required: true, schema: ref('UserRole') }],
       requestBody: jsonBody({ type: 'object', required: ['pages'], properties: { pages: { type: 'array', items: { type: 'string' }, minItems: 1 } } }),
@@ -1002,7 +1034,7 @@ addPaths([
     }).put,
   }],
   ['/api/role-access/{role}/reset', {
-    post: jwtOp('post', 'Reset role to defaults', 'SUPER_ADMIN', {
+    post: jwtOp('post', 'Reset role to defaults', 'DEVELOPER', {
       tags: ['Role Access'],
       parameters: [{ name: 'role', in: 'path', required: true, schema: ref('UserRole') }],
       responses: { 200: { description: 'Reset' } },
@@ -1019,7 +1051,7 @@ addPaths([
     }).put,
   }],
   ['/api/offer-settings/compensation', {
-    get: jwtOp('get', 'Get compensation config', 'Compensation/letter editors, HR_MANAGER, TEAM_LEAD', { tags: ['Offer Settings'], responses: { 200: { description: 'Config', content: { 'application/json': { schema: ref('CompensationConfig') } } } } }).get,
+    get: jwtOp('get', 'Get compensation config', 'Compensation/letter editors, TA_MANAGER, TEAM_LEAD', { tags: ['Offer Settings'], responses: { 200: { description: 'Config', content: { 'application/json': { schema: ref('CompensationConfig') } } } } }).get,
     put: jwtOp('put', 'Update compensation config', 'FINANCE_HEAD, SUPER_ADMIN, ADMIN', { tags: ['Offer Settings'], requestBody: { required: true, content: { 'application/json': { schema: ref('CompensationConfig') } } }, responses: { 200: { description: 'Updated config' } } }).put,
   }],
   ['/api/offer-settings/compensation/preview', {
@@ -1030,7 +1062,7 @@ addPaths([
     }).post,
   }],
   ['/api/offer-settings/letter-template', {
-    get: jwtOp('get', 'Get letter template', 'Letter template editors, HR_MANAGER', { tags: ['Offer Settings'], responses: { 200: { description: 'Template' } } }).get,
+    get: jwtOp('get', 'Get letter template', 'Letter template editors, TA_MANAGER', { tags: ['Offer Settings'], responses: { 200: { description: 'Template' } } }).get,
     put: jwtOp('put', 'Update letter template', 'Letter template editors', { tags: ['Offer Settings'], requestBody: { content: { 'application/json': { schema: { type: 'object', additionalProperties: true } } } }, responses: { 200: { description: 'Updated' } } }).put,
   }],
   ['/api/offer-settings/letter-template/preview', { post: jwtOp('post', 'Preview letter HTML', 'Letter template editors', { tags: ['Offer Settings'], requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { template: { type: 'object' }, annualCtc: { type: 'number' } } } } } }, responses: { 200: { description: 'HTML preview' } } }).post }],
@@ -1056,6 +1088,167 @@ addPaths([
     }).post,
   }],
 ])
+
+// Remaining routes, one row each: [method, path, summary, roles, tag, opts?]
+// roles === null marks a public route (no bearer token).
+const anyBody = { content: { 'application/json': { schema: { type: 'object', additionalProperties: true } } } }
+const mfaCodeBody = jsonBody({
+  type: 'object',
+  required: ['mfaToken', 'code'],
+  properties: {
+    mfaToken: { type: 'string' },
+    code: { type: 'string', minLength: 6, maxLength: 16, description: '6-digit authenticator code or a backup code' },
+    rememberDevice: { type: 'boolean', description: 'Skip MFA on this device for 15 days' },
+  },
+})
+const pathParam = (name) => ({ name, in: 'path', required: true, schema: { type: 'string' } })
+const routeTable = [
+  // Auth (sessions, SSO)
+  ['get', '/api/auth/sso', 'Which sign-in providers are configured', null, 'Auth'],
+  ['post', '/api/auth/google', 'Candidate Google sign-in (GIS ID token)', null, 'Auth'],
+  ['post', '/api/auth/microsoft', 'Staff Microsoft SSO (skips MFA)', null, 'Auth'],
+  ['post', '/api/auth/refresh', 'Rotate the HttpOnly refresh cookie (send X-Stitch-CSRF: 1); returns a new access token', null, 'Auth'],
+  ['post', '/api/auth/logout', 'Revoke the refresh cookie and clear it (send X-Stitch-CSRF: 1)', null, 'Auth'],
+  ['post', '/api/auth/session-end', 'Record the end of a session (idle logout / tab close)', 'Any authenticated', 'Auth'],
+  ['post', '/api/auth/session-resume', 'Record a resumed session', 'Any authenticated', 'Auth'],
+  // MFA
+  ['post', '/api/auth/mfa/verify', 'Second sign-in step: verify code, get session', null, 'MFA', { requestBody: mfaCodeBody, responses: { 200: objResp('Session'), 423: errorResponse } }],
+  ['post', '/api/auth/mfa/setup/start', 'Start enrolment: returns QR code and secret', null, 'MFA', { requestBody: jsonBody({ type: 'object', required: ['mfaToken'], properties: { mfaToken: { type: 'string' } } }) }],
+  ['post', '/api/auth/mfa/setup/confirm', 'Confirm first code: turns MFA on, returns session + 10 backup codes', null, 'MFA', { requestBody: mfaCodeBody, responses: { 200: objResp('Session'), 423: errorResponse } }],
+  ['get', '/api/auth/mfa/status', 'My MFA status and backup codes left', 'Any active user', 'MFA'],
+  ['post', '/api/auth/mfa/backup-codes/regenerate', 'New backup codes (needs a current code)', 'Any active user with MFA', 'MFA', { requestBody: jsonBody({ type: 'object', required: ['code'], properties: { code: { type: 'string' } } }) }],
+  ['post', '/api/auth/mfa/reset/{userId}', 'Reset a user\'s MFA (they re-enrol at next sign-in)', 'DEVELOPER only', 'MFA', { parameters: [pathParam('userId')] }],
+  // Users
+  ['post', '/api/users/me/complete-profile', 'Complete own profile after first sign-in', 'Any active user', 'Users'],
+  ['post', '/api/users/{id}/unlock', 'Unlock an account locked by failed sign-in or MFA attempts', 'SUPER_ADMIN', 'Users'],
+  // Business requirements and client deals
+  ['post', '/api/business-requirements/generate-job-description', 'Draft a job description with AI', 'Business mutate + staff mutate', 'Business Requirements', { requestBody: anyBody }],
+  ['get', '/api/client-deals', 'List client deals', 'ACCOUNT_MANAGER, HIRING_MANAGER, ADMIN', 'Client Deals'],
+  ['post', '/api/client-deals', 'Create client deal', 'ACCOUNT_MANAGER, HIRING_MANAGER, ADMIN', 'Client Deals', { requestBody: anyBody }],
+  ['get', '/api/client-deals/{id}', 'Get client deal', 'Business view roles', 'Client Deals'],
+  ['patch', '/api/client-deals/{id}/stage', 'Change deal stage', 'ACCOUNT_MANAGER, HIRING_MANAGER, ADMIN', 'Client Deals', { requestBody: anyBody }],
+  ['patch', '/api/client-deals/{id}/sow-gateway', 'Update SOW gateway', 'ACCOUNT_MANAGER, HIRING_MANAGER, ADMIN', 'Client Deals', { requestBody: anyBody }],
+  ['patch', '/api/client-deals/{id}/sow-signed', 'Mark SOW signed', 'ACCOUNT_MANAGER, HIRING_MANAGER, ADMIN', 'Client Deals', { requestBody: anyBody }],
+  ['post', '/api/client-deals/{id}/cancel', 'Cancel client deal', 'ACCOUNT_MANAGER, HIRING_MANAGER, ADMIN', 'Client Deals'],
+  // Requirements
+  ['get', '/api/requirements/{id}/activity-logs', 'Requirement activity', 'Internal + access', 'Requirements'],
+  ['get', '/api/requirements/{id}/vendors', 'Vendors assigned to requirement', 'Portal visibility + RECRUITER', 'Requirements'],
+  ['put', '/api/requirements/{id}/vendors', 'Set vendors on requirement', 'Requirement assignment roles', 'Requirements', { requestBody: anyBody }],
+  ['post', '/api/requirements/{id}/assign-recruiter/{recruiterId}/accept', 'Recruiter accepts assignment', 'RECRUITER', 'Requirements', { parameters: [pathParam('id'), pathParam('recruiterId')] }],
+  ['post', '/api/requirements/{id}/assign-recruiter/{recruiterId}/reject', 'Recruiter rejects assignment', 'RECRUITER', 'Requirements', { parameters: [pathParam('id'), pathParam('recruiterId')] }],
+  ['post', '/api/requirements/{id}/repurpose', 'Repurpose a requirement', 'Internal + access', 'Requirements'],
+  // Candidates and interviews
+  ['get', '/api/candidates/search', 'Talent-pool search (q, skills, location, experience, CTC, notice, status, source, paging)', 'Internal (INTERVIEWER blocked)', 'Candidates'],
+  ['post', '/api/candidates/check-pan', 'Check whether a PAN already exists', 'Internal', 'Candidates', { requestBody: panLookupBody }],
+  ['get', '/api/candidates/{id}/match-breakdown', 'Skill match breakdown against the linked job', 'Internal + access', 'Candidates'],
+  ['get', '/api/interviews/on-my-requirements-today', 'Today\'s interviews on my requirements', 'Internal + ACCOUNT_MANAGER', 'Interviews'],
+  ['get', '/api/interview-rsvp', 'Show accept/decline page for an emailed invite', null, 'Interview RSVP'],
+  ['post', '/api/interview-rsvp', 'Record accept/decline (form post)', null, 'Interview RSVP'],
+  // Portals
+  ['post', '/api/portal/parse-resume', 'Parse resume to prefill profile', 'CANDIDATE', 'Candidate Portal'],
+  ['post', '/api/referral-portal/check-pan', 'Check PAN before referring', 'Referral portal', 'Referral Portal', { requestBody: panLookupBody }],
+  ['post', '/api/referral-portal/submit', 'Submit a general referral (no specific job)', 'Referral portal', 'Referral Portal', { requestBody: anyBody }],
+  ['post', '/api/vendor-portal/check-pan', 'Check PAN before submitting', 'VENDOR', 'Vendor Portal', { requestBody: panLookupBody }],
+  ['get', '/api/vendor-portal/onboarding', 'Get my onboarding packet', 'VENDOR', 'Vendor Portal'],
+  ['patch', '/api/vendor-portal/onboarding', 'Save onboarding packet', 'VENDOR', 'Vendor Portal', { requestBody: anyBody }],
+  ['patch', '/api/vendor-portal/onboarding/evaluation', 'Save onboarding self-evaluation', 'VENDOR', 'Vendor Portal', { requestBody: anyBody }],
+  ['post', '/api/vendor-portal/onboarding/submit', 'Submit onboarding for review', 'VENDOR', 'Vendor Portal'],
+  // Referral review
+  ['get', '/api/referral-review/program', 'Referral validity, service period and bonus tiers', 'Internal', 'Referral Review'],
+  ['get', '/api/referral-review/access', 'What the current user may do in the queue', 'Internal', 'Referral Review'],
+  ['get', '/api/referral-review/recruiters', 'Recruiters available for assignment', 'Referral reviewers', 'Referral Review'],
+  ['get', '/api/referral-review', 'Referral queue', 'SUPER_ADMIN, ADMIN, HR_HEAD, TA_MANAGER, employee_referral or ta_operation tag', 'Referral Review'],
+  ['get', '/api/referral-review/assigned', 'Referrals assigned to me (recruiter)', 'RECRUITER', 'Referral Review'],
+  ['get', '/api/referral-review/bonuses', 'Referral bonus list', 'TA_MANAGER, ADMIN, SUPER_ADMIN', 'Referral Review'],
+  ['get', '/api/referral-review/{id}', 'Referral detail', 'Referral queue viewers', 'Referral Review'],
+  ['post', '/api/referral-review/{id}/assign', 'Assign to recruiter (emails candidate: shortlisted)', 'Referral reviewers', 'Referral Review', { requestBody: anyBody }],
+  ['post', '/api/referral-review/{id}/reject', 'Reject referral (emails candidate: not selected)', 'Referral reviewers', 'Referral Review', { requestBody: anyBody }],
+  ['post', '/api/referral-review/{id}/accept', 'Recruiter accepts referral into the pipeline', 'Assigned recruiter', 'Referral Review'],
+  ['post', '/api/referral-review/{id}/recruiter-reject', 'Recruiter sends referral to the bank', 'Assigned recruiter', 'Referral Review', { requestBody: anyBody }],
+  ['post', '/api/referral-review/{id}/bonus', 'Grant, cancel or mark bonus paid', 'TA_MANAGER, ADMIN, SUPER_ADMIN', 'Referral Review', { requestBody: anyBody }],
+  // Vendors
+  ['get', '/api/vendors/creation-requests', 'Vendor creation requests (own requests for TA Operation)', 'SUPER_ADMIN, DEVELOPER, TA_MANAGER, ta_operation tag', 'Vendors'],
+  ['post', '/api/vendors/creation-requests', 'Request a new vendor; emails TA Managers', 'ta_operation tag', 'Vendors', { requestBody: jsonBody({ type: 'object', required: ['name', 'email', 'contactName'], properties: { name: { type: 'string' }, email: { type: 'string', format: 'email' }, contactName: { type: 'string', description: 'SPOC name' }, phone: { type: 'string' }, notes: { type: 'string' } } }), responses: { 201: { description: 'Created' } } }],
+  ['post', '/api/vendors/creation-requests/{id}/decision', 'Approve (→ READY, emails creators) or reject (emails requester)', 'TA_MANAGER (exact; Developer passes)', 'Vendors', { requestBody: jsonBody({ type: 'object', required: ['action', 'reason'], properties: { action: { type: 'string', enum: ['APPROVE', 'REJECT'] }, reason: { type: 'string', minLength: 1 } } }) }],
+  ['get', '/api/vendors/{id}/activity-logs', 'Vendor activity', 'Vendor managers', 'Vendors'],
+  ['post', '/api/vendors/{id}/reinvite', 'Re-send vendor portal invite', 'SUPER_ADMIN', 'Vendors'],
+  ['delete', '/api/vendors/{id}', 'Delete vendor', 'SUPER_ADMIN', 'Vendors', { responses: { 204: { description: 'Deleted' } } }],
+  ['get', '/api/vendor-onboarding/pending', 'Onboarding packets awaiting review', 'TA_MANAGER, HR_HEAD (exact)', 'Vendor Onboarding'],
+  ['get', '/api/vendor-onboarding/vendor/{vendorId}', 'Onboarding packet for a vendor', 'Vendor managers', 'Vendor Onboarding', { parameters: [pathParam('vendorId')] }],
+  ['post', '/api/vendor-onboarding/vendor/{vendorId}/decision', 'Approve or return onboarding', 'TA_MANAGER, HR_HEAD (exact)', 'Vendor Onboarding', { parameters: [pathParam('vendorId')], requestBody: anyBody }],
+  // Reports
+  ['get', '/api/reports/ta', 'TA report', 'SUPER_ADMIN, ADMIN, HR_HEAD, TA_MANAGER, TEAM_LEAD, RECRUITER', 'Reports'],
+  ['get', '/api/reports/hiring', 'Hiring report', 'Hiring report roles (not RECRUITER)', 'Reports'],
+  ['get', '/api/reports/referrals', 'Employee referral report', 'SUPER_ADMIN, ADMIN, HR_HEAD, TA_MANAGER', 'Reports'],
+  ['get', '/api/reports/vendors', 'Vendor report', 'SUPER_ADMIN, ADMIN, HR_HEAD, TA_MANAGER', 'Reports'],
+  ['get', '/api/open-requisition-report/recipients', 'Daily open requisition report recipients', 'SUPER_ADMIN', 'Reports'],
+  ['put', '/api/open-requisition-report/recipients', 'Set report recipients', 'SUPER_ADMIN', 'Reports', { requestBody: anyBody }],
+  ['post', '/api/open-requisition-report/send', 'Send the report now', 'SUPER_ADMIN', 'Reports'],
+  // Self-service
+  ['get', '/api/change-requests/modules', 'Modules a change request can target', 'Self-service access', 'Change Requests'],
+  ['get', '/api/change-requests', 'List change requests', 'Self-service access', 'Change Requests'],
+  ['get', '/api/change-requests/{id}', 'Get change request', 'Self-service access', 'Change Requests'],
+  ['post', '/api/change-requests', 'Create change request', 'Self-service access', 'Change Requests', { requestBody: anyBody }],
+  ['post', '/api/change-requests/{id}/approve-hr', 'HR approve', 'TA_MANAGER, HR_HEAD', 'Change Requests'],
+  ['post', '/api/change-requests/{id}/reject-hr', 'HR reject', 'TA_MANAGER, HR_HEAD', 'Change Requests'],
+  ['post', '/api/change-requests/{id}/close', 'Close change request', 'Self-service access', 'Change Requests'],
+  ['post', '/api/change-requests/{id}/approve-admin', 'Admin approve', 'ADMIN, SUPER_ADMIN', 'Change Requests'],
+  ['post', '/api/change-requests/{id}/reject-admin', 'Admin reject', 'ADMIN, SUPER_ADMIN', 'Change Requests'],
+  ['post', '/api/change-requests/{id}/developer', 'Developer update', 'DEVELOPER', 'Change Requests', { requestBody: anyBody }],
+  ['delete', '/api/change-requests/{id}', 'Delete change request', 'SUPER_ADMIN, DEVELOPER', 'Change Requests'],
+  // Catalogs, market trends, notifications, assistant
+  ['get', '/api/cities', 'List cities', 'Any active user', 'Catalogs'],
+  ['post', '/api/cities', 'Add city', 'Internal', 'Catalogs', { requestBody: anyBody }],
+  ['patch', '/api/cities/{id}', 'Update city', 'SUPER_ADMIN', 'Catalogs', { requestBody: anyBody }],
+  ['delete', '/api/cities/{id}', 'Delete city', 'SUPER_ADMIN', 'Catalogs'],
+  ['post', '/api/cities/seed-defaults', 'Seed default cities', 'SUPER_ADMIN', 'Catalogs'],
+  ['get', '/api/dropdown-catalogs', 'Shared dropdown lists', 'Internal', 'Catalogs'],
+  ['put', '/api/dropdown-catalogs', 'Save dropdown lists', 'SUPER_ADMIN', 'Catalogs', { requestBody: anyBody }],
+  ['post', '/api/dropdown-catalogs/reset-defaults', 'Reset dropdown lists', 'SUPER_ADMIN', 'Catalogs'],
+  ['get', '/api/market-trends', 'Skill pay bands and city multipliers', 'Market trends page or market_data tag', 'Market Trends'],
+  ['post', '/api/market-trends/skills', 'Add skill row', 'Market data editors', 'Market Trends', { requestBody: anyBody }],
+  ['put', '/api/market-trends/skills/{id}', 'Update skill row', 'Market data editors', 'Market Trends', { requestBody: anyBody }],
+  ['delete', '/api/market-trends/skills/{id}', 'Delete skill row', 'Market data editors', 'Market Trends'],
+  ['put', '/api/market-trends/locations', 'Save city multipliers', 'Market data editors', 'Market Trends', { requestBody: anyBody }],
+  ['get', '/api/notifications/read-ids', 'Notification ids I have read', 'Any active user', 'Notifications'],
+  ['post', '/api/notifications/read-ids/mark', 'Mark notifications read', 'Any active user', 'Notifications', { requestBody: anyBody }],
+  ['get', '/api/assistant/examples', 'Example assistant questions', 'Internal', 'Assistant'],
+  ['post', '/api/assistant/ask', 'Ask the assistant (rate-limited)', 'Internal', 'Assistant', { requestBody: anyBody }],
+  // Workspace admin
+  ['get', '/api/privacy', 'Retention settings, bounds, groups, last run', 'SUPER_ADMIN, ADMIN, HR_HEAD', 'Workspace Admin'],
+  ['get', '/api/privacy/history', 'Recent retention runs', 'SUPER_ADMIN, ADMIN, HR_HEAD', 'Workspace Admin'],
+  ['put', '/api/privacy', 'Save retention settings', 'DEVELOPER only', 'Workspace Admin', { requestBody: anyBody }],
+  ['post', '/api/privacy/run', 'Run retention now (dry run unless Live)', 'DEVELOPER only', 'Workspace Admin'],
+  ['post', '/api/privacy/preview', 'Count what draft settings would affect', 'DEVELOPER only', 'Workspace Admin', { requestBody: anyBody }],
+  ['get', '/api/email-toggles', 'Email type on/off switches', 'DEVELOPER only', 'Workspace Admin'],
+  ['put', '/api/email-toggles', 'Save email switches', 'DEVELOPER only', 'Workspace Admin', { requestBody: anyBody }],
+  ['post', '/api/email-toggles/reset', 'Reset email switches', 'DEVELOPER only', 'Workspace Admin'],
+  ['get', '/api/email-toggles/copy', 'Email wording and placeholders', 'DEVELOPER only', 'Workspace Admin'],
+  ['put', '/api/email-toggles/copy', 'Save email wording', 'DEVELOPER only', 'Workspace Admin', { requestBody: anyBody }],
+  ['post', '/api/email-toggles/copy/reset', 'Reset email wording', 'DEVELOPER only', 'Workspace Admin'],
+  ['get', '/api/email-toggles/workflow', 'Workflow mail templates and recipients', 'DEVELOPER only', 'Workspace Admin'],
+  ['put', '/api/email-toggles/workflow', 'Save workflow mail (To/Cc/Bcc roles + extra addresses)', 'DEVELOPER only', 'Workspace Admin', { requestBody: anyBody }],
+  ['post', '/api/email-toggles/workflow/reset', 'Reset workflow mail', 'DEVELOPER only', 'Workspace Admin'],
+  ['post', '/api/email-toggles/workflow/preview', 'Preview a workflow mail', 'DEVELOPER only', 'Workspace Admin', { requestBody: anyBody }],
+  ['get', '/api/email-toggles/reports', 'Report mail settings (open requisition, aging)', 'DEVELOPER only', 'Workspace Admin'],
+  ['put', '/api/email-toggles/reports', 'Save report mail settings', 'DEVELOPER only', 'Workspace Admin', { requestBody: anyBody }],
+  ['get', '/api/database-backups', 'List backups', 'DEVELOPER only', 'Workspace Admin'],
+  ['post', '/api/database-backups', 'Run a backup now', 'DEVELOPER only', 'Workspace Admin'],
+  ['get', '/api/page-publication', 'Published pages', 'DEVELOPER only', 'Workspace Admin'],
+  ['put', '/api/page-publication', 'Publish or unpublish pages', 'DEVELOPER only', 'Workspace Admin', { requestBody: anyBody }],
+  ['post', '/api/page-publication/reset', 'Reset page publication', 'DEVELOPER only', 'Workspace Admin'],
+  ['get', '/api/feature-flags', 'Feature flags', 'Any active user', 'Workspace Admin'],
+  ['put', '/api/feature-flags', 'Save feature flags', 'SUPER_ADMIN', 'Workspace Admin', { requestBody: anyBody }],
+  ['post', '/api/feature-flags/reset', 'Reset feature flags', 'SUPER_ADMIN', 'Workspace Admin'],
+]
+for (const [method, path, summary, roles, tag, opts = {}] of routeTable) {
+  const params = opts.parameters ?? (path.includes('{id}') ? [{ ...idParam, schema: { type: 'string' } }] : undefined)
+  const operation =
+    roles === null
+      ? op(method, summary, { tags: [tag], security: [], ...opts, parameters: params })
+      : jwtOp(method, summary, roles, { tags: [tag], ...opts, parameters: params })
+  addPaths([[path, operation]])
+}
 
 // Count operations
 let opCount = 0

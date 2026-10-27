@@ -67,9 +67,6 @@ export function avg(sum, count) {
         return 0;
     return Math.round((sum / count) * 10) / 10;
 }
-export function daysBetween(from, to) {
-    return Math.max(0, Math.round((to.getTime() - from.getTime()) / 86_400_000));
-}
 /** IST calendar-day difference (matches requirement ageing in the product UI). */
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 export function calendarDaysBetween(from, to) {

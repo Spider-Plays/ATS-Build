@@ -747,7 +747,6 @@ async function linkVendorToRequirement(requirementId, vendorName, assignedBy) {
 }
 async function importRequirements(candidateRows, requirementRows, opts, manifest, userLookup, fallbackUserId) {
     const requirementByReqId = new Map();
-    const vendorUserCache = new Map();
     let childCount = 0;
     let skippedNonChild = 0;
     for (const row of requirementRows) {

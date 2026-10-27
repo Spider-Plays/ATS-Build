@@ -19,14 +19,6 @@ export function parseInterviewerIds(raw) {
         return [];
     }
 }
-export async function isInterviewerAssignedToCandidate(userId, candidateId) {
-    const interviews = await prisma.interview.findMany({
-        where: { candidateId },
-        select: { interviewerIds: true, status: true },
-    });
-    return interviews.some((i) => i.status !== 'CANCELLED' &&
-        parseInterviewerIds(i.interviewerIds).includes(userId));
-}
 async function featureTagScopeClauses(auth) {
     const user = await prisma.user.findUnique({
         where: { id: auth.userId },
@@ -55,7 +47,11 @@ function withFeatureScopes(base, scopes) {
  * Employee referrals still in review are excluded unless `includeReferralReview` is set, which
  * adds them back for the referral team, TA Operation, and the recruiter they are assigned to.
  */
+/** Portal roles never see the staff candidate pool; their own data comes through the portal routes. */
+export const EXTERNAL_ROLES = new Set(['CANDIDATE', 'VENDOR', 'EMPLOYEE']);
 export async function buildCandidateListWhere(auth, opts = {}) {
+    if (EXTERNAL_ROLES.has(auth.role))
+        return { id: { in: ['__none__'] } };
     const scoped = await buildScopedCandidateWhere(auth);
     if (!opts.includeReferralReview) {
         return isEmptyWhere(scoped) ? REFERRAL_VISIBLE_WHERE : { AND: [scoped, REFERRAL_VISIBLE_WHERE] };
@@ -104,7 +100,7 @@ async function buildScopedCandidateWhere(auth) {
  */
 export async function buildCandidateMatchPoolWhere(auth, requirementId) {
     const listWhere = await buildCandidateListWhere(auth);
-    if (hasOrgWideAccess(auth.role)) {
+    if (hasOrgWideAccess(auth.role) || EXTERNAL_ROLES.has(auth.role)) {
         return listWhere;
     }
     const requirement = await prisma.requirement.findUnique({

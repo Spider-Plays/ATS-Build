@@ -414,57 +414,23 @@ export async function sendPasswordResetEmail(params) {
         }),
     });
 }
-export async function sendInterviewScheduledEmail(params) {
+export async function sendEmailVerificationEmail(params) {
     return sendHtmlEmail({
-        kind: 'interviewScheduled',
-        vars: { candidateName: params.candidateName, type: params.type, scheduledAt: params.scheduledAt, meetingLink: params.meetingLink, location: params.location },
+        force: true,
+        vars: { name: params.name, verifyUrl: params.verifyUrl, appName: env.appName },
         to: params.to,
-        subject: `Interview scheduled — ${env.appName}`,
-        html: interviewEmailBody({ ...params, headline: 'Interview scheduled' }),
-        attachments: params.calendarInvite
-            ? [{ filename: 'interview.ics', contentType: 'text/calendar; method=REQUEST', content: params.calendarInvite }]
-            : undefined,
-    });
-}
-export async function sendInterviewUpdatedEmail(params) {
-    return sendHtmlEmail({
-        kind: 'interviewUpdated',
-        vars: { candidateName: params.candidateName, type: params.type, scheduledAt: params.scheduledAt, meetingLink: params.meetingLink, location: params.location },
-        to: params.to,
-        subject: params.rescheduled
-            ? `Interview rescheduled — ${env.appName}`
-            : `Interview updated — ${env.appName}`,
-        html: interviewEmailBody({
-            candidateName: params.candidateName,
-            type: params.type,
-            scheduledAt: params.scheduledAt,
-            meetingLink: params.meetingLink,
-            location: params.location,
-            headline: params.rescheduled ? 'Interview rescheduled' : 'Interview details updated',
+        subject: `Confirm your email for ${env.appName}`,
+        html: emailShell({
+            preheader: `Confirm your email to finish creating your ${env.appName} account.`,
+            headerTitle: 'Confirm your email',
+            content: `
+        ${emailGreeting(params.name)}
+        ${emailLead('Thanks for registering. Confirm that this email address is yours to finish setting up your account. This link expires in <strong>24 hours</strong>.')}
+        ${emailButton(params.verifyUrl, 'Confirm email')}
+        ${emailFallbackUrl(params.verifyUrl)}
+        ${emailNote('If you did not create an account, you can safely ignore this email.')}
+      `,
         }),
-        attachments: params.calendarInvite
-            ? [{ filename: 'interview.ics', contentType: 'text/calendar; method=REQUEST', content: params.calendarInvite }]
-            : undefined,
-    });
-}
-function interviewEmailBody(params) {
-    const details = [
-        { label: 'Interview type', value: params.type },
-        { label: 'Date & time', value: params.scheduledAt },
-    ];
-    if (params.location)
-        details.push({ label: 'Location', value: params.location });
-    return emailShell({
-        preheader: `Your ${params.type} interview is scheduled for ${params.scheduledAt}.`,
-        headerTitle: params.headline,
-        content: `
-      ${emailGreeting(params.candidateName)}
-      ${emailLead(`Your <strong style="color:${EMAIL_BRAND.text};">${escapeHtml(params.type)}</strong> interview has been scheduled.`)}
-      ${detailBox(details)}
-      ${params.meetingLink ? emailParagraph(`${emailLink(params.meetingLink, 'Join meeting')}`) : ''}
-      ${emailNote('A calendar invite is attached — accept it to block this time on your Google or Microsoft calendar.')}
-      ${emailParagraph(`Sign in to your candidate portal for updates.`)}
-    `,
     });
 }
 export async function sendOfferSentEmail(params) {
@@ -527,55 +493,6 @@ export async function sendOfferDeclinedEmail(params) {
         ${detailBox([{ label: 'Base salary offered', value: params.baseSalary.toLocaleString() }])}
       `,
         }),
-    });
-}
-export async function sendInterviewerAssignedEmail(params) {
-    const details = [
-        { label: 'Candidate', value: params.candidateName },
-        { label: 'Interview type', value: params.type },
-        { label: 'Date & time', value: params.scheduledAt },
-    ];
-    if (params.location)
-        details.push({ label: 'Location', value: params.location });
-    return sendHtmlEmail({
-        kind: 'interviewerAssigned',
-        vars: { recipientName: params.recipientName, candidateName: params.candidateName, type: params.type, scheduledAt: params.scheduledAt, meetingLink: params.meetingLink, location: params.location, headline: params.headline },
-        to: params.to,
-        subject: `${params.headline} — ${env.appName}`,
-        html: emailShell({
-            headerTitle: params.headline,
-            content: `
-        ${emailGreeting(params.recipientName)}
-        ${emailLead(`You are assigned to interview <strong style="color:${EMAIL_BRAND.text};">${escapeHtml(params.candidateName)}</strong>.`)}
-        ${detailBox(details)}
-        ${params.meetingLink ? emailParagraph(`${emailLink(params.meetingLink, 'Join meeting')}`) : ''}
-        ${emailNote('A calendar invite is attached — accept it to block this time on your Google or Microsoft calendar.')}
-        ${emailParagraph(`Sign in to ${escapeHtml(env.appName)} for full details.`)}
-      `,
-        }),
-        attachments: params.calendarInvite
-            ? [{ filename: 'interview.ics', contentType: 'text/calendar; method=REQUEST', content: params.calendarInvite }]
-            : undefined,
-    });
-}
-export async function sendInterviewCancelledEmail(params) {
-    return sendHtmlEmail({
-        kind: 'interviewCancelled',
-        vars: { recipientName: params.recipientName, type: params.type, scheduledAt: params.scheduledAt, candidateName: params.candidateName },
-        to: params.to,
-        subject: `Interview cancelled — ${env.appName}`,
-        html: emailShell({
-            headerTitle: 'Interview cancelled',
-            content: `
-        ${emailGreeting(params.recipientName)}
-        ${emailLead(`The <strong style="color:${EMAIL_BRAND.text};">${escapeHtml(params.type)}</strong> interview scheduled for <strong style="color:${EMAIL_BRAND.text};">${escapeHtml(params.scheduledAt)}</strong> has been cancelled.`)}
-        ${params.candidateName ? detailBox([{ label: 'Candidate', value: params.candidateName }]) : ''}
-        ${emailNote('The attached calendar update will remove the event from your calendar.')}
-      `,
-        }),
-        attachments: params.calendarInvite
-            ? [{ filename: 'interview-cancel.ics', contentType: 'text/calendar; method=CANCEL', content: params.calendarInvite }]
-            : undefined,
     });
 }
 export async function sendInterviewReminderEmail(params) {

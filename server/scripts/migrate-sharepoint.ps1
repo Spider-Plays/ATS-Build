@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Migrate SharePoint candidate export (CSV + resumes) into Stitch ATS / Neon.
+  Migrate SharePoint candidate export (CSV + resumes) into Stitch ATS / Postgres.
 
 .DESCRIPTION
   Expects either:

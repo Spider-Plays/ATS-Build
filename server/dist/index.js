@@ -26,6 +26,8 @@ import { ensureMarketTrendsTables } from './lib/ensureMarketTrendsTables.js';
 import { startInterviewReminderJob, startOpenRequisitionReportJob, startRequirementAgingAlertJob } from './lib/emailDispatch.js';
 import { startCandidateScreeningJob } from './lib/candidateStatuses.js';
 import { startReferralExpiryJob } from './lib/referralWorkflow.js';
+import { startDataRetentionJob } from './lib/dataRetention.js';
+import { ensureCandidateRetentionColumns } from './lib/ensureCandidateRetentionColumns.js';
 import { startDatabaseBackupJob } from './lib/databaseBackup.js';
 import { startAppLogRolloverJob } from './lib/appLog.js';
 try {
@@ -56,6 +58,7 @@ async function prepareDatabase() {
     await ensureRequirementAccountManagerColumn();
     await ensureRequirementRequisitionColumns();
     await ensureInterviewScheduledByColumn();
+    await ensureCandidateRetentionColumns();
     await ensureUserProfileColumns();
     await ensurePrimaryDevUsers();
     await ensureChangeRequestTable();
@@ -67,6 +70,7 @@ async function prepareDatabase() {
     startOpenRequisitionReportJob();
     startCandidateScreeningJob();
     startReferralExpiryJob();
+    startDataRetentionJob();
     startDatabaseBackupJob();
     startAppLogRolloverJob();
 }

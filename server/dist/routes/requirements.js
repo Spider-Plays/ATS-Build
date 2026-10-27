@@ -265,6 +265,18 @@ router.put('/:id/interview-plan', requireRoles(...INTERVIEW_PLAN_EDITORS), async
     const requirement = await prisma.requirement.findUnique({ where: { id: req.params.id } });
     if (!requirement)
         return res.status(404).json({ error: 'Not found' });
+    // Recruiters and team leads may only change plans on requirements they are assigned to.
+    if (!hasOrgWideAccess(req.auth.role)) {
+        try {
+            await assertCanAddCandidatesToRequirement(req.auth, req.params.id);
+        }
+        catch (err) {
+            if (err instanceof RequirementAccessError) {
+                return res.status(403).json({ error: 'Only recruiters assigned to this requirement can edit its interview plan' });
+            }
+            throw err;
+        }
+    }
     const incoming = req.body?.stages;
     if (!Array.isArray(incoming) || incoming.length < 1) {
         return res.status(400).json({ error: 'At least one interview stage is required' });
@@ -1074,7 +1086,7 @@ router.post('/:id/approve', requireRoles(...REQ_APPROVERS), async (req, res) => 
     if (existing.status !== 'PENDING_APPROVAL') {
         return res.status(400).json({ error: 'Only pending requirements can be approved' });
     }
-    const { timestamp, historyEntry, approval } = buildApprovalRecord('APPROVED', req.auth, approvalBody.onBehalfOfHrHead === true, comments);
+    const { historyEntry, approval } = buildApprovalRecord('APPROVED', req.auth, approvalBody.onBehalfOfHrHead === true, comments);
     const history = JSON.parse(existing.approvalHistory || '[]');
     history.push(historyEntry);
     const row = await prisma.requirement.update({

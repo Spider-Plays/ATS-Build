@@ -8,9 +8,6 @@ export const HIRING_STAGES = [
     'OFFER_ACCEPTED',
     'JOINED',
 ];
-export function isHiringStage(value) {
-    return HIRING_STAGES.includes(value);
-}
 export const TERMINAL_POSTING_STATUSES = ['CLOSED', 'CANCELLED', 'REJECTED'];
 export function canEditHiringStage(postingStatus) {
     return ['LIVE', 'ON_HOLD'].includes(postingStatus);

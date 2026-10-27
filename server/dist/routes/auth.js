@@ -1,5 +1,6 @@
 import { BCRYPT_ROUNDS, newPasswordSchema, personalInfoPasswordError } from '../lib/passwordPolicy.js';
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
@@ -8,11 +9,15 @@ import { env } from '../config/env.js';
 import { mapUser } from '../utils/mappers.js';
 import { getAllowedPagesForRole } from '../lib/pageAccess.js';
 import { requireAuth, requireActiveUser } from '../middleware/auth.js';
-import { authRateLimiter } from '../middleware/rateLimit.js';
+import { authRateLimiter, loginRateLimiter, refreshRateLimiter } from '../middleware/rateLimit.js';
 import { closeLoginSession, reopenRecentTabClose } from '../lib/recordLogin.js';
 import { issueAppSession } from '../lib/appSession.js';
+import { CSRF_HEADER, clearRefreshCookie, readRefreshCookie, withRefreshCookie } from '../lib/refreshCookie.js';
 import { isTrustedDevice, mfaRequiredForRole, revokeTrustedDevices, signMfaToken } from '../lib/mfa.js';
 import mfaRoutes from './mfa.js';
+import emailVerificationRoutes from './emailVerification.js';
+import { sendEmailVerification } from '../lib/emailVerification.js';
+import { accountLockedMessage, isAccountLocked } from '../lib/accountLock.js';
 import { hashResetToken, issuePasswordResetLink } from '../lib/passwordReset.js';
 import { applyNoStoreAuth } from '../lib/authResponse.js';
 import { verifyGoogleAccessToken, verifyGoogleIdToken } from '../lib/googleAuth.js';
@@ -48,6 +53,16 @@ const googleSignInSchema = z
 const microsoftSignInSchema = z.object({
     idToken: z.string().min(1),
 });
+/** Roles an Entra sign-in may never claim by email alone (see the Microsoft route). */
+const SSO_EMAIL_LINK_BLOCKED_ROLES = ['SUPER_ADMIN', 'DEVELOPER'];
+/** First-time Microsoft linking by email, limited to MICROSOFT_ALLOWED_EMAIL_DOMAINS when set. */
+function canLinkMicrosoftByEmail(email) {
+    const domains = env.microsoftAllowedEmailDomains;
+    if (domains.length === 0)
+        return true;
+    const domain = email.split('@')[1] ?? '';
+    return domains.includes(domain);
+}
 router.get('/sso', (_req, res) => {
     const clientId = env.microsoftClientId;
     const tenantId = env.microsoftTenantId;
@@ -62,7 +77,7 @@ router.post('/register-candidate', authRateLimiter, async (req, res, next) => {
         const parsed = registerCandidateSchema.safeParse(req.body);
         if (!parsed.success) {
             return res.status(400).json({
-                error: parsed.error.errors[0]?.message || 'Invalid registration data',
+                error: parsed.error.issues[0]?.message || 'Invalid registration data',
             });
         }
         const email = parsed.data.email.toLowerCase();
@@ -72,34 +87,65 @@ router.post('/register-candidate', authRateLimiter, async (req, res, next) => {
         });
         if (personalError)
             return res.status(400).json({ error: personalError });
+        // Same answer whether or not the address is already registered, so this cannot be used to
+        // discover who has an account. The session is only issued after the email link is confirmed.
+        const accepted = {
+            verificationRequired: true,
+            message: 'Check your email for a confirmation link to finish creating your account. If you already have an account, sign in or use "Forgot password".',
+        };
         const existing = await prisma.user.findUnique({ where: { email } });
-        if (existing) {
-            return res.status(409).json({ error: 'An account with this email already exists' });
-        }
+        if (existing)
+            return res.status(202).json(accepted);
         const name = `${parsed.data.firstName.trim()} ${parsed.data.lastName.trim()}`.trim();
         const passwordHash = await bcrypt.hash(parsed.data.password, BCRYPT_ROUNDS);
-        const user = await prisma.user.create({
-            data: {
-                email,
-                name,
-                passwordHash,
-                role: 'CANDIDATE',
-                status: 'ACTIVE',
-                department: 'Candidate',
-            },
-        });
-        const session = await issueAppSession(user.id, req);
-        res.status(201).json(session);
+        let user;
+        try {
+            user = await prisma.user.create({
+                data: {
+                    email,
+                    name,
+                    passwordHash,
+                    role: 'CANDIDATE',
+                    status: 'ACTIVE',
+                    department: 'Candidate',
+                },
+            });
+        }
+        catch (err) {
+            // Lost a race with a parallel registration for the same address.
+            if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+                return res.status(202).json(accepted);
+            }
+            throw err;
+        }
+        await sendEmailVerification(user);
+        res.status(202).json(accepted);
     }
     catch (err) {
         next(err);
     }
 });
+/** Sends a fresh confirmation link. Always answers the same way so it reveals nothing about the address. */
+router.post('/resend-verification', authRateLimiter, async (req, res, next) => {
+    try {
+        const parsed = z.object({ email: z.string().email() }).safeParse(req.body);
+        if (parsed.success) {
+            const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
+            if (user && user.role === 'CANDIDATE' && !user.emailVerifiedAt && user.passwordHash && user.status === 'ACTIVE') {
+                await sendEmailVerification(user);
+            }
+        }
+        res.json({ ok: true, message: 'If that account needs confirming, a new link was sent.' });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.use('/verify-email', emailVerificationRoutes);
 /** Valid bcrypt hash of a random string, compared against when the account does not exist. */
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), BCRYPT_ROUNDS);
-/** Persistent lockout: this many consecutive wrong passwords locks the account until an admin unlocks it. */
+/** Lockout: this many consecutive wrong passwords locks the account for a while (see lib/accountLock). */
 const MAX_FAILED_LOGIN_ATTEMPTS = 5;
-const ACCOUNT_LOCKED_MESSAGE = 'Your account is locked after too many failed sign-in attempts. Contact your Super Admin to unlock it.';
 /** Per-account lockout: 10 failures within 15 minutes locks that email for 15 minutes. */
 const LOGIN_FAILURE_LIMIT = 10;
 const LOGIN_LOCK_MS = 15 * 60 * 1000;
@@ -129,7 +175,7 @@ function recordLoginFailure(email) {
 function clearLoginFailures(email) {
     loginFailures.delete(email);
 }
-router.post('/login', authRateLimiter, async (req, res, next) => {
+router.post('/login', authRateLimiter, loginRateLimiter, async (req, res, next) => {
     try {
         delete req.headers.authorization;
         const parsed = loginSchema.safeParse(req.body);
@@ -144,35 +190,42 @@ router.post('/login', authRateLimiter, async (req, res, next) => {
         const user = await prisma.user.findUnique({ where: { email } });
         // Always run one bcrypt comparison so response time does not reveal whether the account exists.
         const passwordOk = await bcrypt.compare(parsed.data.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
-        if (user?.lockedAt) {
-            return res.status(423).json({ error: ACCOUNT_LOCKED_MESSAGE, code: 'ACCOUNT_LOCKED' });
+        const credentialsOk = Boolean(user?.passwordHash) && passwordOk;
+        // While locked, the lock is only revealed to someone who already knows the correct password.
+        // Before that, a wrong password on an existing account reports the attempts left.
+        if (user && isAccountLocked(user)) {
+            if (!credentialsOk)
+                return res.status(401).json({ error: 'Invalid email or password' });
+            return res.status(423).json({ error: accountLockedMessage(user), code: 'ACCOUNT_LOCKED' });
         }
-        if (!user || !user.passwordHash || !passwordOk) {
+        if (!user || !credentialsOk) {
             recordLoginFailure(email);
             if (user?.passwordHash) {
                 const attempts = user.failedLoginAttempts + 1;
                 const lock = attempts >= MAX_FAILED_LOGIN_ATTEMPTS;
+                // Lock new password sign-ins only. Wrong passwords come from whoever typed them, so they must
+                // not end the real user's existing sessions; revocation stays with password change and reset.
                 await prisma.user.update({
                     where: { id: user.id },
                     data: { failedLoginAttempts: attempts, ...(lock ? { lockedAt: new Date() } : {}) },
                 });
-                if (lock) {
-                    await bumpTokenVersionAndRevoke(user.id);
-                    return res.status(423).json({ error: ACCOUNT_LOCKED_MESSAGE, code: 'ACCOUNT_LOCKED' });
-                }
-                const left = MAX_FAILED_LOGIN_ATTEMPTS - attempts;
-                return res.status(401).json({
-                    error: `Invalid email or password. ${left} attempt${left === 1 ? '' : 's'} left before your account is locked.`,
-                });
             }
+            // Same answer whether or not the account exists, so the response cannot be used to find
+            // accounts (or count down their lockout). The lock is revealed only with the right password.
             return res.status(401).json({ error: 'Invalid email or password' });
         }
         clearLoginFailures(email);
-        if (user.failedLoginAttempts > 0) {
-            await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0 } });
+        if (user.failedLoginAttempts > 0 || user.lockedAt) {
+            await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedAt: null } });
         }
         if (user.status === 'DISABLED') {
             return res.status(403).json({ error: 'Account disabled' });
+        }
+        if (user.role === 'CANDIDATE' && !user.emailVerifiedAt) {
+            return res.status(403).json({
+                error: 'Confirm your email first: open the link we sent you, or request a new one.',
+                code: 'EMAIL_NOT_VERIFIED',
+            });
         }
         // Password is correct. Everyone except candidates must pass a second factor before any
         // session is issued; the challenge token is useless for API calls (typ !== 'access').
@@ -186,7 +239,7 @@ router.post('/login', authRateLimiter, async (req, res, next) => {
                 });
             }
         }
-        const session = await issueAppSession(user.id, req);
+        const session = await issueAppSession(user.id, req, res);
         res.json(session);
     }
     catch (err) {
@@ -233,22 +286,29 @@ router.post('/google', authRateLimiter, async (req, res, next) => {
             if (user.status === 'DISABLED') {
                 return res.status(403).json({ error: 'Account disabled' });
             }
-            if (user.lockedAt) {
-                return res.status(423).json({ error: ACCOUNT_LOCKED_MESSAGE, code: 'ACCOUNT_LOCKED' });
+            if (isAccountLocked(user)) {
+                return res.status(423).json({ error: accountLockedMessage(user), code: 'ACCOUNT_LOCKED' });
             }
             // Link Google identity to an existing local candidate account (verified email).
+            // A password set before anyone proved they own this address cannot be trusted: Google has
+            // now proved ownership, so drop that password and every session that came with it.
+            const unprovenPassword = !user.emailVerifiedAt && Boolean(user.passwordHash);
             const needsLink = !user.googleId || user.googleId !== profile.googleId;
-            if (needsLink || (profile.picture && !user.avatar)) {
+            if (needsLink || unprovenPassword || !user.emailVerifiedAt || (profile.picture && !user.avatar)) {
                 user = await prisma.user.update({
                     where: { id: user.id },
                     data: {
                         googleId: profile.googleId,
+                        emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+                        ...(unprovenPassword ? { passwordHash: null, authProvider: 'google' } : {}),
                         ...(profile.picture && !user.avatar ? { avatar: profile.picture } : {}),
-                        ...(user.authProvider === 'local' && !user.passwordHash
+                        ...(!unprovenPassword && user.authProvider === 'local' && !user.passwordHash
                             ? { authProvider: 'google' }
                             : {}),
                     },
                 });
+                if (unprovenPassword)
+                    await bumpTokenVersionAndRevoke(user.id);
             }
         }
         else {
@@ -263,11 +323,12 @@ router.post('/google', authRateLimiter, async (req, res, next) => {
                     authProvider: 'google',
                     googleId: profile.googleId,
                     avatar: profile.picture ?? null,
+                    emailVerifiedAt: new Date(),
                     mustChangePassword: false,
                 },
             });
         }
-        const session = await issueAppSession(user.id, req);
+        const session = await issueAppSession(user.id, req, res);
         res.json(session);
     }
     catch (err) {
@@ -295,10 +356,14 @@ router.post('/microsoft', authRateLimiter, async (req, res, next) => {
         }
         // Match on the immutable Entra object ID. Fall back to email only to link an account
         // that has never been linked; an existing link is never overwritten.
-        let user = (await prisma.user.findFirst({ where: { microsoftId: profile.microsoftId } })) ??
-            (await prisma.user.findFirst({
-                where: { email: profile.email, microsoftId: null },
-            }));
+        let user = await prisma.user.findFirst({ where: { microsoftId: profile.microsoftId } });
+        if (!user && canLinkMicrosoftByEmail(profile.email)) {
+            user = await prisma.user.findFirst({
+                // The UPN can be renamed inside the tenant, so it never claims the most privileged
+                // accounts. Those sign in with password + MFA, and stay usable through an existing link.
+                where: { email: profile.email, microsoftId: null, role: { notIn: [...SSO_EMAIL_LINK_BLOCKED_ROLES] } },
+            });
+        }
         if (!user) {
             return res.status(403).json({
                 error: 'Your Microsoft account is not linked to an active ATS user. Contact an administrator.',
@@ -309,15 +374,15 @@ router.post('/microsoft', authRateLimiter, async (req, res, next) => {
         }
         if (user.status === 'DISABLED')
             return res.status(403).json({ error: 'Account disabled' });
-        if (user.lockedAt)
-            return res.status(423).json({ error: ACCOUNT_LOCKED_MESSAGE, code: 'ACCOUNT_LOCKED' });
+        if (isAccountLocked(user))
+            return res.status(423).json({ error: accountLockedMessage(user), code: 'ACCOUNT_LOCKED' });
         if (user.microsoftId !== profile.microsoftId) {
             user = await prisma.user.update({
                 where: { id: user.id },
                 data: { microsoftId: profile.microsoftId, authProvider: user.passwordHash ? user.authProvider : 'microsoft' },
             });
         }
-        const session = await issueAppSession(user.id, req);
+        const session = await issueAppSession(user.id, req, res);
         res.json(session);
     }
     catch (err) {
@@ -346,7 +411,7 @@ const changePasswordSchema = z.object({
 router.post('/change-password', requireAuth, requireActiveUser, async (req, res) => {
     const parsed = changePasswordSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({ error: parsed.error.errors[0]?.message || 'Invalid input' });
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid input' });
     }
     const { currentPassword, newPassword } = parsed.data;
     if (currentPassword === newPassword) {
@@ -388,14 +453,14 @@ router.post('/change-password', requireAuth, requireActiveUser, async (req, res)
         tokenVersion,
     }, req);
     const allowedPages = await getAllowedPagesForRole(updated.role);
-    res.json({ ...tokens, user: mapUser(updated), allowedPages });
+    res.json({ ...withRefreshCookie(res, tokens), user: mapUser(updated), allowedPages });
 });
 router.post('/forgot-password', authRateLimiter, async (req, res) => {
     const { email } = z.object({ email: z.string().email() }).parse(req.body);
     const user = await prisma.user.findUnique({
         where: { email: email.toLowerCase() },
     });
-    // Google-only accounts have no password — skip email so we don't set one unexpectedly.
+    // Google-only accounts have no password â€” skip email so we don't set one unexpectedly.
     if (user && user.status === 'ACTIVE' && user.passwordHash) {
         await issuePasswordResetLink(user, req);
     }
@@ -427,22 +492,35 @@ router.post('/reset-password', authRateLimiter, async (req, res) => {
             mustChangePassword: false,
             passwordResetToken: null,
             passwordResetExpires: null,
+            // Reaching this point means the caller received the emailed link, so the mailbox is theirs.
+            emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
         },
     });
     await bumpTokenVersionAndRevoke(user.id);
     await revokeTrustedDevices(user.id);
     res.json({ ok: true, message: 'Password updated. You can sign in now.' });
 });
-const refreshSchema = z.object({
-    refreshToken: z.string().min(1),
-});
-router.post('/refresh', authRateLimiter, async (req, res) => {
-    const parsed = refreshSchema.safeParse(req.body);
-    if (!parsed.success) {
-        return res.status(400).json({ error: 'Refresh token is required', code: 'INVALID' });
+/**
+ * The refresh token comes from the HttpOnly cookie. The CSRF header is required with it so a
+ * cross-site form post cannot use the cookie. A token in the body is still accepted so sessions
+ * issued before the cookie existed can move over; it can be dropped once those have expired
+ * (REFRESH_TOKEN_TTL_MS after this release).
+ */
+function presentedRefreshToken(req) {
+    const fromCookie = readRefreshCookie(req);
+    if (fromCookie)
+        return req.get(CSRF_HEADER) ? fromCookie : null;
+    const fromBody = req.body?.refreshToken;
+    return typeof fromBody === 'string' && fromBody ? fromBody : null;
+}
+router.post('/refresh', refreshRateLimiter, async (req, res) => {
+    const refreshToken = presentedRefreshToken(req);
+    if (!refreshToken) {
+        return res.status(401).json({ error: 'Refresh token is required', code: 'INVALID_REFRESH' });
     }
-    const result = await rotateRefreshToken(parsed.data.refreshToken, req);
+    const result = await rotateRefreshToken(refreshToken, req);
     if ('error' in result) {
+        clearRefreshCookie(res);
         const code = result.error === 'reuse' ? 'SESSION_REVOKED' : 'INVALID_REFRESH';
         return res.status(401).json({ error: 'Refresh token is not valid', code });
     }
@@ -450,28 +528,29 @@ router.post('/refresh', authRateLimiter, async (req, res) => {
     const user = await prisma.user.findUnique({
         where: { id: userId },
     });
-    if (!user)
+    if (!user) {
+        clearRefreshCookie(res);
         return res.status(401).json({ error: 'Refresh token is not valid', code: 'INVALID_REFRESH' });
+    }
     const allowedPages = await getAllowedPagesForRole(user.role);
-    res.json({ ...tokens, user: mapUser(user), allowedPages });
+    res.json({ ...withRefreshCookie(res, tokens), user: mapUser(user), allowedPages });
 });
 router.post('/logout', async (req, res) => {
     const parsed = z
         .object({
-        refreshToken: z.string().min(1).optional(),
         loginHistoryId: z.string().min(1).optional(),
         reason: z.enum(['signed_out', 'idle']).optional(),
     })
         .safeParse(req.body);
-    const userId = parsed.success && parsed.data.refreshToken
-        ? await revokeRefreshToken(parsed.data.refreshToken)
-        : null;
+    const refreshToken = presentedRefreshToken(req);
+    const userId = refreshToken ? await revokeRefreshToken(refreshToken) : null;
+    clearRefreshCookie(res);
     if (userId) {
         await closeLoginSession(userId, parsed.success && parsed.data.reason ? parsed.data.reason : 'signed_out', parsed.success ? parsed.data.loginHistoryId : undefined);
     }
     res.json({ ok: true });
 });
-router.post('/session-end', requireAuth, async (req, res) => {
+router.post('/session-end', requireAuth, requireActiveUser, async (req, res) => {
     const parsed = z
         .object({
         loginHistoryId: z.string().min(1),
@@ -483,7 +562,7 @@ router.post('/session-end', requireAuth, async (req, res) => {
     await closeLoginSession(req.auth.userId, parsed.data.reason, parsed.data.loginHistoryId);
     res.json({ ok: true });
 });
-router.post('/session-resume', requireAuth, async (req, res) => {
+router.post('/session-resume', requireAuth, requireActiveUser, async (req, res) => {
     const parsed = z.object({ loginHistoryId: z.string().min(1) }).safeParse(req.body);
     if (!parsed.success)
         return res.status(400).json({ error: 'Invalid session' });

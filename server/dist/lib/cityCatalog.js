@@ -27,9 +27,6 @@ export async function ensureDefaultCityCatalog() {
     await syncDefaultCityCatalog();
     defaultsSynced = true;
 }
-export function resetDefaultCityCatalogSync() {
-    defaultsSynced = false;
-}
 export async function listCityCatalog() {
     await ensureDefaultCityCatalog();
     const now = Date.now();

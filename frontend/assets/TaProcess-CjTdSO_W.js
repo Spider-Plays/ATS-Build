@@ -1,0 +1,1 @@
+import{j as o}from"./vendor-query-CGQ8dNLD.js";import{U as r}from"./UnderConstructionPage-BSlbGDwT.js";import{G as t}from"./git-branch-BfM0r5Tc.js";import"./index-CQuQIlYv.js";import"./vendor-react-DFTSzESR.js";import"./vendor-forms-GhGpzVWz.js";import"./vendor-motion-Ds7W0ABk.js";import"./vendor-lit-QNvgJy_F.js";const f=()=>o.jsx(r,{icon:t});export{f as default};

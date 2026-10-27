@@ -1,14 +1,7 @@
 /** Demo dataset for `npm run db:seed-demo`. Demo emails use @ats.igsglobal.co — safe to delete/re-seed. */
-import { DEV_PASSWORD, devUserEmail, devUserName, devUsersForRole } from './devUsers.js';
+import { DEV_PASSWORD, devUserEmail, devUserName } from './devUsers.js';
 export const DEMO_VENDOR_CODE = 'DEMO-STAFFING';
 export const DEMO_VENDOR_NAME = 'TalentBridge Staffing Solutions';
-export const DEMO_VENDOR_SOURCE = `Vendor: ${DEMO_VENDOR_NAME}`;
-export const DEMO_RESUME_URLS = [
-    'https://www.africau.edu/images/default/sample.pdf',
-    'https://pdfobject.com/pdf/sample.pdf',
-    'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-    'https://www.orimi.com/pdf-test.pdf',
-];
 /** Candidate portal logins — complete profiles, resumes, and existing applications. Password: `password`. */
 export const DEMO_PORTAL_USERS = [
     {
@@ -265,8 +258,6 @@ export const DEMO_PORTAL_USERS = [
         secondarySkills: ['Postman', 'Cypress'],
     },
 ];
-/** Dev registry candidate emails (also seeded via db:seed). */
-export const DEV_CANDIDATE_EMAILS = devUsersForRole('CANDIDATE').map((u) => u.email);
 export const DEMO_REQUIREMENTS = [
     {
         jobCode: 'REQ28062026001',

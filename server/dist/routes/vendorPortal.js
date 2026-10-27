@@ -1,9 +1,10 @@
 import { lookupRateLimiter } from '../middleware/rateLimit.js';
 import { Router } from 'express';
 import { z } from 'zod';
+import { httpUrlOptional } from '../lib/httpUrl.js';
 import { prisma } from '../lib/prisma.js';
 import { mapVendor } from '../utils/mapVendor.js';
-import { mapCandidate } from '../utils/mappers.js';
+import { mapCandidateForPortal as mapCandidate } from '../utils/mappers.js';
 import { DUPLICATE_CANDIDATE_EMAIL_MESSAGE, DUPLICATE_CANDIDATE_PAN_MESSAGE, findCandidateByEmail, findCandidateByPan, isValidPanFormat, } from '../lib/candidateDuplicate.js';
 import { requireAuth, requireActiveUser, requireRoles } from '../middleware/auth.js';
 import { logActivity } from '../services/activityLog.js';
@@ -62,8 +63,8 @@ const vendorSubmitBodySchema = z.object({
     currentCTC: z.string().min(1),
     expectedCTC: z.string().min(1),
     noticePeriod: z.string().min(1),
-    linkedIn: z.string().optional(),
-    portfolio: z.string().optional(),
+    linkedIn: httpUrlOptional,
+    portfolio: httpUrlOptional,
     primarySkills: z.array(z.string()).min(1),
     secondarySkills: z.array(z.string()).optional().default([]),
 });
@@ -183,9 +184,9 @@ router.post('/parse-resume', handleUploadResume, async (req, res) => {
         res.status(422).json({ error: message });
     }
 });
-router.get('/check-email', lookupRateLimiter, async (req, res) => {
-    const email = typeof req.query.email === 'string' ? req.query.email : '';
-    const excludeId = typeof req.query.excludeId === 'string' ? req.query.excludeId.trim() : '';
+router.post('/check-email', lookupRateLimiter, async (req, res) => {
+    const email = typeof req.body?.email === 'string' ? req.body.email : '';
+    const excludeId = typeof req.body?.excludeId === 'string' ? req.body.excludeId.trim() : '';
     if (!email.trim()) {
         return res.json({ exists: false });
     }
@@ -198,9 +199,9 @@ router.get('/check-email', lookupRateLimiter, async (req, res) => {
         error: DUPLICATE_CANDIDATE_EMAIL_MESSAGE,
     });
 });
-router.get('/check-pan', lookupRateLimiter, async (req, res) => {
-    const pan = typeof req.query.pan === 'string' ? req.query.pan : '';
-    const excludeId = typeof req.query.excludeId === 'string' ? req.query.excludeId.trim() : '';
+router.post('/check-pan', lookupRateLimiter, async (req, res) => {
+    const pan = typeof req.body?.pan === 'string' ? req.body.pan : '';
+    const excludeId = typeof req.body?.excludeId === 'string' ? req.body.excludeId.trim() : '';
     if (!pan.trim() || !isValidPanFormat(pan)) {
         return res.json({ exists: false });
     }
@@ -267,14 +268,12 @@ router.patch('/submissions/:candidateId', async (req, res) => {
     if (duplicate) {
         return res.status(409).json({
             error: DUPLICATE_CANDIDATE_EMAIL_MESSAGE,
-            existingCandidateId: duplicate.id,
         });
     }
     const duplicatePan = await findCandidateByPan(body.pan, req.params.candidateId);
     if (duplicatePan) {
         return res.status(409).json({
             error: DUPLICATE_CANDIDATE_PAN_MESSAGE,
-            existingCandidateId: duplicatePan.id,
         });
     }
     const requirement = existing.requirementId
@@ -387,14 +386,12 @@ router.post('/positions/:id/submit', async (req, res) => {
     if (duplicate) {
         return res.status(409).json({
             error: DUPLICATE_CANDIDATE_EMAIL_MESSAGE,
-            existingCandidateId: duplicate.id,
         });
     }
     const duplicatePan = await findCandidateByPan(body.pan);
     if (duplicatePan) {
         return res.status(409).json({
             error: DUPLICATE_CANDIDATE_PAN_MESSAGE,
-            existingCandidateId: duplicatePan.id,
         });
     }
     const skillCorpus = [...primarySkills, ...secondarySkills].join(' ');
@@ -534,7 +531,7 @@ router.post('/submissions/:candidateId/resume', handleUploadResume, async (req, 
     if (!row)
         return res.status(404).json({ error: 'Submission not found' });
     const mime = resolveResumeMime(req.file.mimetype, req.file.originalname);
-    const stored = await saveResumeFile(row.id, mime, req.file.buffer, req.file.originalname, row.resumeStorageKey);
+    await saveResumeFile(row.id, mime, req.file.buffer, req.file.originalname, row.resumeStorageKey);
     let resumePayload = {
         resumeText: null,
         primarySkills: row.primarySkills,
@@ -673,7 +670,7 @@ router.patch('/onboarding', async (req, res) => {
         }
         const body = z
             .object({
-            onboarding: z.record(z.unknown()).optional(),
+            onboarding: z.record(z.string(), z.unknown()).optional(),
             complete: z.boolean().optional(),
         })
             .parse(req.body);
@@ -714,7 +711,7 @@ router.patch('/onboarding', async (req, res) => {
     }
     catch (err) {
         if (err instanceof z.ZodError) {
-            return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
+            return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
         }
         console.error('PATCH /api/vendor-portal/onboarding failed:', err);
         res.status(500).json({ error: 'Failed to save onboarding' });
@@ -740,7 +737,7 @@ router.patch('/onboarding/evaluation', async (req, res) => {
         }
         const body = z
             .object({
-            evaluation: z.record(z.unknown()).optional(),
+            evaluation: z.record(z.string(), z.unknown()).optional(),
             complete: z.boolean().optional(),
         })
             .parse(req.body);
@@ -786,7 +783,7 @@ router.patch('/onboarding/evaluation', async (req, res) => {
     }
     catch (err) {
         if (err instanceof z.ZodError) {
-            return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
+            return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
         }
         console.error('PATCH /api/vendor-portal/onboarding/evaluation failed:', err);
         res.status(500).json({ error: 'Failed to save evaluation' });

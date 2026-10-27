@@ -6,6 +6,7 @@ import { requireAuth, requireActiveUser, requireRoles } from '../middleware/auth
 import { logActivity } from '../services/activityLog.js';
 import { INTERNAL_ROLES, STAFF_MUTATE } from '../lib/roles.js';
 import { refreshRequirementHiringState, syncRequirementHiringState } from '../lib/hiring.js';
+import { eraseCandidateRecords } from '../lib/candidateErasure.js';
 import { isRequirementAcceptingCandidates, requirementApplicationsClosedMessage, } from '../lib/requirementHiring.js';
 import { handleUploadResume } from '../middleware/uploadResume.js';
 import { deleteResumeFile, isAllowedResumeFile, resolveResumeMime, saveResumeFile, } from '../lib/resumeStorage.js';
@@ -219,8 +220,8 @@ router.post('/parse-resume', requireRoles(...STAFF_MUTATE), handleUploadResume, 
         res.status(422).json({ error: message });
     }
 });
-router.get('/check-email', async (req, res) => {
-    const email = typeof req.query.email === 'string' ? req.query.email : '';
+router.post('/check-email', async (req, res) => {
+    const email = typeof req.body?.email === 'string' ? req.body.email : '';
     if (!email.trim()) {
         return res.json({ exists: false });
     }
@@ -244,9 +245,9 @@ async function visibleDuplicate(auth, existing) {
         return {};
     }
 }
-router.get('/check-pan', async (req, res) => {
-    const pan = typeof req.query.pan === 'string' ? req.query.pan : '';
-    const excludeId = typeof req.query.excludeId === 'string' ? req.query.excludeId.trim() : undefined;
+router.post('/check-pan', async (req, res) => {
+    const pan = typeof req.body?.pan === 'string' ? req.body.pan : '';
+    const excludeId = typeof req.body?.excludeId === 'string' ? req.body.excludeId.trim() : undefined;
     if (!pan.trim() || !isValidPanFormat(pan)) {
         return res.json({ exists: false });
     }
@@ -1060,31 +1061,7 @@ router.delete('/:id', requireRoles('SUPER_ADMIN', 'ADMIN', 'HR_HEAD'), async (re
     const row = await prisma.candidate.findUnique({ where: { id: req.params.id } });
     if (!row)
         return res.status(404).json({ error: 'Not found' });
-    const interviews = await prisma.interview.findMany({
-        where: { candidateId: row.id },
-        select: { id: true },
-    });
-    const interviewIds = interviews.map((i) => i.id);
-    await prisma.$transaction([
-        prisma.feedback.deleteMany({
-            where: {
-                OR: [{ candidateId: row.id }, { interviewId: { in: interviewIds } }],
-            },
-        }),
-        prisma.interview.deleteMany({ where: { candidateId: row.id } }),
-        prisma.offer.deleteMany({ where: { candidateId: row.id } }),
-        prisma.activityLog.deleteMany({
-            where: { entityType: 'CANDIDATE', entityId: row.id },
-        }),
-    ]);
-    await deleteResumeFile(row.id, row.resumeStorageKey);
-    const portalUser = await prisma.user.findFirst({
-        where: { email: row.email.toLowerCase(), role: 'CANDIDATE' },
-    });
-    if (portalUser) {
-        await prisma.user.delete({ where: { id: portalUser.id } });
-    }
-    await prisma.candidate.delete({ where: { id: row.id } });
+    await eraseCandidateRecords(row);
     if (row.requirementId) {
         await syncRequirementHiringState(row.requirementId, { notify: true });
     }

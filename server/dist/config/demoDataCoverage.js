@@ -3,8 +3,6 @@
  * Ensures every candidate stage, offer status, requirement posting status,
  * hiring stage, and client-deal stage has at least one demo row.
  */
-import { CANDIDATE_PIPELINE_STATUSES } from '../lib/candidateStatuses.js';
-import { OFFER_STATUSES } from '../lib/offerTransitions.js';
 const COV_SKILLS = ['TypeScript', 'React', 'Node.js', 'PostgreSQL'];
 const COV_SECONDARY = ['AWS', 'Docker'];
 const JD = `## Coverage role
@@ -394,10 +392,3 @@ export const DEMO_COVERAGE_BUSINESS_REQUIREMENTS = [
         secondarySkills: COV_SECONDARY,
     },
 ];
-/** Sanity helpers for docs / tests. */
-export function coveragePipelineStatuses() {
-    return CANDIDATE_PIPELINE_STATUSES;
-}
-export function coverageOfferStatuses() {
-    return OFFER_STATUSES;
-}

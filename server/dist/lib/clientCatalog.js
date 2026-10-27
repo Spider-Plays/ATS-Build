@@ -1,8 +1,5 @@
 import { prisma } from './prisma.js';
 import { DEFAULT_CLIENT_CATALOG } from '../config/defaultClients.js';
-let cachedNames = null;
-let cacheAt = 0;
-const CACHE_MS = 60_000;
 let requirementsSynced = false;
 async function syncClientsFromRequirements() {
     const rows = await prisma.requirement.findMany({
@@ -36,7 +33,6 @@ export async function ensureDefaultClientCatalog() {
         await syncClientsFromRequirements();
         requirementsSynced = true;
     }
-    cachedNames = null;
 }
 export async function listClientCatalog() {
     await ensureDefaultClientCatalog();
@@ -44,16 +40,6 @@ export async function listClientCatalog() {
         orderBy: { name: 'asc' },
         select: { id: true, name: true },
     });
-}
-export async function getCatalogClientNames() {
-    const now = Date.now();
-    if (cachedNames && now - cacheAt < CACHE_MS)
-        return cachedNames;
-    await ensureDefaultClientCatalog();
-    const rows = await prisma.clientCatalog.findMany({ select: { name: true } });
-    cachedNames = rows.map((r) => r.name);
-    cacheAt = now;
-    return cachedNames;
 }
 export const ONE_CLIENT_PER_REQUIREMENT_MSG = 'Only one client is allowed per requirement';
 /** Normalizes API input to a single client name (rejects arrays and multi-value strings). */
@@ -91,10 +77,4 @@ export async function resolveClientFromCatalog(client) {
     return row.name;
 }
 export function invalidateClientCatalogCache() {
-    cachedNames = null;
-}
-/** Call after bulk requirement imports so legacy client names appear in the catalog once. */
-export async function refreshClientCatalogFromRequirements() {
-    await syncClientsFromRequirements();
-    invalidateClientCatalogCache();
 }

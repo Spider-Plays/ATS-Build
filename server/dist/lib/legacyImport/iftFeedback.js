@@ -40,10 +40,6 @@ function isL2LevelRow(row) {
     const level = rowGet(row, 'Interview Level').toLowerCase();
     return /l2|level-2|managerial/.test(level);
 }
-function isL1LevelRow(row) {
-    const level = rowGet(row, 'Interview Level').toLowerCase();
-    return /l1|level-1/.test(level);
-}
 export function hasL1Payload(row) {
     if (isL2LevelRow(row) && !rowGet(row, 'L1- Overall Technical Rating', 'L1- Overall Impression and Recommendation-Summary')) {
         return false;

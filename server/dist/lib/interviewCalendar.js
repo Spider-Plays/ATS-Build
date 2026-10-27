@@ -1,7 +1,6 @@
 import { prisma } from './prisma.js';
 import { env } from '../config/env.js';
-import { m365Config } from '../integrations/m365/config.js';
-import { buildInterviewIcs, interviewCalendarUid, interviewEndTime, } from './calendarInvite.js';
+import { interviewEndTime } from './calendarInvite.js';
 import { cancelM365InterviewEvent, createM365InterviewEvent, createTeamsOnlineMeeting, deletePrivateBusyHold, shouldAutoCreateTeamsMeeting, updateM365InterviewEvent, } from '../integrations/m365/calendar.js';
 import { getInterviewerUsers } from './emailRecipients.js';
 function interviewInviteWhen(date) {
@@ -57,15 +56,6 @@ function inviteShell(title, inner) {
 <tr><td bgcolor="#ffffff" style="padding:24px 4px 8px;color:#1f2937;font-size:14px;line-height:22px;">${inner}</td></tr>
 </table>`;
 }
-function organizerEmail() {
-    return (process.env.M365_CALENDAR_ORGANIZER_EMAIL?.trim() ||
-        m365Config.senderEmail ||
-        env.emailFrom.replace(/^.*<([^>]+)>.*$/, '$1').trim() ||
-        'noreply@ats.igsglobal.co');
-}
-function organizerName() {
-    return m365Config.senderDisplayName || env.appName;
-}
 async function buildCalendarContext(ctx) {
     const [candidate, requirement, interviewers] = await Promise.all([
         prisma.candidate.findUnique({
@@ -117,23 +107,6 @@ async function buildCalendarContext(ctx) {
         candidateName,
         jobTitle,
     };
-}
-export function buildInterviewIcsAttachment(ctx, meta) {
-    const ics = buildInterviewIcs({
-        uid: interviewCalendarUid(ctx.interviewId),
-        sequence: ctx.calendarSequence,
-        method: ctx.cancelled ? 'CANCEL' : 'REQUEST',
-        summary: meta.summary,
-        description: meta.description,
-        location: ctx.location ?? undefined,
-        meetingLink: ctx.meetingLink ?? undefined,
-        start: ctx.scheduledAt,
-        end: interviewEndTime(ctx.scheduledAt, ctx.duration),
-        organizerEmail: organizerEmail(),
-        organizerName: organizerName(),
-        attendees: meta.attendees,
-    });
-    return Buffer.from(ics, 'utf8');
 }
 export async function syncInterviewCalendar(ctx) {
     const meta = await buildCalendarContext(ctx);

@@ -1,7 +1,7 @@
 import { prisma } from './prisma.js';
 import { logActivity } from '../services/activityLog.js';
 import { env } from '../config/env.js';
-import { sendAdminPasswordEmail, sendCandidateStatusEmail, sendInviteEmail, sendNewCandidateNotificationEmail, sendOfferDeclinedEmail, sendOfferAcceptedEmail, sendReferralStatusEmail, sendReferralSubmittedEmail, sendStaffNotificationEmail, sendRequirementAgingAlertEmail, sendVendorAssignmentEmail, sendInterviewReminderEmail, } from '../services/email.js';
+import { sendAdminPasswordEmail, sendCandidateStatusEmail, sendNewCandidateNotificationEmail, sendOfferDeclinedEmail, sendOfferAcceptedEmail, sendReferralStatusEmail, sendReferralSubmittedEmail, sendStaffNotificationEmail, sendRequirementAgingAlertEmail, sendVendorAssignmentEmail, sendInterviewReminderEmail } from '../services/email.js';
 import { getInterviewerUsers, getRequirementAgingAlertRecipients, getRequirementRecruiterEmails, getUserEmailsByIds, getUserEmailsByRoles, getVendorUserEmails, } from './emailRecipients.js';
 import { interviewRowToCalendarContext, syncInterviewCalendar } from './interviewCalendar.js';
 import { isEmailKindEnabled } from './emailToggles.js';
@@ -10,14 +10,6 @@ function fireAndForget(promise) {
 }
 async function sendToMany(recipients, send) {
     await Promise.allSettled(recipients.map((r) => send(r)));
-}
-export function notifyStaffUserCreated(user, tempPassword) {
-    fireAndForget(sendInviteEmail({
-        to: user.email,
-        name: user.name,
-        role: user.role.replace(/_/g, ' '),
-        tempPassword,
-    }));
 }
 export function notifyAdminPasswordReset(user, password, setByAdmin = true) {
     fireAndForget(sendAdminPasswordEmail({ to: user.email, name: user.name, password, setByAdmin }));

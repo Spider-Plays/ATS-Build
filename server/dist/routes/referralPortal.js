@@ -1,6 +1,7 @@
 import { lookupRateLimiter } from '../middleware/rateLimit.js';
 import { Router } from 'express';
 import { z } from 'zod';
+import { httpUrlOptional } from '../lib/httpUrl.js';
 import { prisma } from '../lib/prisma.js';
 import { mapCandidate } from '../utils/mappers.js';
 import { DUPLICATE_CANDIDATE_EMAIL_MESSAGE, DUPLICATE_CANDIDATE_PAN_MESSAGE, findCandidateByEmail, findCandidateByPan, isValidPanFormat, } from '../lib/candidateDuplicate.js';
@@ -121,8 +122,8 @@ const referralSubmitBodySchema = z.object({
     currentCTC: z.string().min(1),
     expectedCTC: z.string().min(1),
     noticePeriod: z.string().min(1),
-    linkedIn: z.string().optional(),
-    portfolio: z.string().optional(),
+    linkedIn: httpUrlOptional,
+    portfolio: httpUrlOptional,
     primarySkills: z.array(z.string()).min(1),
     secondarySkills: z.array(z.string()).optional().default([]),
     referralRelationship: z.string().min(1),
@@ -329,8 +330,8 @@ router.post('/parse-resume', handleUploadResume, async (req, res) => {
         res.status(422).json({ error: message });
     }
 });
-router.get('/check-email', lookupRateLimiter, async (req, res) => {
-    const email = typeof req.query.email === 'string' ? req.query.email : '';
+router.post('/check-email', lookupRateLimiter, async (req, res) => {
+    const email = typeof req.body?.email === 'string' ? req.body.email : '';
     if (!email.trim()) {
         return res.json({ exists: false });
     }
@@ -343,8 +344,8 @@ router.get('/check-email', lookupRateLimiter, async (req, res) => {
         error: DUPLICATE_CANDIDATE_EMAIL_MESSAGE,
     });
 });
-router.get('/check-pan', lookupRateLimiter, async (req, res) => {
-    const pan = typeof req.query.pan === 'string' ? req.query.pan : '';
+router.post('/check-pan', lookupRateLimiter, async (req, res) => {
+    const pan = typeof req.body?.pan === 'string' ? req.body.pan : '';
     if (!pan.trim() || !isValidPanFormat(pan)) {
         return res.json({ exists: false });
     }
@@ -385,14 +386,12 @@ async function createReferral(req, res, requirement) {
     if (duplicate) {
         return res.status(409).json({
             error: DUPLICATE_CANDIDATE_EMAIL_MESSAGE,
-            existingCandidateId: duplicate.id,
         });
     }
     const duplicatePan = await findCandidateByPan(body.pan);
     if (duplicatePan) {
         return res.status(409).json({
             error: DUPLICATE_CANDIDATE_PAN_MESSAGE,
-            existingCandidateId: duplicatePan.id,
         });
     }
     const deptLabel = user.department ? ` · ${user.department}` : '';
@@ -522,7 +521,7 @@ router.post('/referrals/:candidateId/resume', handleUploadResume, async (req, re
     if (!row)
         return res.status(404).json({ error: 'Referral not found' });
     const mime = resolveResumeMime(req.file.mimetype, req.file.originalname);
-    const stored = await saveResumeFile(row.id, mime, req.file.buffer, req.file.originalname, row.resumeStorageKey);
+    await saveResumeFile(row.id, mime, req.file.buffer, req.file.originalname, row.resumeStorageKey);
     let resumePayload = {
         resumeText: null,
         primarySkills: row.primarySkills,

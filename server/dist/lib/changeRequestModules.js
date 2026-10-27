@@ -20,6 +20,3 @@ export const CHANGE_REQUEST_MODULES = [
     { key: 'candidate_portal', label: 'Candidate Portal' },
     { key: 'other', label: 'Other' },
 ];
-export function moduleLabel(key) {
-    return CHANGE_REQUEST_MODULES.find((m) => m.key === key)?.label ?? key;
-}

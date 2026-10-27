@@ -70,22 +70,22 @@ export const PAGE_DEFINITIONS = [
     {
         key: 'ta_process',
         label: 'TA Process',
-        description: 'Under construction. Talent acquisition process guide.',
+        description: 'Coming soon. Talent acquisition process guide.',
     },
     {
         key: 'policies',
         label: 'Policies',
-        description: 'Under construction. Company policy library.',
+        description: 'Coming soon. Company policy library.',
     },
     {
         key: 'training',
         label: 'Training',
-        description: 'Under construction. Training materials.',
+        description: 'Coming soon. Training materials.',
     },
     {
         key: 'mis',
         label: 'MIS',
-        description: 'Under construction. MIS dashboard.',
+        description: 'Coming soon. MIS dashboard.',
     },
     { key: 'admin_users', label: 'User Management', description: 'Admin user administration' },
     { key: 'notifications', label: 'Notifications', description: 'In-app notifications' },

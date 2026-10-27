@@ -26,6 +26,3 @@ export function requirementAgingFlagFromDays(days) {
 export function isOpenForAgingAlerts(status) {
     return OPEN_AGING_STATUSES.has(status);
 }
-export function agingAlertActionForThreshold(threshold) {
-    return threshold === 20 ? AGING_ALERT_20_ACTION : AGING_ALERT_40_ACTION;
-}

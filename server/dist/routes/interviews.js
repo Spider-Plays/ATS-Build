@@ -5,7 +5,7 @@ import { requireAuth, requireActiveUser, requireExactRoles, requireRoles } from 
 import { logActivity, logCandidateInterviewActivity } from '../services/activityLog.js';
 import { INTERNAL_ROLES, INTERVIEW_SCHEDULERS } from '../lib/roles.js';
 import { notifyInterviewCancelled, notifyInterviewScheduled, notifyInterviewUpdated, prepareInterviewCalendar, } from '../lib/emailDispatch.js';
-import { assertCanScheduleStage, assertCandidateInInterviewStage, assertInterviewerIdsAllowedForStage, ScheduleStageError, } from '../lib/interviewPlan.js';
+import { assertCanScheduleStage, assertCandidateInInterviewStage, assertInterviewerIdsAllowedForStage, ScheduleStageError } from '../lib/interviewPlan.js';
 import { assertCanViewCandidate, assertCanViewInterview, buildInterviewListWhere, CandidateAccessError, } from '../lib/candidateAccess.js';
 import { loadCandidateResume } from '../lib/candidateResume.js';
 import { isAdditionalPlanStageOrder, listInterviewPanelLevels, } from '../lib/interviewPanelCatalog.js';

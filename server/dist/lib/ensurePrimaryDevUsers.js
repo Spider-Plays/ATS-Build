@@ -1,10 +1,13 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma.js';
-import { env } from '../config/env.js';
+import { env, isLocalDev } from '../config/env.js';
 import { DEV_PASSWORD, DEV_USERS } from '../config/devUsers.js';
-/** Ensures primary dev registry users exist (non-production only). */
+/**
+ * Ensures primary dev registry users exist. These accounts share a committed password, so they
+ * are only created on a local machine that opts in twice: ATS_ENV=local and SEED_DEV_USERS=true.
+ */
 export async function ensurePrimaryDevUsers() {
-    if (env.isProduction)
+    if (env.isProduction || !isLocalDev || process.env.SEED_DEV_USERS?.trim() !== 'true')
         return;
     const primaryUsers = DEV_USERS.filter((u) => u.primary);
     if (primaryUsers.length === 0)

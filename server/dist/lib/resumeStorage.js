@@ -1,7 +1,19 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-export const RESUME_UPLOAD_DIR = process.env.RESUME_UPLOAD_DIR || path.join(os.tmpdir(), 'stitch-ats-resumes');
+import { fetchPublicHttps } from './outboundUrl.js';
+function resolveResumeUploadDir() {
+    const configured = process.env.RESUME_UPLOAD_DIR?.trim();
+    if (configured)
+        return configured;
+    // The OS temp folder is cleaned by the system and can be shared with other local users,
+    // so production must name a private, persistent folder.
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('RESUME_UPLOAD_DIR must be set in production (a private folder outside the web root).');
+    }
+    return path.join(os.tmpdir(), 'stitch-ats-resumes');
+}
+export const RESUME_UPLOAD_DIR = resolveResumeUploadDir();
 const ALLOWED_MIME = new Set([
     'application/pdf',
     'application/msword',
@@ -42,7 +54,7 @@ export function resumeExtension(mime, filename) {
     return '.bin';
 }
 async function ensureResumeDir() {
-    await fs.mkdir(RESUME_UPLOAD_DIR, { recursive: true });
+    await fs.mkdir(RESUME_UPLOAD_DIR, { recursive: true, mode: 0o700 });
 }
 function resumeFilePath(candidateId, mime, filename) {
     return path.join(RESUME_UPLOAD_DIR, `${candidateId}${resumeExtension(mime, filename)}`);
@@ -52,7 +64,7 @@ export async function saveResumeFile(candidateId, mime, buffer, filename, _exist
     await deleteResumeFile(candidateId);
     await ensureResumeDir();
     const filePath = resumeFilePath(candidateId, resolvedMime, filename);
-    await fs.writeFile(filePath, buffer);
+    await fs.writeFile(filePath, buffer, { mode: 0o600 });
     return { mime: resolvedMime, filePath };
 }
 export async function deleteResumeFile(candidateId, _storageKey) {
@@ -84,7 +96,8 @@ export async function readCandidateResumeFromDisk(candidate) {
 }
 export async function readCandidateResumeFromUrl(url, mime) {
     try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+        // Legacy SharePoint links only: https to public hosts, re-checked on every redirect (no SSRF).
+        const res = await fetchPublicHttps(url, { signal: AbortSignal.timeout(20_000) });
         if (!res.ok)
             return null;
         const buffer = Buffer.from(await res.arrayBuffer());

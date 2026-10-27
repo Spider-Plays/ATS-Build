@@ -46,9 +46,6 @@ export const CHANNEL_REPORT_ROLES = [
     'HR_HEAD',
     'TA_MANAGER',
 ];
-/** Dedicated employee referrer accounts (referral portal only) */
-export const EMPLOYEE_ROLE = 'EMPLOYEE';
-export const BUSINESS_ROLES = ['ACCOUNT_MANAGER', 'HIRING_MANAGER'];
 export const STAFF_MUTATE = [
     'SUPER_ADMIN',
     'ADMIN',

@@ -169,42 +169,6 @@ export async function cancelM365InterviewEvent(eventId) {
     }
     return { ok: true, eventId };
 }
-/** Busy appointment on that person's own calendar. No other guests are on the event. */
-export async function createPrivateBusyHold(mailbox, input) {
-    if (!isM365CalendarEnabled())
-        return { ok: false, reason: 'not_configured' };
-    const result = await graphRequest(`/users/${encodeURIComponent(mailbox)}/events`, {
-        method: 'POST',
-        body: JSON.stringify(buildEventPayload({ ...input, attendees: [], createTeamsMeeting: false })),
-    });
-    if (!result.ok) {
-        return {
-            ok: false,
-            reason: 'error',
-            message: `Graph private hold failed (${result.status}): ${result.text.slice(0, 320)}`,
-        };
-    }
-    const payload = result.json;
-    if (!payload.id)
-        return { ok: false, reason: 'error', message: 'Graph private hold returned no event id' };
-    return { ok: true, eventId: payload.id, meetingLink: input.meetingLink };
-}
-export async function updatePrivateBusyHold(mailbox, eventId, input) {
-    if (!isM365CalendarEnabled())
-        return { ok: false, reason: 'not_configured' };
-    const result = await graphRequest(`/users/${encodeURIComponent(mailbox)}/events/${encodeURIComponent(eventId)}`, {
-        method: 'PATCH',
-        body: JSON.stringify(buildEventPayload({ ...input, attendees: [], createTeamsMeeting: false })),
-    });
-    if (!result.ok) {
-        return {
-            ok: false,
-            reason: 'error',
-            message: `Graph private hold update failed (${result.status}): ${result.text.slice(0, 320)}`,
-        };
-    }
-    return { ok: true, eventId, meetingLink: input.meetingLink };
-}
 export async function deletePrivateBusyHold(mailbox, eventId) {
     if (!isM365CalendarEnabled())
         return;

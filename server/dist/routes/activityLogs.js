@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { mapActivityLog } from '../utils/mappers.js';
-import { requireAuth, requireActiveUser } from '../middleware/auth.js';
+import { requireAuth, requireActiveUser, requireRoles } from '../middleware/auth.js';
+import { REQUIREMENT_API_ROLES } from '../lib/roles.js';
 import { listActivityLogsForAuth, listActivityLogsForEntity, } from '../lib/activityLogAccess.js';
 import { CandidateAccessError } from '../lib/candidateAccess.js';
 const router = Router();
-router.use(requireAuth, requireActiveUser);
+// Staff only: portal accounts (candidate, vendor, employee) have their own scoped routes.
+router.use(requireAuth, requireActiveUser, requireRoles(...REQUIREMENT_API_ROLES));
 router.get('/', async (req, res) => {
     const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
     const rows = await listActivityLogsForAuth(req.auth, limit);

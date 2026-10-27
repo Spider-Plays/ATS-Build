@@ -1,6 +1,6 @@
 import { prisma } from './prisma.js';
 import { DEFAULT_COMPENSATION_CONFIG, } from './offerCompensation.js';
-import { mergeOfferLetterTemplate, } from './offerLetterTemplate.js';
+import { mergeOfferLetterTemplate } from './offerLetterTemplate.js';
 import { ensureAppSettingTable } from './ensureAppSettingTable.js';
 export const COMPENSATION_CONFIG_KEY = 'compensation_config';
 export const OFFER_LETTER_TEMPLATE_KEY = 'offer_letter_template';

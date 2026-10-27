@@ -293,9 +293,6 @@ export function setResumeSearchDirs(dirs) {
     ];
     resumeIndexCache = null;
 }
-export function getResumeSearchDirs() {
-    return [...extraResumeSearchDirs];
-}
 const RESUME_FILE_EXTS = new Set(['.pdf', '.docx', '.doc', '.rtf', '.odt']);
 function isResumeFile(filePath) {
     const base = path.basename(filePath);
@@ -410,10 +407,6 @@ function getResumeIndex(dataDir) {
         resumeIndexCache = buildResumeIndex(resolved);
     }
     return resumeIndexCache;
-}
-/** Clear cached resume directory index (tests / after folder updates). */
-export function clearResumeIndexCache() {
-    resumeIndexCache = null;
 }
 /**
  * Resolve a local resume file for a SharePoint RESUME ID.

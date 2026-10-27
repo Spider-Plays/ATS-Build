@@ -18,7 +18,7 @@ export function requireAuth(req, res, next) {
     }
     try {
         const token = header.slice(7);
-        const payload = jwt.verify(token, env.jwtSecret);
+        const payload = jwt.verify(token, env.jwtSecret, { algorithms: ['HS256'] });
         if (payload.typ !== 'access') {
             return sendAuthUnauthorized(res, 'Invalid token');
         }

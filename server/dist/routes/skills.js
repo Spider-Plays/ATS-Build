@@ -4,7 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { invalidateSkillCatalogCache, listSkillCatalog, resetDefaultSkillCatalogSync, syncDefaultSkillCatalog, } from '../lib/skillCatalog.js';
 import { requireAuth, requireActiveUser, requireRoles } from '../middleware/auth.js';
 import { INTERNAL_ROLES, STAFF_MUTATE } from '../lib/roles.js';
-import { CatalogHandlers } from '../lib/catalogRouteFactory.js';
+import { CatalogHandlers, catalogText } from '../lib/catalogRouteFactory.js';
 const router = Router();
 // Extend handlers with custom create logic for skills with category
 class SkillHandlers extends CatalogHandlers {
@@ -12,8 +12,8 @@ class SkillHandlers extends CatalogHandlers {
         try {
             const body = z
                 .object({
-                name: z.string().min(2).max(80),
-                category: z.string().max(40).optional(),
+                name: catalogText(2, 80, 'Skill name'),
+                category: catalogText(0, 40, 'Category').optional(),
             })
                 .parse(req.body);
             const name = body.name.trim().replace(/\s+/g, ' ');
