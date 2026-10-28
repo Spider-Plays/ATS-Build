@@ -15,7 +15,7 @@ import fs from 'fs';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { DEV_USERS } from '../../config/devUsers.js';
+import { isProtectedStitchEmail } from '../../lib/legacyImport/ensureStitchUser.js';
 import { RESUME_UPLOAD_DIR } from '../../lib/resumeStorage.js';
 import { ident, lit } from './exportSql.js';
 /** Tables in insert order (stages FK plans; interviews FK stages). */
@@ -164,9 +164,8 @@ export async function runExport(argv = []) {
     for (const u of allUsers)
         if (u.vendorId && vendorIds.has(String(u.vendorId)))
             referenced.add(String(u.id));
-    const devEmails = new Set(DEV_USERS.map((u) => u.email.toLowerCase()));
     const users = allUsers.filter((u) => referenced.has(String(u.id)));
-    const carriedIds = new Set(users.filter((u) => CARRIED_ROLES.has(String(u.role)) && !devEmails.has(String(u.email).toLowerCase())).map((u) => String(u.id)));
+    const carriedIds = new Set(users.filter((u) => CARRIED_ROLES.has(String(u.role)) && !isProtectedStitchEmail(String(u.email))).map((u) => String(u.id)));
     const idArray = (ids) => `ARRAY[${ids.map(lit).join(', ')}]::text[]`;
     const total = TABLES.reduce((n, t) => n + changed[t].length, 0);
     const sql = [

@@ -1,20 +1,16 @@
-import { BCRYPT_ROUNDS } from './passwordPolicy.js';
-import bcrypt from 'bcryptjs';
 import { prisma } from './prisma.js';
-import { generateTempPassword } from './password.js';
-import { bumpTokenVersionAndRevoke } from './sessionTokens.js';
+import { createPasswordSetupLink } from './passwordReset.js';
+import { unusablePasswordHash } from './legacyImport/unusablePassword.js';
 /**
- * Gives the candidate a portal login for their offer. The password is random and single-use
- * (they must change it at first sign-in), and is only delivered to the candidate's own email.
- * Emailing it counts as proof of the address, and any older sessions on the account are revoked.
+ * Gives the candidate a portal login for their offer. A new account gets a single-use link to
+ * choose a password (sent only to the candidate's own email); no password is ever emailed. An
+ * existing account keeps its password and sessions: the candidate simply signs in.
  */
 export async function ensureCandidatePortalAccount(candidate) {
     const email = candidate.email.trim().toLowerCase();
     if (!email) {
         return { ok: false, error: 'Candidate must have an email address before the offer can be sent.' };
     }
-    const password = generateTempPassword();
-    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const phoneNumber = candidate.phone?.trim() || undefined;
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -27,32 +23,25 @@ export async function ensureCandidatePortalAccount(candidate) {
         await prisma.user.update({
             where: { id: existing.id },
             data: {
-                passwordHash,
-                mustChangePassword: true,
-                emailVerifiedAt: existing.emailVerifiedAt ?? new Date(),
-                failedLoginAttempts: 0,
-                lockedAt: null,
                 ...(phoneNumber ? { phoneNumber } : {}),
                 name: candidate.name.trim() || existing.name,
                 status: 'ACTIVE',
             },
         });
-        await bumpTokenVersionAndRevoke(existing.id);
-        return { ok: true, created: false, password };
+        return { ok: true, created: false };
     }
-    await prisma.user.create({
+    // Email is verified when the candidate uses the link (see /auth/reset-password).
+    const user = await prisma.user.create({
         data: {
             email,
-            passwordHash,
+            passwordHash: await unusablePasswordHash(),
             name: candidate.name.trim() || 'Candidate',
             role: 'CANDIDATE',
             status: 'ACTIVE',
             department: 'Candidate',
             phoneNumber: phoneNumber ?? null,
             authProvider: 'local',
-            mustChangePassword: true,
-            emailVerifiedAt: new Date(),
         },
     });
-    return { ok: true, created: true, password };
+    return { ok: true, created: true, setupUrl: await createPasswordSetupLink(user) };
 }

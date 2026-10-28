@@ -6,12 +6,18 @@ import { logActivity, logCandidateInterviewActivity } from '../services/activity
 import { INTERNAL_ROLES, INTERVIEW_SCHEDULERS } from '../lib/roles.js';
 import { notifyInterviewCancelled, notifyInterviewScheduled, notifyInterviewUpdated, prepareInterviewCalendar, } from '../lib/emailDispatch.js';
 import { assertCanScheduleStage, assertCandidateInInterviewStage, assertInterviewerIdsAllowedForStage, ScheduleStageError } from '../lib/interviewPlan.js';
-import { assertCanViewCandidate, assertCanViewInterview, buildInterviewListWhere, CandidateAccessError, } from '../lib/candidateAccess.js';
+import { assertCanMutateCandidate, assertCanViewCandidate, assertCanViewInterview, buildInterviewListWhere, CandidateAccessError, } from '../lib/candidateAccess.js';
 import { loadCandidateResume } from '../lib/candidateResume.js';
 import { isAdditionalPlanStageOrder, listInterviewPanelLevels, } from '../lib/interviewPanelCatalog.js';
 import { requirementIdsForAuth } from '../lib/requirementAccess.js';
 const router = Router();
 router.use(requireAuth, requireActiveUser, requireRoles(...INTERNAL_ROLES, 'ACCOUNT_MANAGER'));
+/** Meeting links are shown as buttons to candidates and panel members, so only http(s) URLs are stored. */
+function invalidMeetingLink(value) {
+    if (value == null || value === '')
+        return false;
+    return typeof value !== 'string' || !/^https?:\/\/\S+$/i.test(value.trim());
+}
 function interviewEndTime(scheduledAt, durationMinutes) {
     const end = new Date(scheduledAt);
     end.setMinutes(end.getMinutes() + (durationMinutes ?? 60));
@@ -238,6 +244,19 @@ router.post('/', requireExactRoles(...INTERVIEW_SCHEDULERS), async (req, res) =>
     if (!planStageId) {
         return res.status(400).json({ error: 'Interview stage is required' });
     }
+    if (invalidMeetingLink(body.meetingLink)) {
+        return res.status(400).json({ error: 'Meeting link must be an http(s) URL' });
+    }
+    // The scheduler becomes able to view this interview (and the candidate's resume through it),
+    // so they must already have access to the candidate.
+    try {
+        await assertCanMutateCandidate(req.auth, String(body.candidateId ?? ''));
+    }
+    catch (err) {
+        if (err instanceof CandidateAccessError)
+            return res.status(403).json({ error: err.message });
+        throw err;
+    }
     try {
         const { stage } = await assertCanScheduleStage(body.requirementId, body.candidateId, planStageId);
         const interviewerIds = Array.isArray(body.interviewerIds) ? body.interviewerIds : [];
@@ -337,6 +356,19 @@ router.patch('/:id', requireExactRoles(...INTERVIEW_SCHEDULERS), async (req, res
         return res.status(403).json({ error: 'Interview cannot be edited after feedback has been submitted' });
     }
     const body = req.body;
+    if (invalidMeetingLink(body.meetingLink)) {
+        return res.status(400).json({ error: 'Meeting link must be an http(s) URL' });
+    }
+    if (body.candidateId !== undefined && body.candidateId !== existing.candidateId) {
+        try {
+            await assertCanMutateCandidate(req.auth, String(body.candidateId));
+        }
+        catch (err) {
+            if (err instanceof CandidateAccessError)
+                return res.status(403).json({ error: err.message });
+            throw err;
+        }
+    }
     const nextCandidateId = body.candidateId ?? existing.candidateId;
     const nextRequirementId = body.requirementId ?? existing.requirementId;
     const nextPlanStageId = body.planStageId ?? existing.planStageId;

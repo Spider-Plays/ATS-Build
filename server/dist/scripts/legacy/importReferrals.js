@@ -9,9 +9,8 @@
 import '../../config/loadEnv.js';
 import fs from 'fs';
 import path from 'path';
-import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
-import { DEV_PASSWORD } from '../../config/devUsers.js';
+import { unusablePasswordHash } from '../../lib/legacyImport/unusablePassword.js';
 import { findCandidateByEmail } from '../../lib/candidateDuplicate.js';
 import { parseLegacyCsv, parseLegacyDate, rowGet, normalizeEmail } from '../../lib/legacyImport/parseCsv.js';
 import { nullIfNa } from '../../lib/legacyImport/fieldMap.js';
@@ -68,7 +67,7 @@ export async function run(argv = []) {
     const lookup = dryRun
         ? { byEmail: new Map(), byName: new Map(), emailName: new Map() }
         : await loadStitchUserLookup();
-    const passwordHash = dryRun ? 'dry-run' : await bcrypt.hash(DEV_PASSWORD, 10);
+    const passwordHash = dryRun ? 'dry-run' : await unusablePasswordHash();
     let employeesCreated = 0;
     let recruitersCreated = 0;
     let candidatesCreated = 0;

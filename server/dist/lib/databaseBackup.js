@@ -96,24 +96,21 @@ export function backupKey(salt) {
     return crypto.scryptSync(passphrase, salt, 32);
 }
 /**
- * Encrypts a plain dump with AES-256-GCM and removes the plaintext.
+ * Streams a plain dump straight into an AES-256-GCM file, so the clear-text dump never touches disk.
  * File layout: magic(8) | salt(16) | iv(12) | ciphertext | authTag(16).
  */
-async function encryptBackupIfConfigured(plainPath) {
+function encryptStreamToFile(input, encPath) {
     const salt = crypto.randomBytes(16);
     const key = backupKey(salt);
     if (!key) {
-        // A full dump holds every candidate's personal data: never leave it on disk in clear text.
-        fs.rmSync(plainPath, { force: true });
-        throw new Error('DATABASE_BACKUP_KEY is not set; refusing to keep an unencrypted backup.');
+        // A full dump holds every candidate's personal data: never write it in clear text.
+        return Promise.reject(new Error('DATABASE_BACKUP_KEY is not set; refusing to write an unencrypted backup.'));
     }
     const iv = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-    const encPath = plainPath + '.enc';
     const out = fs.createWriteStream(encPath, { mode: 0o600 });
     out.write(Buffer.concat([BACKUP_MAGIC, salt, iv]));
-    await new Promise((resolve, reject) => {
-        const input = fs.createReadStream(plainPath);
+    return new Promise((resolve, reject) => {
         input.on('error', reject);
         cipher.on('error', reject);
         out.on('error', reject);
@@ -122,10 +119,8 @@ async function encryptBackupIfConfigured(plainPath) {
             out.end(cipher.getAuthTag(), () => resolve());
         });
     });
-    fs.unlinkSync(plainPath);
-    return encPath;
 }
-/** Decrypts a .sql.enc backup produced by encryptBackupIfConfigured. */
+/** Decrypts a .sql.enc backup produced by encryptStreamToFile. */
 export function decryptBackupFile(encPath, outPath) {
     const data = fs.readFileSync(encPath);
     if (!data.subarray(0, 8).equals(BACKUP_MAGIC))
@@ -175,13 +170,14 @@ export async function runDatabaseBackup() {
     }
     const dir = databaseBackupDir();
     fs.mkdirSync(dir, { recursive: true });
-    const name = `stitch-ats-${istStamp()}.sql`;
+    const name = `stitch-ats-${istStamp()}${BACKUP_ENCRYPTED_EXT}`;
     const filePath = path.join(dir, name);
     const db = parseDatabaseUrl(databaseUrl);
     let lastError = 'pg_dump was not found. Install PostgreSQL client tools or set PG_DUMP_PATH.';
     for (const bin of pgDumpCandidates()) {
         try {
             await new Promise((resolve, reject) => {
+                // pg_dump writes to stdout, which is encrypted on the way to disk.
                 const child = spawn(bin, [
                     '-h',
                     db.host,
@@ -194,8 +190,6 @@ export async function runDatabaseBackup() {
                     '--format=plain',
                     '--no-owner',
                     '--no-acl',
-                    '--file',
-                    filePath,
                 ], {
                     env: { ...process.env, PGPASSWORD: db.password },
                     windowsHide: true,
@@ -204,15 +198,19 @@ export async function runDatabaseBackup() {
                 child.stderr.on('data', (chunk) => {
                     stderr += String(chunk);
                 });
-                child.on('error', (error) => reject(error));
-                child.on('close', (code) => {
-                    if (code === 0)
-                        resolve();
-                    else
-                        reject(new Error(stderr.trim() || `pg_dump exited with code ${code}`));
+                const written = encryptStreamToFile(child.stdout, filePath);
+                const exited = new Promise((done, fail) => {
+                    child.on('error', (error) => fail(error));
+                    child.on('close', (code) => {
+                        if (code === 0)
+                            done();
+                        else
+                            fail(new Error(stderr.trim() || `pg_dump exited with code ${code}`));
+                    });
                 });
+                Promise.all([written, exited]).then(() => resolve(), reject);
             });
-            const finalPath = await encryptBackupIfConfigured(filePath);
+            const finalPath = filePath;
             restrictFilePermissions(finalPath);
             pruneOldBackups();
             const finalName = path.basename(finalPath);
@@ -221,10 +219,10 @@ export async function runDatabaseBackup() {
             return { name: finalName, sizeBytes: stat.size, createdAt: stat.mtime.toISOString() };
         }
         catch (error) {
-            if (error.code === 'ENOENT')
-                continue;
             if (fs.existsSync(filePath))
                 fs.unlinkSync(filePath);
+            if (error.code === 'ENOENT')
+                continue;
             lastError = error instanceof Error ? error.message : 'Backup failed';
             break;
         }

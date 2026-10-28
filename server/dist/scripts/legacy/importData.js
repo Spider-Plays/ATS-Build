@@ -2,9 +2,8 @@ import '../../config/loadEnv.js';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
-import { DEV_PASSWORD } from '../../config/devUsers.js';
+import { unusablePasswordHash } from '../../lib/legacyImport/unusablePassword.js';
 import { serializeSkills, parseSkillList } from '../../lib/skills.js';
 import { ensureInterviewPlan } from '../../lib/interviewPlan.js';
 import { findCandidateByEmail } from '../../lib/candidateDuplicate.js';
@@ -460,7 +459,7 @@ async function ensureLegacyHiringManagers(requirementRows, lookup, dryRun) {
         if (hm)
             names.add(hm);
     }
-    const passwordHash = dryRun ? 'dry-run' : await bcrypt.hash(DEV_PASSWORD, 10);
+    const passwordHash = dryRun ? 'dry-run' : await unusablePasswordHash();
     let created = 0;
     let resolved = 0;
     for (const name of [...names].sort((a, b) => a.localeCompare(b))) {
@@ -547,7 +546,7 @@ async function ensureLegacyRecruiters(candidateRows, requirementRows, lookup, dr
             return tokenDelta;
         return b.weight - a.weight;
     });
-    const passwordHash = dryRun ? 'dry-run' : await bcrypt.hash(DEV_PASSWORD, 10);
+    const passwordHash = dryRun ? 'dry-run' : await unusablePasswordHash();
     let created = 0;
     let resolved = 0;
     let redirected = 0;
@@ -714,7 +713,7 @@ async function ensureLegacyVendorUser(vendorId, vendorName, cache) {
     const created = await prisma.user.create({
         data: {
             email,
-            passwordHash: await bcrypt.hash(DEV_PASSWORD, 10),
+            passwordHash: await unusablePasswordHash(),
             name: vendorName,
             role: 'VENDOR',
             vendorId,

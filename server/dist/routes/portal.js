@@ -18,6 +18,7 @@ import { assertCanRespondToOffer } from '../lib/offerPermissions.js';
 import { appendOfferHistory, loadOfferLetterContext } from '../lib/offerActions.js';
 import { notifyOfferStatusChange } from '../lib/emailDispatch.js';
 import { renderHtmlToPdf } from '../lib/offerPdf.js';
+import { httpUrlOptional } from '../lib/httpUrl.js';
 import { mapPortalPosition, portalPositionsWhere, portalRequirementVisible, } from '../lib/portalPositions.js';
 import { refreshRequirementHiringState, syncRequirementHiringState } from '../lib/hiring.js';
 const PORTAL_UPDATE_ACTIONS = [
@@ -52,8 +53,8 @@ const profileBodySchema = z.object({
         .string()
         .min(1)
         .refine((v) => /^[A-Z]{5}[0-9]{4}[A-Z]$/i.test(v.trim()), 'Invalid PAN'),
-    linkedIn: z.string().url().optional().or(z.literal('')),
-    portfolio: z.string().url().optional().or(z.literal('')),
+    linkedIn: httpUrlOptional,
+    portfolio: httpUrlOptional,
 });
 function profileStatusPayload(candidate) {
     const missing = getCandidateProfileMissing(candidate);

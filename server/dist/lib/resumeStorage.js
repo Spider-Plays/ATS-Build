@@ -94,13 +94,25 @@ export async function readCandidateResumeFromDisk(candidate) {
         return null;
     return { buffer: await readResumeBuffer(stored), mime: stored.mime };
 }
+const MAX_REMOTE_RESUME_BYTES = 10 * 1024 * 1024;
 export async function readCandidateResumeFromUrl(url, mime) {
     try {
         // Legacy SharePoint links only: https to public hosts, re-checked on every redirect (no SSRF).
         const res = await fetchPublicHttps(url, { signal: AbortSignal.timeout(20_000) });
-        if (!res.ok)
+        if (!res.ok || !res.body)
             return null;
-        const buffer = Buffer.from(await res.arrayBuffer());
+        // Stop reading past the cap so a hostile host cannot stream an unbounded body into memory.
+        if (Number(res.headers.get('content-length')) > MAX_REMOTE_RESUME_BYTES)
+            return null;
+        const chunks = [];
+        let size = 0;
+        for await (const chunk of res.body) {
+            size += chunk.length;
+            if (size > MAX_REMOTE_RESUME_BYTES)
+                return null;
+            chunks.push(Buffer.from(chunk));
+        }
+        const buffer = Buffer.concat(chunks);
         if (buffer.length < 100)
             return null;
         return { buffer, mime: mime || 'application/pdf' };

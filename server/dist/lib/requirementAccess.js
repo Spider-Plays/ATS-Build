@@ -124,6 +124,31 @@ export async function assertCanViewRequirement(auth, requirementId) {
     }
 }
 /**
+ * Changing a requirement needs a real stake in it: org-wide roles, its creator, its hiring manager,
+ * or an assigned recruiter / team lead. The open book and pending invites grant view access only.
+ */
+export async function assertCanEditRequirement(auth, requirementId) {
+    if (hasOrgWideAccess(auth.role))
+        return;
+    const row = await prisma.requirement.findUnique({
+        where: { id: requirementId },
+        select: {
+            id: true,
+            createdBy: true,
+            hiringManager: true,
+            accountManager: true,
+            recruiters: true,
+            status: true,
+        },
+    });
+    if (!row) {
+        throw new RequirementAccessError('Requirement not found');
+    }
+    if (!requirementVisibleToAuth(auth, row)) {
+        throw new RequirementAccessError('Not allowed to change this requirement');
+    }
+}
+/**
  * Only org-wide roles and accepted (assigned) recruiters may add/link
  * candidate profiles to a requirement. Pending invites do not count.
  */

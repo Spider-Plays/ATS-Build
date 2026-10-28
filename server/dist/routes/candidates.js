@@ -24,6 +24,11 @@ import { notifyCandidateStatusChange, notifyNewCandidate } from '../lib/emailDis
 import { isEmailConfigured, sendJobDescriptionEmail } from '../services/email.js';
 import { buildCandidateSearchIndexFields, parseCtcLakhs, } from '../lib/candidateFieldNormalize.js';
 import { CandidateSearchQueryError, executeCandidateSearch, parseCandidateSearchQuery, } from '../lib/candidateSearch.js';
+import { httpUrlOptional } from '../lib/httpUrl.js';
+/** Profile links are rendered as clickable hrefs, so only http(s) (or scheme-less) values are stored. */
+function invalidProfileLink(body) {
+    return [body.linkedIn, body.portfolio].some((v) => v != null && !(typeof v === 'string' && httpUrlOptional.safeParse(v).success));
+}
 async function withFreshMatchScores(rows) {
     const catalog = (await listSkillCatalog()).map((skill) => ({
         name: skill.name,
@@ -478,6 +483,9 @@ router.post('/', requireRoles(...STAFF_MUTATE), async (req, res) => {
     if (!body.email?.trim()) {
         return res.status(400).json({ error: 'Email is required' });
     }
+    if (invalidProfileLink(body)) {
+        return res.status(400).json({ error: 'Enter a valid http(s) link' });
+    }
     const duplicate = await findCandidateByEmail(body.email);
     if (duplicate) {
         return res.status(409).json({
@@ -653,6 +661,9 @@ router.patch('/:id', requireRoles(...STAFF_MUTATE), async (req, res) => {
     try {
         await assertCanMutateCandidate(req.auth, req.params.id);
         const b = req.body;
+        if (invalidProfileLink(b)) {
+            return res.status(400).json({ error: 'Enter a valid http(s) link' });
+        }
         const existing = await prisma.candidate.findUnique({ where: { id: req.params.id } });
         if (!existing)
             return res.status(404).json({ error: 'Not found' });

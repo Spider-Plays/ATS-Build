@@ -16,7 +16,7 @@ import '../../config/loadEnv.js';
 import fs from 'fs';
 import path from 'path';
 import { prisma } from '../../lib/prisma.js';
-import { DEV_USERS } from '../../config/devUsers.js';
+import { isProtectedStitchEmail } from '../../lib/legacyImport/ensureStitchUser.js';
 import { RESUME_UPLOAD_DIR } from '../../lib/resumeStorage.js';
 const LEGACY_VENDOR_NOTE = 'Created by legacy Manpower import';
 const CARRIED_ROLES = new Set(['RECRUITER', 'HIRING_MANAGER', 'VENDOR']);
@@ -138,9 +138,8 @@ export async function run(argv = []) {
     for (const u of allUsers)
         if (u.vendorId && vendorIds.includes(String(u.vendorId)))
             referenced.add(String(u.id));
-    const devEmails = new Set(DEV_USERS.map((u) => u.email.toLowerCase()));
     const users = allUsers.filter((u) => referenced.has(String(u.id)));
-    const carried = users.filter((u) => CARRIED_ROLES.has(String(u.role)) && !devEmails.has(String(u.email).toLowerCase()));
+    const carried = users.filter((u) => CARRIED_ROLES.has(String(u.role)) && !isProtectedStitchEmail(String(u.email)));
     const carriedIds = new Set(carried.map((u) => String(u.id)));
     const sql = [];
     const sourceDb = (process.env.DATABASE_URL ?? '').replace(/\/\/[^@]*@/, '//***@');

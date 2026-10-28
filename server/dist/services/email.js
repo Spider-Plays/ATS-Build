@@ -67,12 +67,7 @@ function emailFallbackUrl(href) {
     <a href="${safeHref}" target="_blank" style="color:${EMAIL_BRAND.primary};font-weight:600;text-decoration:none;">${safeHref}</a>
   </p>`;
 }
-/** Login deep-link that autofills invite credentials (password stripped from the address bar on load). */
-function inviteLoginUrl(email, password) {
-    const origin = env.clientOrigin.replace(/\/$/, '');
-    const params = new URLSearchParams({ email, password });
-    return `${origin}/staffportal?${params.toString()}`;
-}
+const SETUP_LINK_NOTE = 'This link works once and expires in <strong>24 hours</strong>. If it has expired, use <strong>Forgot password</strong> on the sign-in page.';
 function detailBox(fields) {
     const rows = fields
         .map((field, index) => {
@@ -240,7 +235,10 @@ export async function sendHtmlEmail(params) {
         bcc = merge(params.bcc, [...bccSlots, ...copy.extraBcc]);
         const wording = await resolveEmailWording(params.kind, { subject: params.subject, html: params.html }, params.vars);
         subjectText = wording.subject;
-        if (wording.bodyChanged) {
+        // A custom body that leaves out the set-password link (older saved wording used
+        // {{tempPassword}}) would strand the recipient, so the standard email is sent instead.
+        const dropsSetupLink = Boolean(params.vars?.setupUrl) && !copy.body.includes('{{setupUrl}}');
+        if (wording.bodyChanged && !dropsSetupLink) {
             const filledBody = fillEmailCopy(copy, params.vars ?? {}).body;
             const note = emailShell({
                 headerTitle: emailCopyLabel(params.kind),
@@ -286,77 +284,54 @@ export async function sendHtmlEmail(params) {
         return { sent: false, reason: 'error', message: e instanceof Error ? e.message : 'Failed to send email' };
     }
 }
+/** Staff invite. Carries a single-use link to choose a password; no password is ever emailed. */
 export async function sendInviteEmail(params) {
     if (params.role === 'VENDOR') {
-        return sendVendorInviteEmail({
-            to: params.to,
-            name: params.name,
-            tempPassword: params.tempPassword,
-        });
+        return sendVendorInviteEmail({ to: params.to, name: params.name, setupUrl: params.setupUrl });
     }
-    const loginUrl = inviteLoginUrl(params.to, params.tempPassword);
     return sendHtmlEmail({
         kind: 'invite',
-        vars: { name: params.name, role: params.role, tempPassword: params.tempPassword, loginUrl, appName: env.appName },
+        vars: { name: params.name, role: params.role, setupUrl: params.setupUrl, appName: env.appName },
         to: params.to,
         subject: `You're invited to ${env.appName}`,
         html: emailShell({
-            preheader: `Your ${env.appName} account is ready — sign in with the credentials below.`,
+            preheader: `Your ${env.appName} account is ready. Choose your password to get started.`,
             headerTitle: "You're invited!",
             content: `
         ${emailGreeting(params.name)}
-        ${emailLead(`You've been invited to join <strong style="color:${EMAIL_BRAND.text};">${escapeHtml(env.appName)}</strong>. Use the credentials below to sign in and start collaborating with your team.`)}
+        ${emailLead(`You've been invited to join <strong style="color:${EMAIL_BRAND.text};">${escapeHtml(env.appName)}</strong>. Choose your password with the button below, then sign in with <strong>${escapeHtml(params.to)}</strong>.`)}
         ${emailBadge(params.role)}
-        ${detailBox([
-                { label: 'Email address', value: params.to },
-                {
-                    label: 'Temporary password',
-                    value: params.tempPassword,
-                    mono: true,
-                    selectToCopyHint: true,
-                },
-            ])}
-        ${emailNote('For your security, change this password after your first login under <strong>Settings → Security</strong>.')}
-        ${emailButton(loginUrl, `Sign in to ${env.appName}`)}
-        ${emailFallbackUrl(loginUrl)}
+        ${emailButton(params.setupUrl, 'Set your password')}
+        ${emailFallbackUrl(params.setupUrl)}
+        ${emailNote(SETUP_LINK_NOTE)}
       `,
         }),
     });
 }
-/** Portal invite for a newly created vendor — credentials + onboarding instructions. */
+/** Portal invite for a newly created vendor: set-password link plus onboarding instructions. */
 export async function sendVendorInviteEmail(params) {
     const origin = env.clientOrigin.replace(/\/$/, '');
-    const loginUrl = inviteLoginUrl(params.to, params.tempPassword);
     const onboardingUrl = `${origin}/vendor-portal/onboarding`;
     const vendorLabel = params.vendorName?.trim();
     return sendHtmlEmail({
         kind: 'vendorInvite',
         vendorId: params.vendorId,
-        vars: { name: params.name, tempPassword: params.tempPassword, loginUrl, appName: env.appName },
+        vars: { name: params.name, setupUrl: params.setupUrl, appName: env.appName },
         to: params.to,
         subject: `Welcome to ${env.appName} vendor portal — complete your onboarding`,
         html: emailShell({
-            preheader: 'Your vendor portal login is ready. Sign in and complete the onboarding form.',
+            preheader: 'Your vendor portal login is ready. Choose your password and complete the onboarding form.',
             headerTitle: 'Vendor portal invite',
             content: `
         ${emailGreeting(params.name)}
         ${emailLead(vendorLabel
                 ? `You've been added as a staffing vendor (<strong style="color:${EMAIL_BRAND.text};">${escapeHtml(vendorLabel)}</strong>) on <strong style="color:${EMAIL_BRAND.text};">${escapeHtml(env.appName)}</strong>.`
                 : `You've been added as a staffing vendor on <strong style="color:${EMAIL_BRAND.text};">${escapeHtml(env.appName)}</strong>.`)}
-        ${emailLead('Use the credentials below to sign in to the vendor portal. After login, please complete the <strong>Vendor Onboarding</strong> and <strong>Vendor Evaluation</strong> forms. HR will review your submission before full portal access is unlocked.')}
+        ${emailLead(`Choose your password with the button below, then sign in with <strong>${escapeHtml(params.to)}</strong>. After login, please complete the <strong>Vendor Onboarding</strong> and <strong>Vendor Evaluation</strong> forms. HR will review your submission before full portal access is unlocked.`)}
         ${emailBadge('VENDOR')}
-        ${detailBox([
-                { label: 'Login email', value: params.to },
-                {
-                    label: 'Temporary password',
-                    value: params.tempPassword,
-                    mono: true,
-                    selectToCopyHint: true,
-                },
-            ])}
-        ${emailNote('Change this password after your first login under <strong>Settings → Security</strong>. Then open <strong>Onboarding</strong> in the vendor portal to fill both forms and submit for approval.')}
-        ${emailButton(loginUrl, 'Sign in to vendor portal')}
-        ${emailFallbackUrl(loginUrl)}
+        ${emailButton(params.setupUrl, 'Set your password')}
+        ${emailFallbackUrl(params.setupUrl)}
+        ${emailNote(SETUP_LINK_NOTE)}
         <p style="margin:16px 0 0;font-size:13px;color:${EMAIL_BRAND.textMuted};font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
           After signing in, continue here:
           <a href="${escapeHtml(onboardingUrl)}" style="color:${EMAIL_BRAND.primary};font-weight:600;">Vendor onboarding form</a>
@@ -365,12 +340,13 @@ export async function sendVendorInviteEmail(params) {
         }),
     });
 }
+/** Tells the owner an admin changed their password. The admin shares the new one in person, never by email. */
 export async function sendAdminPasswordEmail(params) {
-    const loginUrl = inviteLoginUrl(params.to, params.password);
     const action = params.setByAdmin ? 'reset' : 'updated';
+    const loginUrl = `${env.clientOrigin.replace(/\/$/, '')}/staffportal`;
     return sendHtmlEmail({
         kind: 'adminPasswordReset',
-        vars: { name: params.name, password: params.password, appName: env.appName },
+        vars: { name: params.name, appName: env.appName },
         to: params.to,
         subject: `Your ${env.appName} password was reset`,
         html: emailShell({
@@ -378,19 +354,9 @@ export async function sendAdminPasswordEmail(params) {
             headerTitle: 'Password updated',
             content: `
         ${emailGreeting(params.name)}
-        ${emailLead(`An administrator ${action} your account password. Use the new credentials below to sign in.`)}
-        ${detailBox([
-                { label: 'Email address', value: params.to },
-                {
-                    label: 'New password',
-                    value: params.password,
-                    mono: true,
-                    selectToCopyHint: true,
-                },
-            ])}
-        ${emailNote('Change your password after signing in under <strong>Settings → Security</strong>.')}
+        ${emailLead(`An administrator ${action} your account password. They will share the temporary password with you directly, and you will choose your own when you sign in.`)}
+        ${emailNote('Did not expect this? Contact your administrator, or use <strong>Forgot password</strong> on the sign-in page to choose a new password yourself.')}
         ${emailButton(loginUrl, `Sign in to ${env.appName}`)}
-        ${emailFallbackUrl(loginUrl)}
       `,
         }),
     });
@@ -435,9 +401,10 @@ export async function sendEmailVerificationEmail(params) {
 }
 export async function sendOfferSentEmail(params) {
     const ctc = params.annualCtc.toLocaleString('en-IN');
-    const accountNote = params.accountCreated
-        ? 'We created your candidate portal account so you can review and respond to your offer online.'
-        : 'Sign in to your candidate portal using the credentials below to review and respond to your offer.';
+    const accountNote = params.setupUrl
+        ? `We created your candidate portal account so you can review and respond to your offer online. Choose your password with the button below, then sign in with <strong>${escapeHtml(params.to)}</strong>.`
+        : `Sign in to your candidate portal with <strong>${escapeHtml(params.to)}</strong> to review and respond to your offer.`;
+    const actionUrl = params.setupUrl ?? params.portalLoginUrl;
     return sendHtmlEmail({
         kind: 'offerSent',
         vars: { candidateName: params.candidateName, jobTitle: '', appName: env.appName, portalOfferUrl: params.portalOfferUrl },
@@ -450,14 +417,10 @@ export async function sendOfferSentEmail(params) {
         ${emailGreeting(params.candidateName)}
         ${emailLead(`We're delighted to extend an offer to you with an annual CTC of <strong style="color:${EMAIL_BRAND.text};">Rs. ${ctc}/-</strong>.`)}
         ${emailParagraph(accountNote)}
-        ${detailBox([
-                { label: 'Portal email', value: params.to },
-                { label: 'Portal password', value: params.portalPassword, mono: true },
-            ])}
         ${params.validUntil ? emailParagraph(`Please respond by <strong style="color:${EMAIL_BRAND.text};">${escapeHtml(new Date(params.validUntil).toLocaleDateString('en-IN'))}</strong>.`) : ''}
-        ${emailNote('Your portal password is your phone number (digits only). You can change it after signing in under <strong>Settings → Security</strong>.')}
-        ${emailButton(params.portalLoginUrl, 'Sign in & view offer')}
-        ${emailFallbackUrl(params.portalLoginUrl)}
+        ${emailButton(actionUrl, params.setupUrl ? 'Set your password' : 'Sign in & view offer')}
+        ${emailFallbackUrl(actionUrl)}
+        ${params.setupUrl ? emailNote(SETUP_LINK_NOTE) : ''}
         ${emailParagraph(`Or open your offer directly after signing in: ${emailLink(params.portalOfferUrl, 'View offer letter')}`)}
       `,
         }),

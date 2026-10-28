@@ -1,4 +1,0 @@
-[
-    { "email": "superadmin@stitch-ats.in", "name": "Super Admin", "role": "SUPER_ADMIN", "department": "Operations", "primary": true },
-    { "email": "developer@stitch-ats.in", "name": "Developer", "role": "DEVELOPER", "department": "Engineering", "primary": true }
-]

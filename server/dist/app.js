@@ -47,8 +47,10 @@ import pagePublicationRoutes from './routes/pagePublication.js';
 import openRequisitionReportRoutes from './routes/openRequisitionReport.js';
 import { appLogMiddleware } from './lib/appLog.js';
 export const app = express();
-// One reverse proxy (local frontend proxy or the host in front of the API) sets X-Forwarded-For.
-app.set('trust proxy', 1);
+// The reverse proxy (nginx on this host, or the local Vite proxy) connects over loopback and sets
+// X-Forwarded-For. Trust that header only from a loopback peer: if the API is ever reached
+// directly, a client-sent X-Forwarded-For is ignored and cannot reset per-IP rate limits.
+app.set('trust proxy', 'loopback');
 app.use(helmet({
     // The SPA is served by the frontend host; the API only returns JSON and files.
     contentSecurityPolicy: {
@@ -56,6 +58,8 @@ app.use(helmet({
         directives: { defaultSrc: ["'none'"], baseUri: ["'none'"], formAction: ["'none'"], frameAncestors: ["'none'"] },
     },
     crossOriginResourcePolicy: { policy: 'same-site' },
+    // Match frame-ancestors 'none' for browsers that only read X-Frame-Options.
+    frameguard: { action: 'deny' },
 }));
 const PRODUCTION_ORIGINS = ['https://ats.igsglobal.co'];
 // Local development origins are never trusted in production.

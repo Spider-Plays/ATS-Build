@@ -19,9 +19,20 @@ function requestAppOrigin(req) {
         return null;
     }
 }
+const RESET_LINK_TTL_MS = 60 * 60 * 1000;
+/** New accounts get a set-password link instead of an emailed password; it lasts long enough to act on. */
+export const ACCOUNT_SETUP_LINK_TTL_MS = 24 * 60 * 60 * 1000;
 export async function issuePasswordResetLink(user, req) {
+    const resetUrl = await createPasswordSetupLink(user, req, RESET_LINK_TTL_MS);
+    await sendPasswordResetEmail({ to: user.email, name: user.name, resetUrl });
+}
+/**
+ * Stores a single-use token (hashed) and returns the link that lets the owner choose their own
+ * password. Used for resets and for first sign-in, so no password ever has to travel by email.
+ */
+export async function createPasswordSetupLink(user, req, ttlMs = ACCOUNT_SETUP_LINK_TTL_MS) {
     const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 60 * 60 * 1000);
+    const expires = new Date(Date.now() + ttlMs);
     await prisma.user.update({
         where: { id: user.id },
         data: { passwordResetToken: hashResetToken(token), passwordResetExpires: expires },
@@ -33,8 +44,7 @@ export async function issuePasswordResetLink(user, req) {
         requestOrigin: requestAppOrigin(req),
         isStaging: process.env.ATS_ENV === 'staging',
     });
-    const resetUrl = `${base}${loginPath}?reset=${token}`;
-    await sendPasswordResetEmail({ to: user.email, name: user.name, resetUrl });
+    return `${base}${loginPath}?reset=${token}`;
 }
 /** Reset tokens are stored hashed so a database leak does not expose working reset links. */
 export function hashResetToken(token) {

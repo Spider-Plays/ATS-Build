@@ -1,1 +1,0 @@
-import{j as t}from"./vendor-query-CGQ8dNLD.js";import{e as r,N as a}from"./vendor-react-DFTSzESR.js";function i(){const{requirementId:e}=r();return e?t.jsx(a,{to:`/candidate/jobs/applied/${e}`,replace:!0}):t.jsx(a,{to:"/candidate/jobs?tab=applied",replace:!0})}export{i as default};

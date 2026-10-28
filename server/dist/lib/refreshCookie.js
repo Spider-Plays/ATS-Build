@@ -23,9 +23,12 @@ export function clearRefreshCookie(res) {
     res.clearCookie(REFRESH_COOKIE, cookieOptions());
 }
 export function readRefreshCookie(req) {
+    return readCookie(req, REFRESH_COOKIE);
+}
+export function readCookie(req, name) {
     for (const part of (req.headers.cookie ?? '').split(';')) {
         const eq = part.indexOf('=');
-        if (eq === -1 || part.slice(0, eq).trim() !== REFRESH_COOKIE)
+        if (eq === -1 || part.slice(0, eq).trim() !== name)
             continue;
         try {
             return decodeURIComponent(part.slice(eq + 1).trim()) || null;

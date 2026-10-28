@@ -72,12 +72,11 @@ export async function run(argv = []) {
     if (!referral) {
         console.log(`  Creating missing "${EMPLOYEE_REFERRAL_NAME}" user…`);
         if (!dryRun) {
-            const bcrypt = await import('bcryptjs');
-            const { DEV_PASSWORD } = await import('../../config/devUsers.js');
+            const { unusablePasswordHash } = await import('../../lib/legacyImport/unusablePassword.js');
             referral = await prisma.user.create({
                 data: {
                     email: stitchEmailFromName(EMPLOYEE_REFERRAL_NAME),
-                    passwordHash: await bcrypt.hash(DEV_PASSWORD, 10),
+                    passwordHash: await unusablePasswordHash(),
                     name: EMPLOYEE_REFERRAL_NAME,
                     role: 'RECRUITER',
                     department: 'Talent Acquisition',

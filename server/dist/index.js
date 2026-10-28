@@ -14,7 +14,7 @@ import { ensureRequirementAccountManagerColumn } from './lib/ensureRequirementAc
 import { ensureRequirementRequisitionColumns } from './lib/ensureRequirementRequisitionColumns.js';
 import { ensureInterviewScheduledByColumn } from './lib/ensureInterviewScheduledByColumn.js';
 import { ensureUserProfileColumns } from './lib/ensureUserProfileColumns.js';
-import { ensurePrimaryDevUsers } from './lib/ensurePrimaryDevUsers.js';
+import { retireDevAccounts } from './lib/retireDevAccounts.js';
 import { ensureTaManagerRole } from './lib/ensureTaManagerRole.js';
 import { ensureRolePageAccessPatches } from './lib/ensureRolePageAccessPatches.js';
 import { ensureRefreshTokenTable } from './lib/ensureRefreshTokenTable.js';
@@ -60,7 +60,7 @@ async function prepareDatabase() {
     await ensureInterviewScheduledByColumn();
     await ensureCandidateRetentionColumns();
     await ensureUserProfileColumns();
-    await ensurePrimaryDevUsers();
+    await retireDevAccounts();
     await ensureChangeRequestTable();
     await ensureTaManagerRole();
     await ensureRolePageAccessPatches();

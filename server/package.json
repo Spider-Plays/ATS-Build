@@ -13,21 +13,13 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push && prisma generate",
     "db:push:schema": "prisma db push",
-    "db:seed": "tsx src/seed.ts",
     "db:seed-skills": "tsx src/scripts/seed-skill-catalog.ts",
-    "db:seed-primary": "tsx src/seed.ts --primary",
     "db:seed-vendors": "tsx src/scripts/seed-vendors.ts",
-    "db:seed-demo": "tsx src/scripts/seed-demo-data.ts",
-    "db:seed-upcoming-interviews": "tsx src/scripts/seed-upcoming-interviews.ts",
-    "db:seed-interview-panels": "tsx src/scripts/seed-interview-panels.ts",
     "db:attach-resumes": "tsx src/scripts/attach-resumes.ts",
-    "db:dedupe-users": "tsx src/scripts/dedupe-users.ts",
     "db:reset": "tsx src/scripts/reset.ts",
-    "db:reset-passwords": "tsx src/scripts/reset.ts passwords",
     "db:clear": "tsx src/scripts/reset.ts all",
     "db:clear-demo": "tsx src/scripts/reset.ts demo",
     "db:reset-keep-superadmin": "tsx src/scripts/reset.ts keep-superadmin",
-    "db:reset-keep-one-per-role": "tsx src/scripts/reset.ts keep-one-per-role",
     "db:wipe-keep-users": "tsx src/scripts/reset.ts keep-users",
     "db:bootstrap": "tsx src/scripts/bootstrap-admin.ts",
     "db:verify": "tsx src/scripts/verify-db.ts",
@@ -90,6 +82,7 @@
     "tsx": "^4.19.3"
   },
   "overrides": {
-    "uuid": "^11.1.1"
+    "uuid": "^11.1.1",
+    "deepmerge-ts": "^8.0.0"
   }
 }

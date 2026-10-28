@@ -7,10 +7,9 @@
 import '../../config/loadEnv.js';
 import fs from 'fs';
 import path from 'path';
-import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { ensureInterviewPlan } from '../../lib/interviewPlan.js';
-import { DEV_PASSWORD } from '../../config/devUsers.js';
+import { unusablePasswordHash } from '../../lib/legacyImport/unusablePassword.js';
 import { parseLegacyCsv } from '../../lib/legacyImport/parseCsv.js';
 import { buildIftFormData, formRecommendation, groupIftRows, iftToFormRating, mapIftToForm, isPlaceholderPerson, } from '../../lib/legacyImport/iftFeedback.js';
 import { ensureStitchUser, loadStitchUserLookup, normalizePersonName, } from '../../lib/legacyImport/ensureStitchUser.js';
@@ -172,7 +171,7 @@ export async function run(argv = []) {
     const userLookup = dryRun
         ? { byEmail: new Map(), byName: new Map(), emailName: new Map() }
         : await loadStitchUserLookup();
-    const passwordHash = dryRun ? 'dry-run' : await bcrypt.hash(DEV_PASSWORD, 10);
+    const passwordHash = dryRun ? 'dry-run' : await unusablePasswordHash();
     // Ensure every IFT interviewer exists as INTERVIEWER (@ats.igsglobal.co if new).
     const interviewerNames = new Set();
     for (const g of groups) {

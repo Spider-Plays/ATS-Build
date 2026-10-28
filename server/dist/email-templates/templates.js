@@ -7,10 +7,6 @@ function initials(name) {
     const parts = name.trim().split(/\s+/).filter(Boolean);
     return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?';
 }
-/** Login deep-link that autofills invite credentials (password stripped from the address bar on load). */
-function inviteLoginUrl(email, password) {
-    return `${origin()}/staffportal?${new URLSearchParams({ email, password }).toString()}`;
-}
 function linkify(text) {
     return esc(text).replace(/https?:\/\/[^\s<]+/g, (url) => `<a href="${url}" target="_blank" style="font-weight:600;text-decoration:none;">${url}</a>`);
 }
@@ -20,58 +16,56 @@ const ROLE_DISPLAY_NAMES = {
     TA_MANAGER: 'TA Manager',
 };
 export function inviteEmail(p) {
-    const loginUrl = inviteLoginUrl(p.to, p.tempPassword);
     const role = ROLE_DISPLAY_NAMES[p.role.trim().replace(/\s+/g, '_').toUpperCase()] ??
         p.role.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
     return {
         subject: `You're invited to ${env.appName}`,
         html: renderEmail({
             audience: 'staff',
-            preheader: `Your ${env.appName} account is ready. Sign in with the credentials below.`,
+            preheader: `Your ${env.appName} account is ready. Choose your password to get started.`,
             eyebrow: 'Account invite',
             title: `Welcome to ${env.appName}`,
             subtitle: `${role} account`,
             tile: { top: 'NEW', main: initials(role) },
             blocks: [
                 { type: 'greeting', name: p.name },
-                { type: 'p', html: `You’ve been invited to join ${strong(env.appName)} as ${strong(role)}. Use the credentials below to sign in.` },
-                { type: 'credentials', rows: [{ label: 'Email address', value: p.to }, { label: 'Temporary password', value: p.tempPassword, secret: true }] },
-                { type: 'actions', items: [{ label: `Sign in to ${env.appName}`, href: loginUrl }] },
-                { type: 'callout', tone: 'warning', title: 'Change this password after you sign in', html: 'Go to <strong>Settings → Security</strong>. IGS staff can also use <strong>Continue with Microsoft</strong>.' },
-                { type: 'fallback', url: loginUrl },
+                { type: 'p', html: `You’ve been invited to join ${strong(env.appName)} as ${strong(role)}. Choose your password with the button below, then sign in with ${strong(p.to)}.` },
+                { type: 'actions', items: [{ label: 'Set your password', href: p.setupUrl }] },
+                { type: 'note', html: 'This link works once and expires in <strong>24 hours</strong>. If it has expired, use <strong>Forgot password</strong> on the sign-in page.' },
+                { type: 'fallback', url: p.setupUrl },
             ],
         }),
     };
 }
 export function vendorInviteEmail(p) {
-    const loginUrl = inviteLoginUrl(p.to, p.tempPassword);
     const onboardingUrl = `${origin()}/vendor-portal/onboarding`;
     const vendorLabel = p.vendorName?.trim();
     return {
         subject: `Welcome to ${env.appName} vendor portal — complete your onboarding`,
         html: renderEmail({
             audience: 'vendor',
-            preheader: 'Your vendor portal login is ready. Sign in and complete the onboarding form.',
+            preheader: 'Your vendor portal login is ready. Choose your password and complete the onboarding form.',
             eyebrow: 'Vendor invite',
             title: 'Welcome to the vendor portal',
             subtitle: vendorLabel || env.appName,
             blocks: [
                 { type: 'greeting', name: p.name },
                 { type: 'p', html: vendorLabel ? `You’ve been added as a staffing vendor (${strong(vendorLabel)}) on ${strong(env.appName)}.` : `You’ve been added as a staffing vendor on ${strong(env.appName)}.` },
-                { type: 'credentials', rows: [{ label: 'Login email', value: p.to }, { label: 'Temporary password', value: p.tempPassword, secret: true }] },
-                { type: 'actions', items: [{ label: 'Sign in to vendor portal', href: loginUrl }, { label: 'Onboarding form', href: onboardingUrl, variant: 'secondary' }] },
-                { type: 'steps', title: 'After you sign in', items: [
-                        'Change your password under <strong>Settings → Security</strong>.',
+                { type: 'actions', items: [{ label: 'Set your password', href: p.setupUrl }, { label: 'Onboarding form', href: onboardingUrl, variant: 'secondary' }] },
+                { type: 'steps', title: 'Next steps', items: [
+                        `Choose your password with the button above, then sign in with ${strong(p.to)}.`,
                         'Complete the <strong>Vendor Onboarding</strong> and <strong>Vendor Evaluation</strong> forms.',
                         'HR reviews your submission and unlocks full portal access.',
                     ] },
-                { type: 'fallback', url: loginUrl },
+                { type: 'note', html: 'This link works once and expires in <strong>24 hours</strong>. If it has expired, use <strong>Forgot password</strong> on the sign-in page.' },
+                { type: 'fallback', url: p.setupUrl },
             ],
         }),
     };
 }
+/** Notice only: the admin shares the new password in person, never by email. */
 export function adminPasswordEmail(p) {
-    const loginUrl = inviteLoginUrl(p.to, p.password);
+    const loginUrl = `${origin()}/staffportal`;
     const action = p.setByAdmin ? 'reset' : 'updated';
     return {
         subject: `Your ${env.appName} password was reset`,
@@ -84,11 +78,9 @@ export function adminPasswordEmail(p) {
             tile: { main: '&#8635;' },
             blocks: [
                 { type: 'greeting', name: p.name },
-                { type: 'p', html: `An administrator ${action} your account password. Use the new credentials below to sign in.` },
-                { type: 'credentials', rows: [{ label: 'Email address', value: p.to }, { label: 'New password', value: p.password, secret: true }] },
+                { type: 'p', html: `An administrator ${action} your account password. They will share the temporary password with you directly, and you will choose your own when you sign in.` },
                 { type: 'actions', items: [{ label: `Sign in to ${env.appName}`, href: loginUrl }] },
-                { type: 'note', html: 'Change your password after signing in under <strong>Settings → Security</strong>.' },
-                { type: 'fallback', url: loginUrl },
+                { type: 'note', html: 'Did not expect this? Contact your administrator, or use <strong>Forgot password</strong> on the sign-in page to choose a new password yourself.' },
             ],
         }),
     };
@@ -228,13 +220,12 @@ export function offerSentEmail(p) {
             blocks: [
                 { type: 'p', html: 'We’re delighted to extend an offer to you. Review it in the candidate portal and accept or decline online.' },
                 { type: 'highlight', label: 'Your offer', title: `Annual CTC Rs. ${ctc}/-`, facts: respondBy ? [['Respond by', respondBy]] : [] },
-                { type: 'p', html: p.accountCreated
-                        ? 'We created a candidate portal account for you. Use these details to sign in.'
-                        : 'Sign in to your candidate portal with the details below.' },
-                { type: 'credentials', rows: [{ label: 'Portal email', value: p.to }, { label: 'Portal password', value: p.portalPassword, secret: true }] },
-                { type: 'actions', items: [{ label: 'Sign in & view offer', href: p.portalLoginUrl }, { label: 'View offer letter', href: p.portalOfferUrl, variant: 'secondary' }] },
-                { type: 'note', html: 'Your portal password is your phone number (digits only). You can change it after signing in under <strong>Settings → Security</strong>.' },
-                { type: 'fallback', url: p.portalLoginUrl },
+                { type: 'p', html: p.setupUrl
+                        ? `We created a candidate portal account for you. Choose your password with the button below, then sign in with ${strong(p.to)}.`
+                        : `Sign in to your candidate portal with ${strong(p.to)} to review your offer.` },
+                { type: 'actions', items: [{ label: p.setupUrl ? 'Set your password' : 'Sign in & view offer', href: p.setupUrl ?? p.portalLoginUrl }, { label: 'View offer letter', href: p.portalOfferUrl, variant: 'secondary' }] },
+                ...(p.setupUrl ? [{ type: 'note', html: 'This link works once and expires in <strong>24 hours</strong>. If it has expired, use <strong>Forgot password</strong> on the sign-in page.' }] : []),
+                { type: 'fallback', url: p.setupUrl ?? p.portalLoginUrl },
             ],
         }),
     };

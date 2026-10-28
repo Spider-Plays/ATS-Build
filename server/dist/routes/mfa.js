@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { requireActiveUser, requireAuth, requireExactRoles } from '../middleware/auth.js';
 import { authRateLimiter } from '../middleware/rateLimit.js';
 import { issueAppSession } from '../lib/appSession.js';
+import { setMfaDeviceCookie } from '../lib/mfaDeviceCookie.js';
 import { accountLockedMessage, isAccountLocked } from '../lib/accountLock.js';
 import { MFA_MAX_FAILED_ATTEMPTS, buildEnrolment, checkSecondFactor, clearMfaFailures, countRemainingBackupCodes, decryptSecret, encryptSecret, generateTotpSecret, issueTrustedDevice, mfaRequiredForRole, readMfaToken, recordMfaFailure, regenerateBackupCodes, resetUserMfa, verifyTotp, } from '../lib/mfa.js';
 const router = Router();
@@ -69,8 +70,9 @@ router.post('/verify', authRateLimiter, async (req, res, next) => {
             return rejectWrongCode(res, user.id);
         await clearMfaFailures(user.id);
         const session = await issueAppSession(user.id, req, res);
-        const deviceToken = parsed.data.rememberDevice ? await issueTrustedDevice(user.id, req) : undefined;
-        res.json({ ...session, ...(deviceToken ? { deviceToken } : {}) });
+        if (parsed.data.rememberDevice)
+            setMfaDeviceCookie(res, await issueTrustedDevice(user.id, req));
+        res.json(session);
     }
     catch (err) {
         next(err);
@@ -133,8 +135,9 @@ router.post('/setup/confirm', authRateLimiter, async (req, res, next) => {
         }
         const backupCodes = await regenerateBackupCodes(user.id);
         const session = await issueAppSession(user.id, req, res);
-        const deviceToken = parsed.data.rememberDevice ? await issueTrustedDevice(user.id, req) : undefined;
-        res.json({ ...session, backupCodes, ...(deviceToken ? { deviceToken } : {}) });
+        if (parsed.data.rememberDevice)
+            setMfaDeviceCookie(res, await issueTrustedDevice(user.id, req));
+        res.json({ ...session, backupCodes });
     }
     catch (err) {
         next(err);

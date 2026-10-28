@@ -1,0 +1,1 @@
+function i(e){const t=e==null?void 0:e.trim();if(!t)return;const s=t.replace(/[\u0000- ]/g,"");if(/^https?:\/\//i.test(s))return t;if(!(/^[a-z][a-z0-9+.-]*:/i.test(s)||s.startsWith("//")))return`https://${t}`}export{i as s};

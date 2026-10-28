@@ -690,12 +690,11 @@ router.post('/:id/send', requireRoles(...OFFER_ROLES), async (req, res) => {
         annualCtc: ctx.annualCtc,
         portalOfferUrl: `${origin}${portalOfferPath}`,
         portalLoginUrl,
-        portalPassword: portalAccount.password,
-        accountCreated: portalAccount.created,
+        setupUrl: portalAccount.setupUrl,
         validUntil: validUntil.toISOString(),
     });
-    if (!emailResult.sent && emailResult.reason === 'not_configured') {
-        logTemporaryPassword('Candidate portal (offer sent)', candidate.email, portalAccount.password);
+    if (!emailResult.sent && emailResult.reason === 'not_configured' && portalAccount.setupUrl) {
+        logTemporaryPassword('Candidate portal set-password link (offer sent)', candidate.email, portalAccount.setupUrl);
     }
     await logActivity({
         entityType: 'OFFER',

@@ -8,8 +8,6 @@
  *   demo               Clear demo/mock data (keep real QA users + catalogs)
  *   keep-users         Wipe hiring data, keep all users
  *   keep-superadmin    Keep one SUPER_ADMIN only
- *   keep-one-per-role  Keep one user per role (QA)
- *   passwords          Reset all passwords to DEV_PASSWORD
  */
 import '../config/loadEnv.js';
 import { prisma } from '../lib/prisma.js';
@@ -37,16 +35,6 @@ const COMMANDS = [
         description: 'Keep one SUPER_ADMIN; delete everything else',
         run: async (argv) => (await import('./reset/keepSuperadmin.js')).run(argv),
     },
-    {
-        name: 'keep-one-per-role',
-        description: 'QA reset: keep one user per role',
-        run: async (argv) => (await import('./reset/keepOnePerRole.js')).run(argv),
-    },
-    {
-        name: 'passwords',
-        description: 'Reset all user passwords to DEV_PASSWORD',
-        run: async (argv) => (await import('./reset/passwords.js')).run(argv),
-    },
 ];
 function printHelp() {
     console.log(`Usage: npm run db:reset -- <command> [flags...]
@@ -62,13 +50,11 @@ Env confirms (required for most commands):
   demo                CONFIRM_DEMO_CLEAR=yes
   keep-users          CONFIRM_WIPE_KEEP_USERS=yes
   keep-superadmin     CONFIRM_PRODUCTION_RESET=yes
-  keep-one-per-role   CONFIRM_QA_RESET=yes
 
 Examples:
   npm run db:reset -- all
   $env:CONFIRM_DEMO_CLEAR='yes'; npm run db:reset -- demo
   $env:CONFIRM_WIPE_KEEP_USERS='yes'; npm run db:reset -- keep-users
-  $env:CONFIRM_QA_RESET='yes'; npm run db:reset -- keep-one-per-role
 `);
 }
 async function main() {

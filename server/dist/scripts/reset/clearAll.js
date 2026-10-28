@@ -51,5 +51,5 @@ export async function run(_argv = []) {
         throw new Error(`Clear incomplete: ${counts.join(', ')} remaining in core tables`);
     }
     console.log('Database cleared — all tables are empty.');
-    console.log('Run `npm run db:bootstrap` or `npm run db:seed` to create login accounts again.');
+    console.log('Run `npm run db:bootstrap` to create a login account again.');
 }

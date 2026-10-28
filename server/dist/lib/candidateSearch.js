@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from './prisma.js';
 import { CandidateSearchQueryError, normalizeCandidateSearchQuery, } from './candidateSearchQuery.js';
 import { buildCandidateListWhere } from './candidateAccess.js';
@@ -152,39 +153,28 @@ const NOTICE_DAYS_SQL = `
 async function idsMatchingNumericFacets(params) {
     if (!hasNumericFacets(params))
         return null;
+    // Tagged Prisma.sql: the expressions are fixed SQL, every filter value is a bound parameter.
+    const expYears = Prisma.raw(EXP_YEARS_SQL);
+    const currentCtc = Prisma.raw(CURRENT_CTC_LAKHS_SQL);
+    const expectedCtc = Prisma.raw(EXPECTED_CTC_LAKHS_SQL);
+    const noticeDays = Prisma.raw(NOTICE_DAYS_SQL);
     const conditions = [];
-    const values = [];
-    let i = 1;
-    if (params.expMin != null) {
-        conditions.push(`${EXP_YEARS_SQL} >= $${i++}`);
-        values.push(params.expMin);
-    }
-    if (params.expMax != null) {
-        conditions.push(`${EXP_YEARS_SQL} <= $${i++}`);
-        values.push(params.expMax);
-    }
-    if (params.currentCtcMin != null) {
-        conditions.push(`${CURRENT_CTC_LAKHS_SQL} >= $${i++}`);
-        values.push(params.currentCtcMin);
-    }
-    if (params.currentCtcMax != null) {
-        conditions.push(`${CURRENT_CTC_LAKHS_SQL} <= $${i++}`);
-        values.push(params.currentCtcMax);
-    }
-    if (params.expectedCtcMin != null) {
-        conditions.push(`${EXPECTED_CTC_LAKHS_SQL} >= $${i++}`);
-        values.push(params.expectedCtcMin);
-    }
-    if (params.expectedCtcMax != null) {
-        conditions.push(`${EXPECTED_CTC_LAKHS_SQL} <= $${i++}`);
-        values.push(params.expectedCtcMax);
-    }
+    if (params.expMin != null)
+        conditions.push(Prisma.sql `${expYears} >= ${params.expMin}`);
+    if (params.expMax != null)
+        conditions.push(Prisma.sql `${expYears} <= ${params.expMax}`);
+    if (params.currentCtcMin != null)
+        conditions.push(Prisma.sql `${currentCtc} >= ${params.currentCtcMin}`);
+    if (params.currentCtcMax != null)
+        conditions.push(Prisma.sql `${currentCtc} <= ${params.currentCtcMax}`);
+    if (params.expectedCtcMin != null)
+        conditions.push(Prisma.sql `${expectedCtc} >= ${params.expectedCtcMin}`);
+    if (params.expectedCtcMax != null)
+        conditions.push(Prisma.sql `${expectedCtc} <= ${params.expectedCtcMax}`);
     if (params.noticeMaxDays != null) {
-        conditions.push(`${NOTICE_DAYS_SQL} IS NOT NULL AND ${NOTICE_DAYS_SQL} <= $${i++}`);
-        values.push(params.noticeMaxDays);
+        conditions.push(Prisma.sql `${noticeDays} IS NOT NULL AND ${noticeDays} <= ${params.noticeMaxDays}`);
     }
-    const sql = `SELECT c.id FROM "Candidate" c WHERE ${conditions.join(' AND ')}`;
-    const rows = await prisma.$queryRawUnsafe(sql, ...values);
+    const rows = await prisma.$queryRaw(Prisma.sql `SELECT c.id FROM "Candidate" c WHERE ${Prisma.join(conditions, ' AND ')}`);
     return rows.map((r) => r.id);
 }
 const SEARCH_DOCUMENT_SQL = `
@@ -214,13 +204,15 @@ const SEARCH_DOCUMENT_SQL = `
 const FTS_MAX_HITS = 5000;
 const FTS_STATEMENT_TIMEOUT_MS = 8000;
 async function ftsRankedIds(queryText, mode) {
+    // The search text is always a bound parameter; only the fixed function name varies.
     const tsqueryExpr = mode === 'simple'
-        ? "plainto_tsquery('english', $1)"
-        : "to_tsquery('english', $1)";
-    const sql = `
+        ? Prisma.sql `plainto_tsquery('english', ${queryText})`
+        : Prisma.sql `to_tsquery('english', ${queryText})`;
+    const searchDocument = Prisma.raw(SEARCH_DOCUMENT_SQL);
+    const sql = Prisma.sql `
     SELECT
       c.id,
-      ts_rank_cd(${SEARCH_DOCUMENT_SQL}, ${tsqueryExpr}) AS rank,
+      ts_rank_cd(${searchDocument}, ${tsqueryExpr}) AS rank,
       ts_headline(
         'english',
         left(
@@ -233,7 +225,7 @@ async function ftsRankedIds(queryText, mode) {
         'MaxWords=20, MinWords=8, MaxFragments=1, StartSel=[[[hl]]], StopSel=[[[/hl]]]'
       ) AS headline
     FROM "Candidate" c
-    WHERE ${SEARCH_DOCUMENT_SQL} @@ ${tsqueryExpr}
+    WHERE ${searchDocument} @@ ${tsqueryExpr}
     ORDER BY rank DESC
     LIMIT ${FTS_MAX_HITS}
   `;
@@ -241,8 +233,9 @@ async function ftsRankedIds(queryText, mode) {
         // The match runs before access filtering, so cap its rows and time: a broad or crafted
         // query must not tie up the database for everyone else.
         const rows = await prisma.$transaction(async (tx) => {
-            await tx.$executeRawUnsafe(`SET LOCAL statement_timeout = '${FTS_STATEMENT_TIMEOUT_MS}ms'`);
-            return tx.$queryRawUnsafe(sql, queryText);
+            // set_config(..., true) is the parameterised form of SET LOCAL (this transaction only).
+            await tx.$queryRaw `SELECT set_config('statement_timeout', ${`${FTS_STATEMENT_TIMEOUT_MS}ms`}, true)`;
+            return tx.$queryRaw(sql);
         });
         return rows.map((r) => ({
             id: r.id,

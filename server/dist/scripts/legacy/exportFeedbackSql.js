@@ -14,7 +14,7 @@ import '../../config/loadEnv.js';
 import fs from 'fs';
 import path from 'path';
 import { prisma } from '../../lib/prisma.js';
-import { DEV_USERS } from '../../config/devUsers.js';
+import { isProtectedStitchEmail } from '../../lib/legacyImport/ensureStitchUser.js';
 import { ident, lit } from './exportSql.js';
 const CARRIED_ROLES = new Set(['RECRUITER', 'HIRING_MANAGER', 'VENDOR', 'INTERVIEWER']);
 function upsertStatements(table, rows, batchSize = 200) {
@@ -56,9 +56,8 @@ export async function run(argv = []) {
     for (const f of feedback)
         if (f.interviewerId)
             referenced.add(String(f.interviewerId));
-    const devEmails = new Set(DEV_USERS.map((u) => u.email.toLowerCase()));
     const users = allUsers.filter((u) => referenced.has(String(u.id)));
-    const carried = users.filter((u) => CARRIED_ROLES.has(String(u.role)) && !devEmails.has(String(u.email).toLowerCase()));
+    const carried = users.filter((u) => CARRIED_ROLES.has(String(u.role)) && !isProtectedStitchEmail(String(u.email)));
     const carriedIds = new Set(carried.map((u) => String(u.id)));
     const idArray = (ids) => `ARRAY[${ids.map(lit).join(', ')}]::text[]`;
     const sql = [];

@@ -14,12 +14,14 @@ import { closeLoginSession, reopenRecentTabClose } from '../lib/recordLogin.js';
 import { issueAppSession } from '../lib/appSession.js';
 import { CSRF_HEADER, clearRefreshCookie, readRefreshCookie, withRefreshCookie } from '../lib/refreshCookie.js';
 import { isTrustedDevice, mfaRequiredForRole, revokeTrustedDevices, signMfaToken } from '../lib/mfa.js';
+import { readMfaDeviceCookie, setMfaDeviceCookie } from '../lib/mfaDeviceCookie.js';
 import mfaRoutes from './mfa.js';
 import emailVerificationRoutes from './emailVerification.js';
 import { sendEmailVerification } from '../lib/emailVerification.js';
 import { accountLockedMessage, isAccountLocked } from '../lib/accountLock.js';
 import { hashResetToken, issuePasswordResetLink } from '../lib/passwordReset.js';
 import { applyNoStoreAuth } from '../lib/authResponse.js';
+import { clearCounter, extendCounter, hitCounter, readCounter } from '../lib/rateLimitStore.js';
 import { verifyGoogleAccessToken, verifyGoogleIdToken } from '../lib/googleAuth.js';
 import { verifyMicrosoftIdToken } from '../lib/microsoftAuth.js';
 import { bumpTokenVersionAndRevoke, issueSession, revokeRefreshToken, rotateRefreshToken, signAccessToken, } from '../lib/sessionTokens.js';
@@ -144,36 +146,32 @@ router.post('/resend-verification', authRateLimiter, async (req, res, next) => {
 router.use('/verify-email', emailVerificationRoutes);
 /** Valid bcrypt hash of a random string, compared against when the account does not exist. */
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), BCRYPT_ROUNDS);
-/** Lockout: this many consecutive wrong passwords locks the account for a while (see lib/accountLock). */
-const MAX_FAILED_LOGIN_ATTEMPTS = 5;
-/** Per-account lockout: 10 failures within 15 minutes locks that email for 15 minutes. */
-const LOGIN_FAILURE_LIMIT = 10;
+/**
+ * Account-wide backstop: this many consecutive wrong passwords (from any address) locks the account
+ * for a while (see lib/accountLock). Set well above the per-address limit below, so one attacker
+ * cannot lock a colleague out just by knowing their email; it still stops guessing spread over
+ * many addresses.
+ */
+const MAX_FAILED_LOGIN_ATTEMPTS = 25;
+/** Per address + account: 5 failures within 15 minutes blocks that address for that email for 15 minutes. */
+const LOGIN_FAILURE_LIMIT = 5;
 const LOGIN_LOCK_MS = 15 * 60 * 1000;
-const loginFailures = new Map();
-function isLoginLocked(email) {
-    const entry = loginFailures.get(email);
-    return Boolean(entry && entry.lockedUntil > Date.now());
+// Kept in Postgres (lib/rateLimitStore) so a restart does not wipe the count.
+function loginFailureKey(req, email) {
+    return `loginfail:${req.ip ?? ''}|${email}`;
 }
-function recordLoginFailure(email) {
-    const now = Date.now();
-    const entry = loginFailures.get(email);
-    if (!entry || now - entry.firstAt > LOGIN_LOCK_MS) {
-        loginFailures.set(email, { count: 1, firstAt: now, lockedUntil: 0 });
-    }
-    else {
-        entry.count += 1;
-        if (entry.count >= LOGIN_FAILURE_LIMIT)
-            entry.lockedUntil = now + LOGIN_LOCK_MS;
-    }
-    if (loginFailures.size > 10000) {
-        for (const [key, value] of loginFailures) {
-            if (value.lockedUntil < now && now - value.firstAt > LOGIN_LOCK_MS)
-                loginFailures.delete(key);
-        }
-    }
+async function isLoginLocked(key) {
+    const entry = await readCounter(key);
+    return Boolean(entry && entry.totalHits >= LOGIN_FAILURE_LIMIT);
 }
-function clearLoginFailures(email) {
-    loginFailures.delete(email);
+async function recordLoginFailure(key) {
+    const { totalHits } = await hitCounter(key, LOGIN_LOCK_MS);
+    // Reaching the limit holds the block for a full period from the last failure.
+    if (totalHits >= LOGIN_FAILURE_LIMIT)
+        await extendCounter(key, LOGIN_LOCK_MS);
+}
+async function clearLoginFailures(key) {
+    await clearCounter(key);
 }
 router.post('/login', authRateLimiter, loginRateLimiter, async (req, res, next) => {
     try {
@@ -182,7 +180,8 @@ router.post('/login', authRateLimiter, loginRateLimiter, async (req, res, next) 
         if (!parsed.success)
             return res.status(400).json({ error: 'Invalid credentials' });
         const email = parsed.data.email.toLowerCase();
-        if (isLoginLocked(email)) {
+        const failureKey = loginFailureKey(req, email);
+        if (await isLoginLocked(failureKey)) {
             return res.status(429).json({
                 error: 'Too many failed sign-in attempts. Try again in 15 minutes or reset your password.',
             });
@@ -199,7 +198,7 @@ router.post('/login', authRateLimiter, loginRateLimiter, async (req, res, next) 
             return res.status(423).json({ error: accountLockedMessage(user), code: 'ACCOUNT_LOCKED' });
         }
         if (!user || !credentialsOk) {
-            recordLoginFailure(email);
+            await recordLoginFailure(failureKey);
             if (user?.passwordHash) {
                 const attempts = user.failedLoginAttempts + 1;
                 const lock = attempts >= MAX_FAILED_LOGIN_ATTEMPTS;
@@ -214,7 +213,7 @@ router.post('/login', authRateLimiter, loginRateLimiter, async (req, res, next) 
             // accounts (or count down their lockout). The lock is revealed only with the right password.
             return res.status(401).json({ error: 'Invalid email or password' });
         }
-        clearLoginFailures(email);
+        await clearLoginFailures(failureKey);
         if (user.failedLoginAttempts > 0 || user.lockedAt) {
             await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedAt: null } });
         }
@@ -230,8 +229,14 @@ router.post('/login', authRateLimiter, loginRateLimiter, async (req, res, next) 
         // Password is correct. Everyone except candidates must pass a second factor before any
         // session is issued; the challenge token is useless for API calls (typ !== 'access').
         if (mfaRequiredForRole(user.role)) {
-            const trusted = user.mfaEnabled && (await isTrustedDevice(user.id, parsed.data.deviceToken));
-            if (!trusted) {
+            const cookieDevice = readMfaDeviceCookie(req);
+            const trustedByCookie = user.mfaEnabled && (await isTrustedDevice(user.id, cookieDevice));
+            // Devices remembered before the cookie existed send their token in the body; move it into
+            // the HttpOnly cookie. The body token can be dropped once those have expired (15 days).
+            const trustedByBody = !trustedByCookie && user.mfaEnabled && (await isTrustedDevice(user.id, parsed.data.deviceToken));
+            if (trustedByBody)
+                setMfaDeviceCookie(res, parsed.data.deviceToken);
+            if (!trustedByCookie && !trustedByBody) {
                 return res.json({
                     mfaRequired: true,
                     mfaSetupRequired: !user.mfaEnabled,
@@ -455,16 +460,23 @@ router.post('/change-password', requireAuth, requireActiveUser, async (req, res)
     const allowedPages = await getAllowedPagesForRole(updated.role);
     res.json({ ...withRefreshCookie(res, tokens), user: mapUser(updated), allowedPages });
 });
+/** Reset emails per address per hour, so the form cannot be used to flood someone's inbox. */
+const RESET_EMAILS_PER_HOUR = 3;
 router.post('/forgot-password', authRateLimiter, async (req, res) => {
     const { email } = z.object({ email: z.string().email() }).parse(req.body);
-    const user = await prisma.user.findUnique({
-        where: { email: email.toLowerCase() },
-    });
-    // Google-only accounts have no password â€” skip email so we don't set one unexpectedly.
+    const address = email.toLowerCase();
+    const ok = { ok: true, message: 'If that email exists, a reset link was sent.' };
+    const { totalHits } = await hitCounter(`resetmail:${address}`, 60 * 60 * 1000);
+    if (totalHits > RESET_EMAILS_PER_HOUR)
+        return res.json(ok);
+    const user = await prisma.user.findUnique({ where: { email: address } });
+    // Answer before sending: waiting on the mail provider only for real accounts would reveal,
+    // by response time, which addresses have an account.
+    res.json(ok);
+    // Google-only accounts have no password; skip them so we don't set one unexpectedly.
     if (user && user.status === 'ACTIVE' && user.passwordHash) {
-        await issuePasswordResetLink(user, req);
+        issuePasswordResetLink(user, req).catch((err) => console.error('[auth] password reset email failed:', err));
     }
-    res.json({ ok: true, message: 'If that email exists, a reset link was sent.' });
 });
 router.post('/reset-password', authRateLimiter, async (req, res) => {
     const { token, newPassword } = z
@@ -494,6 +506,10 @@ router.post('/reset-password', authRateLimiter, async (req, res) => {
             passwordResetExpires: null,
             // Reaching this point means the caller received the emailed link, so the mailbox is theirs.
             emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+            // Proving control of the mailbox is also the self-service way out of a sign-in lockout.
+            // The MFA failure count stays, so a mailbox holder gets no fresh authenticator-code guesses.
+            lockedAt: null,
+            failedLoginAttempts: 0,
         },
     });
     await bumpTokenVersionAndRevoke(user.id);

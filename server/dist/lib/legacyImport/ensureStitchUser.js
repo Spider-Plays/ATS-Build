@@ -1,7 +1,6 @@
 import crypto from 'crypto';
-import bcrypt from 'bcryptjs';
 import { prisma } from '../prisma.js';
-import { DEV_PASSWORD, DEV_USERS } from '../../config/devUsers.js';
+import { unusablePasswordHash } from './unusablePassword.js';
 export function createEmptyStitchUserLookup() {
     return { byEmail: new Map(), byName: new Map(), emailName: new Map() };
 }
@@ -17,10 +16,10 @@ export function personNameTokens(name) {
         .split(/\s+/)
         .filter(Boolean);
 }
-const PROTECTED_STITCH_EMAILS = new Set(DEV_USERS.map((u) => u.email.trim().toLowerCase()));
-/** Dev/demo registry emails must not be renamed or deleted during dedupe. */
+/** Retired dev accounts lived on this domain; legacy dedupe and exports leave them alone. */
+const RETIRED_DEV_EMAIL_DOMAIN = '@stitch-ats.in';
 export function isProtectedStitchEmail(email) {
-    return PROTECTED_STITCH_EMAILS.has(email.trim().toLowerCase());
+    return email.trim().toLowerCase().endsWith(RETIRED_DEV_EMAIL_DOMAIN);
 }
 /**
  * Local-part slug: `firstname.lastinitial` (e.g. "Suma S" → `suma.s`).
@@ -225,7 +224,7 @@ export async function ensureStitchUser(lookup, opts) {
         }
         finalEmail = `${slugFromName(displayName)}.${crypto.randomBytes(2).toString('hex')}@ats.igsglobal.co`;
     }
-    const passwordHash = opts.passwordHash ?? (await bcrypt.hash(DEV_PASSWORD, 10));
+    const passwordHash = opts.passwordHash ?? (await unusablePasswordHash());
     try {
         const created = await prisma.user.create({
             data: {
@@ -238,7 +237,7 @@ export async function ensureStitchUser(lookup, opts) {
                 permissions: '[]',
                 themePreference: 'light',
                 authProvider: 'local',
-                mustChangePassword: false,
+                mustChangePassword: true,
             },
             select: { id: true, email: true, name: true },
         });

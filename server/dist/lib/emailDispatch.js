@@ -11,8 +11,9 @@ function fireAndForget(promise) {
 async function sendToMany(recipients, send) {
     await Promise.allSettled(recipients.map((r) => send(r)));
 }
-export function notifyAdminPasswordReset(user, password, setByAdmin = true) {
-    fireAndForget(sendAdminPasswordEmail({ to: user.email, name: user.name, password, setByAdmin }));
+/** Notice only: the new password is shared by the admin in person, never by email. */
+export function notifyAdminPasswordReset(user, setByAdmin = true) {
+    fireAndForget(sendAdminPasswordEmail({ to: user.email, name: user.name, setByAdmin }));
 }
 export async function prepareInterviewCalendar(row, options) {
     const ctx = await interviewRowToCalendarContext(row, {

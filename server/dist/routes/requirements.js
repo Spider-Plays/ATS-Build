@@ -18,7 +18,7 @@ import { assertCanApproveRequirement, assertCanManageRequirementPosting, assertC
 import { parseRequirementClientInput, resolveClientFromCatalog, } from '../lib/clientCatalog.js';
 import { isRequirementAcceptingCandidates, requirementApplicationsClosedMessage } from '../lib/requirementHiring.js';
 import { refreshRequirementHiringState, syncRequirementHiringState } from '../lib/hiring.js';
-import { assertCanAddCandidatesToRequirement, assertCanViewRequirement, buildRequirementListWhere, RequirementAccessError, } from '../lib/requirementAccess.js';
+import { assertCanAddCandidatesToRequirement, assertCanEditRequirement, assertCanViewRequirement, buildRequirementListWhere, RequirementAccessError, } from '../lib/requirementAccess.js';
 import { assertCanViewCandidate, buildCandidateListWhere, buildCandidateMatchPoolWhere, CandidateAccessError, } from '../lib/candidateAccess.js';
 import { buildRequirementTagUpdate } from '../lib/candidateStatuses.js';
 import { notifyCandidateStatusChange, notifyVendorAssignment } from '../lib/emailDispatch.js';
@@ -578,7 +578,20 @@ router.post('/', requireRoles(...STAFF_MUTATE, 'HIRING_MANAGER'), async (req, re
     })());
     res.status(201).json(mapRequirement(row));
 });
-router.patch('/:id', requireRoles(...STAFF_MUTATE, 'HIRING_MANAGER'), async (req, res) => {
+/** Write routes: the caller must own or be assigned to the requirement, not just be able to view it. */
+async function requireRequirementEditor(req, res, next) {
+    try {
+        await assertCanEditRequirement(req.auth, req.params.id);
+    }
+    catch (err) {
+        if (err instanceof RequirementAccessError) {
+            return res.status(err.message === 'Requirement not found' ? 404 : 403).json({ error: err.message });
+        }
+        return next(err);
+    }
+    next();
+}
+router.patch('/:id', requireRoles(...STAFF_MUTATE, 'HIRING_MANAGER'), requireRequirementEditor, async (req, res) => {
     const existing = await prisma.requirement.findUnique({ where: { id: req.params.id } });
     if (!existing)
         return res.status(404).json({ error: 'Not found' });
@@ -867,7 +880,7 @@ router.post('/:id/cancel', requireRoles(...POSTING_CONTROL_ROLES), async (req, r
     });
     res.json(mapRequirement(row));
 });
-router.patch('/:id/visibility', requireRoles(...PORTAL_VISIBILITY_ROLES), async (req, res) => {
+router.patch('/:id/visibility', requireRoles(...PORTAL_VISIBILITY_ROLES), requireRequirementEditor, async (req, res) => {
     const visibleToCandidates = Boolean(req.body.visibleToCandidates);
     const existing = await prisma.requirement.findUnique({ where: { id: req.params.id } });
     if (!existing)
@@ -905,7 +918,7 @@ router.patch('/:id/visibility', requireRoles(...PORTAL_VISIBILITY_ROLES), async 
     });
     res.json(mapRequirement(row));
 });
-router.patch('/:id/referral-visibility', requireRoles(...PORTAL_VISIBILITY_ROLES), async (req, res) => {
+router.patch('/:id/referral-visibility', requireRoles(...PORTAL_VISIBILITY_ROLES), requireRequirementEditor, async (req, res) => {
     const visibleToReferrals = Boolean(req.body.visibleToReferrals);
     const referralBonusAmount = req.body.referralBonusAmount === null || req.body.referralBonusAmount === undefined
         ? undefined
@@ -1461,9 +1474,7 @@ function pickRequirementFields(data) {
         'title',
         'department',
         'hiringManager',
-        'status',
         'openings',
-        'filled',
         'priority',
         'location',
         'locationCity',
@@ -1480,8 +1491,9 @@ function pickRequirementFields(data) {
         'jobDescription',
         'primarySkills',
         'secondarySkills',
-        'visibleToCandidates',
     ];
+    // status, filled and portal visibility change only through /status, /approve, /visibility and the
+    // hiring sync, which enforce their own workflow rules.
     const out = {};
     for (const k of allowed) {
         if (data[k] !== undefined)

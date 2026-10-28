@@ -1,9 +1,20 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { assertPublicHttpsUrl, isNonPublicIp } from './outboundUrl.js';
+import { assertPublicHttpsUrl, isNonPublicIp, publicOnlyLookup } from './outboundUrl.js';
+function lookup(hostname, all = false) {
+    return new Promise((resolve, reject) => {
+        publicOnlyLookup(hostname, { all }, (err, address) => (err ? reject(err) : resolve(address)));
+    });
+}
+describe('publicOnlyLookup (connection-time check against DNS rebinding)', () => {
+    it('refuses a hostname that resolves to a private address', async () => {
+        await assert.rejects(lookup('localhost'), /non-public/);
+        await assert.rejects(lookup('localhost', true), /non-public/);
+    });
+});
 describe('isNonPublicIp', () => {
     it('flags loopback, private, link-local and metadata addresses', () => {
-        for (const ip of ['127.0.0.1', '10.1.2.3', '172.16.0.1', '172.31.255.255', '192.168.30.139', '169.254.169.254', '100.64.0.1', '0.0.0.0', '::1', 'fd00::1', 'fe80::1', '::ffff:127.0.0.1']) {
+        for (const ip of ['127.0.0.1', '10.1.2.3', '172.16.0.1', '172.31.255.255', '192.168.30.139', '169.254.169.254', '100.64.0.1', '0.0.0.0', '::1', 'fd00::1', 'fe80::1', '::ffff:127.0.0.1', '::ffff:7f00:1', '::ffff:a9fe:a9fe', '64:ff9b::a9fe:a9fe', '2002:7f00:1::', '2001:0:4136:e378::1', 'ff02::1']) {
             assert.equal(isNonPublicIp(ip), true, ip);
         }
     });
@@ -21,6 +32,10 @@ describe('assertPublicHttpsUrl', () => {
         await assert.rejects(assertPublicHttpsUrl('https://[::1]/cv.pdf'));
         await assert.rejects(assertPublicHttpsUrl('https://169.254.169.254/latest/meta-data'));
         await assert.rejects(assertPublicHttpsUrl('https://user:pw@8.8.8.8/cv.pdf'));
+        // URL parsing rewrites these to hex (::ffff:7f00:1), which a dotted-only check missed.
+        await assert.rejects(assertPublicHttpsUrl('https://[::ffff:127.0.0.1]/cv.pdf'));
+        await assert.rejects(assertPublicHttpsUrl('https://[::ffff:169.254.169.254]/latest/meta-data'));
+        await assert.rejects(assertPublicHttpsUrl('https://[64:ff9b::a9fe:a9fe]/latest/meta-data'));
     });
     it('accepts a literal public https host', async () => {
         assert.equal((await assertPublicHttpsUrl('https://8.8.8.8/cv.pdf')).hostname, '8.8.8.8');

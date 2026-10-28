@@ -1,0 +1,1 @@
+async function t(e){if(!e)return!1;try{return await navigator.clipboard.writeText(e),!0}catch{return!1}}const r="The one-time set-password link was copied to your clipboard; send it to them directly.";export{r as S,t as c};

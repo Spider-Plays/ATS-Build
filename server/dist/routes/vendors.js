@@ -1,12 +1,11 @@
-import { BCRYPT_ROUNDS } from '../lib/passwordPolicy.js';
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { mapUser } from '../utils/mappers.js';
 import { mapVendor } from '../utils/mapVendor.js';
 import { requireAuth, requireActiveUser, requireExactRoles, requireRoles } from '../middleware/auth.js';
-import { generateTempPassword } from '../lib/password.js';
+import { createPasswordSetupLink } from '../lib/passwordReset.js';
+import { unusablePasswordHash } from '../lib/legacyImport/unusablePassword.js';
 import { sendVendorInviteEmail } from '../services/email.js';
 import { logActivity } from '../services/activityLog.js';
 import { INTERNAL_ROLES } from '../lib/roles.js';
@@ -321,31 +320,30 @@ router.post('/', requireExactRoles(...VENDOR_CREATORS), async (req, res) => {
                 notes: body.notes?.trim() || null,
             },
         });
-        const tempPassword = generateTempPassword();
-        const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
+        // The vendor chooses their own password from the emailed link; none is ever sent.
         const user = await prisma.user.create({
             data: {
                 email: primaryEmail,
-                passwordHash,
+                passwordHash: await unusablePasswordHash(),
                 name: contactName,
                 role: 'VENDOR',
                 vendorId: vendor.id,
                 status: 'ACTIVE',
                 permissions: '[]',
-                mustChangePassword: true,
             },
         });
+        const setupUrl = await createPasswordSetupLink(user, req);
         const emailResult = await sendVendorInviteEmail({
             to: primaryEmail,
             name: user.name,
-            tempPassword,
+            setupUrl,
             vendorName: vendor.name,
             vendorId: vendor.id,
         });
         let inviteEmailWarning;
         let inviteDevHint;
         if (!emailResult.sent) {
-            logTemporaryPassword('Vendor portal invite', primaryEmail, tempPassword);
+            logTemporaryPassword('Vendor portal invite (set-password link)', primaryEmail, setupUrl);
             if (emailResult.reason === 'not_configured') {
                 inviteEmailWarning = EMAIL_NOT_CONFIGURED_WARNING;
                 if (process.env.NODE_ENV !== 'production') {
@@ -396,6 +394,7 @@ router.post('/', requireExactRoles(...VENDOR_CREATORS), async (req, res) => {
             emailSent: emailResult.sent,
             ...(inviteEmailWarning ? { emailWarning: inviteEmailWarning } : {}),
             ...(inviteDevHint ? { devHint: inviteDevHint } : {}),
+            ...(emailResult.sent ? {} : { setupUrl }),
         });
     }
     catch (err) {
@@ -569,12 +568,10 @@ router.post('/:id/invite', requireRoles(...VENDOR_MANAGERS), async (req, res) =>
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing)
         return res.status(409).json({ error: 'A user with this email already exists' });
-    const tempPassword = generateTempPassword();
-    const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
     const user = await prisma.user.create({
         data: {
             email,
-            passwordHash,
+            passwordHash: await unusablePasswordHash(),
             name: body.name?.trim() || email.split('@')[0],
             role: 'VENDOR',
             vendorId: vendor.id,
@@ -582,15 +579,16 @@ router.post('/:id/invite', requireRoles(...VENDOR_MANAGERS), async (req, res) =>
             permissions: '[]',
         },
     });
+    const setupUrl = await createPasswordSetupLink(user, req);
     const emailResult = await sendVendorInviteEmail({
         to: email,
         name: user.name,
-        tempPassword,
+        setupUrl,
         vendorName: vendor.name,
         vendorId: vendor.id,
     });
     if (!emailResult.sent) {
-        logTemporaryPassword('Vendor user invite', email, tempPassword);
+        logTemporaryPassword('Vendor user invite (set-password link)', email, setupUrl);
     }
     await logActivity({
         entityType: 'VENDOR',
@@ -611,6 +609,7 @@ router.post('/:id/invite', requireRoles(...VENDOR_MANAGERS), async (req, res) =>
                 ...(process.env.NODE_ENV !== 'production'
                     ? { devHint: EMAIL_TEMP_PASSWORD_DEV_HINT }
                     : {}),
+                setupUrl,
             }
             : {}),
     });
@@ -628,8 +627,8 @@ router.post('/:id/reinvite', requireRoles('SUPER_ADMIN'), async (req, res) => {
                 error: `Cannot reinvite — ${primaryEmail} belongs to another account (${user.role}).`,
             });
         }
-        const tempPassword = generateTempPassword();
-        const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
+        // A reinvite replaces any password with a fresh set-password link.
+        const passwordHash = await unusablePasswordHash();
         if (!user) {
             user = await prisma.user.create({
                 data: {
@@ -640,7 +639,6 @@ router.post('/:id/reinvite', requireRoles('SUPER_ADMIN'), async (req, res) => {
                     vendorId: vendor.id,
                     status: 'ACTIVE',
                     permissions: '[]',
-                    mustChangePassword: true,
                 },
             });
         }
@@ -649,23 +647,24 @@ router.post('/:id/reinvite', requireRoles('SUPER_ADMIN'), async (req, res) => {
                 where: { id: user.id },
                 data: {
                     passwordHash,
-                    mustChangePassword: true,
+                    mustChangePassword: false,
                     status: 'ACTIVE',
                     vendorId: vendor.id,
                 },
             });
         }
+        const setupUrl = await createPasswordSetupLink(user, req);
         const emailResult = await sendVendorInviteEmail({
             to: primaryEmail,
             name: user.name,
-            tempPassword,
+            setupUrl,
             vendorName: vendor.name,
             vendorId: vendor.id,
         });
         let emailWarning;
         let devHint;
         if (!emailResult.sent) {
-            logTemporaryPassword('Vendor portal reinvite', primaryEmail, tempPassword);
+            logTemporaryPassword('Vendor portal reinvite (set-password link)', primaryEmail, setupUrl);
             if (emailResult.reason === 'not_configured') {
                 emailWarning = EMAIL_NOT_CONFIGURED_WARNING;
                 if (process.env.NODE_ENV !== 'production')
@@ -690,6 +689,7 @@ router.post('/:id/reinvite', requireRoles('SUPER_ADMIN'), async (req, res) => {
             emailSent: emailResult.sent,
             ...(emailWarning ? { emailWarning } : {}),
             ...(devHint ? { devHint } : {}),
+            ...(emailResult.sent ? {} : { setupUrl }),
         });
     }
     catch (err) {

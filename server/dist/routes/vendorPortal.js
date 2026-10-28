@@ -184,12 +184,28 @@ router.post('/parse-resume', handleUploadResume, async (req, res) => {
         res.status(422).json({ error: message });
     }
 });
+/** excludeId (editing a submission) only applies to the vendor's own candidates. */
+async function ownExcludeId(userId, raw) {
+    const id = typeof raw === 'string' ? raw.trim() : '';
+    if (!id)
+        return '';
+    const ctx = await getVendorForUser(userId);
+    if (!ctx)
+        return '';
+    try {
+        await assertVendorOwnsCandidate(ctx.vendor.id, id);
+        return id;
+    }
+    catch {
+        return '';
+    }
+}
 router.post('/check-email', lookupRateLimiter, async (req, res) => {
     const email = typeof req.body?.email === 'string' ? req.body.email : '';
-    const excludeId = typeof req.body?.excludeId === 'string' ? req.body.excludeId.trim() : '';
     if (!email.trim()) {
         return res.json({ exists: false });
     }
+    const excludeId = await ownExcludeId(req.auth.userId, req.body?.excludeId);
     const existing = await findCandidateByEmail(email, excludeId || undefined);
     if (!existing) {
         return res.json({ exists: false });
@@ -201,10 +217,10 @@ router.post('/check-email', lookupRateLimiter, async (req, res) => {
 });
 router.post('/check-pan', lookupRateLimiter, async (req, res) => {
     const pan = typeof req.body?.pan === 'string' ? req.body.pan : '';
-    const excludeId = typeof req.body?.excludeId === 'string' ? req.body.excludeId.trim() : '';
     if (!pan.trim() || !isValidPanFormat(pan)) {
         return res.json({ exists: false });
     }
+    const excludeId = await ownExcludeId(req.auth.userId, req.body?.excludeId);
     const existing = await findCandidateByPan(pan, excludeId || undefined);
     if (!existing) {
         return res.json({ exists: false });

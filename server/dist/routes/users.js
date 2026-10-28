@@ -10,7 +10,8 @@ import { sanitizeFeatureTags } from '../lib/userTags.js';
 import { logTemporaryPassword } from '../lib/devPasswordLog.js';
 import { env } from '../config/env.js';
 import { notifyAdminPasswordReset } from '../lib/emailDispatch.js';
-import { issuePasswordResetLink } from '../lib/passwordReset.js';
+import { createPasswordSetupLink, issuePasswordResetLink } from '../lib/passwordReset.js';
+import { unusablePasswordHash } from '../lib/legacyImport/unusablePassword.js';
 import { buildUserListWhere } from '../lib/userAccess.js';
 import { sendInviteEmail } from '../services/email.js';
 import { EMAIL_NOT_CONFIGURED_DEV_HINT, EMAIL_NOT_CONFIGURED_WARNING } from '../lib/safeError.js';
@@ -70,21 +71,31 @@ router.post('/', requireRoles('SUPER_ADMIN', 'ADMIN'), async (req, res) => {
         department: z.string().max(120).optional(),
         phoneNumber: z.string().max(40).optional(),
         address: z.string().max(500).optional(),
-        temporaryPassword: newPasswordSchema,
+        /** Only when no invite email is sent: the admin hands this to the member in person. */
+        temporaryPassword: newPasswordSchema.optional(),
         sendInviteEmail: z.boolean().optional(),
     })
         .parse(req.body);
     if (!canManageRole(req.auth.role, body.role)) {
         return res.status(403).json({ error: 'You cannot create an account with this role' });
     }
+    const sendInvite = body.sendInviteEmail !== false;
+    if (!sendInvite && !body.temporaryPassword) {
+        return res.status(400).json({ error: 'Set a temporary password, or send an invite email instead' });
+    }
     const email = body.email.toLowerCase();
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing)
         return res.status(409).json({ error: 'A user with this email already exists' });
-    const personalError = personalInfoPasswordError(body.temporaryPassword, { email, name: body.name });
-    if (personalError)
-        return res.status(400).json({ error: personalError });
-    const passwordHash = await bcrypt.hash(body.temporaryPassword, BCRYPT_ROUNDS);
+    if (!sendInvite) {
+        const personalError = personalInfoPasswordError(body.temporaryPassword, { email, name: body.name });
+        if (personalError)
+            return res.status(400).json({ error: personalError });
+    }
+    // Invited members choose their own password from the emailed link; nobody else ever knows it.
+    const passwordHash = sendInvite
+        ? await unusablePasswordHash()
+        : await bcrypt.hash(body.temporaryPassword, BCRYPT_ROUNDS);
     const user = await prisma.user.create({
         data: {
             email,
@@ -98,37 +109,38 @@ router.post('/', requireRoles('SUPER_ADMIN', 'ADMIN'), async (req, res) => {
             permissions: '[]',
             themePreference: 'light',
             authProvider: 'local',
-            mustChangePassword: true,
+            mustChangePassword: !sendInvite,
             mustCompleteProfile: true,
         },
     });
-    if (!env.isProduction) {
-        logTemporaryPassword('New user (share with member)', email, body.temporaryPassword);
+    if (!sendInvite) {
+        if (!env.isProduction) {
+            logTemporaryPassword('New user (share with member)', email, body.temporaryPassword);
+        }
+        return res.status(201).json({ user: mapUser(user), inviteEmailSent: false });
     }
-    const sendInvite = body.sendInviteEmail !== false;
-    let inviteEmailSent;
+    const setupUrl = await createPasswordSetupLink(user, req);
+    const emailResult = await sendInviteEmail({
+        to: user.email,
+        name: user.name,
+        role: user.role.replace(/_/g, ' '),
+        setupUrl,
+    });
     let inviteEmailWarning;
     let inviteDevHint;
-    if (sendInvite) {
-        const emailResult = await sendInviteEmail({
-            to: user.email,
-            name: user.name,
-            role: user.role.replace(/_/g, ' '),
-            tempPassword: body.temporaryPassword,
-        });
-        inviteEmailSent = emailResult.sent;
-        if (!emailResult.sent && emailResult.reason === 'not_configured') {
-            inviteEmailWarning = EMAIL_NOT_CONFIGURED_WARNING;
-            if (!env.isProduction) {
-                inviteDevHint = EMAIL_NOT_CONFIGURED_DEV_HINT;
-            }
+    if (!emailResult.sent && emailResult.reason === 'not_configured') {
+        inviteEmailWarning = EMAIL_NOT_CONFIGURED_WARNING;
+        if (!env.isProduction) {
+            inviteDevHint = EMAIL_NOT_CONFIGURED_DEV_HINT;
         }
     }
     res.status(201).json({
         user: mapUser(user),
-        ...(sendInvite
-            ? { inviteEmailSent, inviteEmailWarning, inviteDevHint }
-            : { inviteEmailSent: false }),
+        inviteEmailSent: emailResult.sent,
+        inviteEmailWarning,
+        inviteDevHint,
+        // Undelivered invite: give the admin the one-time link to pass on, never a password.
+        ...(emailResult.sent ? {} : { setupUrl }),
     });
 });
 router.post('/me/complete-profile', async (req, res) => {
@@ -155,7 +167,12 @@ router.patch('/me', async (req, res) => {
         phoneNumber: z.string().optional(),
         address: z.string().optional(),
         themePreference: z.enum(['light']).optional(),
-        avatar: z.string().url().optional().or(z.literal('')),
+        avatar: z
+            .string()
+            .url()
+            .refine((v) => /^https?:\/\//i.test(v), 'Avatar must be an http(s) URL')
+            .optional()
+            .or(z.literal('')),
     })
         .parse(req.body);
     const user = await prisma.user.update({
@@ -291,7 +308,7 @@ router.post('/:id/reset-password', requireRoles('SUPER_ADMIN'), requireManageabl
         logTemporaryPassword('Admin temporary password (share with user)', target.email, plainPassword);
     }
     if (forceChangeOnLogin) {
-        notifyAdminPasswordReset({ email: target.email, name: target.name }, plainPassword, true);
+        notifyAdminPasswordReset({ email: target.email, name: target.name }, true);
     }
     res.json({
         ok: true,

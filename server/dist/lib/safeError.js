@@ -19,5 +19,5 @@ export function emailDeliveryErrorMessage(detail) {
     return `Email delivery failed: ${cleaned}`;
 }
 export const EMAIL_NOT_CONFIGURED_WARNING = 'Email is not configured. Set Microsoft 365 (M365_*) or RESEND_API_KEY in the root .env, then restart the API.';
-export const EMAIL_NOT_CONFIGURED_DEV_HINT = 'Temporary password was logged to the API server console (dev only).';
+export const EMAIL_NOT_CONFIGURED_DEV_HINT = 'The set-password link was logged to the API server console (dev only).';
 export const EMAIL_TEMP_PASSWORD_DEV_HINT = 'Temporary password was logged to the API server console (dev only).';

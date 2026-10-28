@@ -1,9 +1,11 @@
+import crypto from 'crypto';
 import { prisma } from './prisma.js';
 function randomSegment(length) {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let out = '';
     for (let i = 0; i < length; i++) {
-        out += chars[Math.floor(Math.random() * chars.length)];
+        // Codes are shared publicly and identify the referrer, so they must not be predictable.
+        out += chars[crypto.randomInt(chars.length)];
     }
     return out;
 }

@@ -1,9 +1,9 @@
 import { prisma } from './prisma.js';
 import { EMAIL_TOGGLE_KEYS, EMAIL_TOGGLE_LABELS } from './emailToggles.js';
 export const EMAIL_COPY_PLACEHOLDERS = {
-    invite: ['name', 'role', 'tempPassword', 'loginUrl', 'appName'],
-    vendorInvite: ['name', 'tempPassword', 'loginUrl', 'appName'],
-    adminPasswordReset: ['name', 'password', 'appName'],
+    invite: ['name', 'role', 'setupUrl', 'appName'],
+    vendorInvite: ['name', 'setupUrl', 'appName'],
+    adminPasswordReset: ['name', 'appName'],
     passwordReset: ['name', 'resetUrl', 'appName'],
     interviewScheduled: ['candidateName', 'type', 'scheduledAt', 'meetingLink', 'location'],
     interviewUpdated: ['candidateName', 'type', 'scheduledAt', 'meetingLink', 'location'],
@@ -40,15 +40,15 @@ export const EMAIL_COPY_PLACEHOLDERS = {
 export const DEFAULT_EMAIL_COPY = {
     invite: {
         subject: "You're invited to {{appName}}",
-        body: 'Hello {{name}},\n\nYou are invited to {{appName}} as {{role}}.\n\nTemporary password: {{tempPassword}}\nSign in: {{loginUrl}}',
+        body: 'Hello {{name}},\n\nYou are invited to {{appName}} as {{role}}.\n\nChoose your password (the link works once and expires in 24 hours):\n{{setupUrl}}',
     },
     vendorInvite: {
         subject: 'Welcome to {{appName}} vendor portal — complete your onboarding',
-        body: 'Hello {{name}},\n\nYour vendor portal login is ready.\n\nTemporary password: {{tempPassword}}\nSign in: {{loginUrl}}',
+        body: 'Hello {{name}},\n\nYour vendor portal login is ready.\n\nChoose your password (the link works once and expires in 24 hours):\n{{setupUrl}}',
     },
     adminPasswordReset: {
         subject: 'Your {{appName}} password was reset',
-        body: 'Hello {{name}},\n\nAn administrator reset your password.\n\nTemporary password: {{password}}',
+        body: 'Hello {{name}},\n\nAn administrator reset your password. They will share the temporary password with you directly.',
     },
     passwordReset: {
         subject: 'Reset your {{appName}} password',

@@ -1,1 +1,0 @@
-import{j as r}from"./vendor-query-CGQ8dNLD.js";import{u as o,dn as e}from"./index-CQuQIlYv.js";import{N as a}from"./vendor-react-DFTSzESR.js";import"./vendor-forms-GhGpzVWz.js";import"./vendor-motion-Ds7W0ABk.js";import"./vendor-lit-QNvgJy_F.js";function f(){const{user:t}=o();return r.jsx(a,{to:e(t==null?void 0:t.role),replace:!0})}export{f as default};

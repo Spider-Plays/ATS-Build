@@ -16,6 +16,13 @@ const WEIGHTS = { primary: 0.6, secondary: 0.25, experience: 0.15 };
  */
 export const INSUFFICIENT_MATCH_SCORE = -1;
 const INSUFFICIENT_MAX_SKILLS = 2;
+/** Skills come from user input, so the caches are capped: the oldest entry goes when one is full. */
+const MAX_CACHE_ENTRIES = 5000;
+function cacheSet(cache, key, value) {
+    if (cache.size >= MAX_CACHE_ENTRIES)
+        cache.delete(cache.keys().next().value);
+    cache.set(key, value);
+}
 const patternCache = new Map();
 /** Non-global (stateless) whole-word pattern, cached per skill. */
 function pattern(skill) {
@@ -23,7 +30,7 @@ function pattern(skill) {
     let re = patternCache.get(key);
     if (!re) {
         re = new RegExp(skillMatchPattern(skill).source, 'i');
-        patternCache.set(key, re);
+        cacheSet(patternCache, key, re);
     }
     return re;
 }
@@ -35,7 +42,7 @@ function catalogSkillsInPhrase(skill, catalogNames) {
     if (!inner) {
         const lower = skill.toLowerCase();
         inner = catalogNames.filter((name) => name.length >= 3 && name.toLowerCase() !== lower && pattern(name).test(lower));
-        innerSkillCache.set(key, inner);
+        cacheSet(innerSkillCache, key, inner);
     }
     return inner;
 }
