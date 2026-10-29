@@ -1,8 +1,7 @@
 /** Role groups for route guards */
 export const INTERNAL_ROLES = [
-    'SUPER_ADMIN',
-    'DEVELOPER',
     'ADMIN',
+    'DEVELOPER',
     'HR_HEAD',
     'TA_MANAGER',
     'HUMAN_RESOURCE',
@@ -20,7 +19,6 @@ export const REQUIREMENT_API_ROLES = [...INTERNAL_ROLES, 'ACCOUNT_MANAGER'];
  * Recruiter pivot = own activity only. TEAM_LEAD (TA Lead) + HR + admins see org-wide.
  */
 export const TA_REPORT_ROLES = [
-    'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',
@@ -29,7 +27,6 @@ export const TA_REPORT_ROLES = [
 ];
 /** Hiring / demand-fulfillment report (staff with Reports access; not Recruiters). */
 export const HIRING_REPORT_ROLES = [
-    'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',
@@ -41,30 +38,27 @@ export const HIRING_REPORT_ROLES = [
 ];
 /** Employee referral + vendor channel reports (HR leadership). */
 export const CHANNEL_REPORT_ROLES = [
-    'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',
 ];
 export const STAFF_MUTATE = [
-    'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',
     'RECRUITER',
     'TEAM_LEAD',
 ];
-/** HR Head and Super Admin approve directly; Admin with on-behalf-of-HR-Head flag. */
-export const REQ_APPROVERS = ['HR_HEAD', 'SUPER_ADMIN', 'ADMIN'];
-export const OFFER_ROLES = ['SUPER_ADMIN', 'ADMIN', 'HR_HEAD', 'TA_MANAGER', 'RECRUITER', 'TEAM_LEAD'];
+/** HR Head and Admin approve directly; Admin with on-behalf-of-HR-Head flag. */
+export const REQ_APPROVERS = ['HR_HEAD', 'ADMIN'];
+export const OFFER_ROLES = ['ADMIN', 'HR_HEAD', 'TA_MANAGER', 'RECRUITER', 'TEAM_LEAD'];
 /** Roles that may read offer data via GET /api/offers* */
 export const OFFER_VIEW_ROLES = OFFER_ROLES;
-export const OFFER_HR_APPROVERS = ['HR_HEAD', 'SUPER_ADMIN', 'ADMIN'];
-export const OFFER_EXEC_APPROVERS = ['SUPER_ADMIN', 'ADMIN'];
-/** Create, reschedule, and cancel interviews. Super Admin is not included; Developer bypasses requireExactRoles. */
+export const OFFER_HR_APPROVERS = [];
+export const OFFER_EXEC_APPROVERS = [];
+/** Create, reschedule, and cancel interviews. Admin is not included; Developer bypasses requireExactRoles. */
 export const INTERVIEW_SCHEDULERS = ['TA_MANAGER', 'RECRUITER'];
 export const INTERVIEW_PLAN_EDITORS = [
-    'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',
@@ -72,13 +66,10 @@ export const INTERVIEW_PLAN_EDITORS = [
     'RECRUITER',
 ];
 export function isAdminRole(role) {
-    return role === 'ADMIN' || isSuperAdminRole(role);
-}
-export function isSuperAdminRole(role) {
-    return role === 'SUPER_ADMIN' || role === 'DEVELOPER';
+    return role === 'ADMIN' || role === 'DEVELOPER';
 }
 export function roleMatchesAllowed(userRole, allowedRoles) {
-    if (userRole === 'SUPER_ADMIN' || userRole === 'DEVELOPER')
+    if (userRole === 'DEVELOPER')
         return true;
     return allowedRoles.includes(userRole);
 }

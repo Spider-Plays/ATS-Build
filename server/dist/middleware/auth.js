@@ -28,6 +28,7 @@ export function requireAuth(req, res, next) {
             role: payload.role,
             tokenVersion: typeof payload.tokenVersion === 'number' ? payload.tokenVersion : 0,
             typ: payload.typ,
+            sid: typeof payload.sid === 'string' ? payload.sid : undefined,
         };
         next();
     }
@@ -43,7 +44,7 @@ export function requireRoles(...roles) {
     return (req, res, next) => {
         if (!req.auth)
             return sendAuthUnauthorized(res);
-        if (req.auth.role === 'SUPER_ADMIN' || req.auth.role === 'DEVELOPER')
+        if (req.auth.role === 'DEVELOPER')
             return next();
         if (!roles.includes(req.auth.role)) {
             return res.status(403).json({ error: 'Forbidden' });
@@ -51,7 +52,7 @@ export function requireRoles(...roles) {
         next();
     };
 }
-/** Same as requireRoles, but Super Admin is not exempt. Developer always passes. */
+/** Same as requireRoles, but Admin is not exempt. Developer always passes. */
 export function requireExactRoles(...roles) {
     return (req, res, next) => {
         if (!req.auth)
@@ -74,6 +75,18 @@ export async function requireActiveUser(req, res, next) {
         }
         const tokenVersion = user.tokenVersion ?? 0;
         if ((req.auth.tokenVersion ?? 0) !== tokenVersion) {
+            applyNoStoreAuth(res);
+            return res.status(401).json({ error: 'Session revoked', code: 'SESSION_REVOKED' });
+        }
+        // The access token dies with its session: once logout revokes the refresh-token family,
+        // the token is rejected here instead of living on until it expires.
+        const liveSession = req.auth.sid
+            ? await prisma.refreshToken.findFirst({
+                where: { familyId: req.auth.sid, userId: user.id, revokedAt: null, expiresAt: { gt: new Date() } },
+                select: { id: true },
+            })
+            : null;
+        if (!liveSession) {
             applyNoStoreAuth(res);
             return res.status(401).json({ error: 'Session revoked', code: 'SESSION_REVOKED' });
         }

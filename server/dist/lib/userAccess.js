@@ -12,7 +12,6 @@ const SCHEDULABLE_STAFF_ROLES = [
     'TA_MANAGER',
     'HR_HEAD',
     'ADMIN',
-    'SUPER_ADMIN',
 ];
 export async function buildUserListWhere(auth) {
     if (hasOrgWideAccess(auth.role)) {

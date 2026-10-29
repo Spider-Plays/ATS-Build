@@ -116,11 +116,11 @@ async function resolveFallbackUserId(explicit) {
         return user.id;
     }
     const admin = await prisma.user.findFirst({
-        where: { role: 'SUPER_ADMIN', status: 'ACTIVE' },
+        where: { role: 'ADMIN', status: 'ACTIVE' },
         orderBy: { createdAt: 'asc' },
     });
     if (!admin) {
-        throw new Error('No SUPER_ADMIN user found. Pass --created-by <userId>.');
+        throw new Error('No ADMIN user found. Pass --created-by <userId>.');
     }
     return admin.id;
 }

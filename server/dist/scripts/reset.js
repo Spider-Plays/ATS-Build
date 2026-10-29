@@ -7,7 +7,7 @@
  *   all                Clear entire database
  *   demo               Clear demo/mock data (keep real QA users + catalogs)
  *   keep-users         Wipe hiring data, keep all users
- *   keep-superadmin    Keep one SUPER_ADMIN only
+ *   keep-admin    Keep one ADMIN only
  */
 import '../config/loadEnv.js';
 import { prisma } from '../lib/prisma.js';
@@ -31,9 +31,9 @@ const COMMANDS = [
         run: async (argv) => (await import('./reset/keepUsers.js')).run(argv),
     },
     {
-        name: 'keep-superadmin',
-        description: 'Keep one SUPER_ADMIN; delete everything else',
-        run: async (argv) => (await import('./reset/keepSuperadmin.js')).run(argv),
+        name: 'keep-admin',
+        description: 'Keep one ADMIN; delete everything else',
+        run: async (argv) => (await import('./reset/keepAdmin.js')).run(argv),
     },
 ];
 function printHelp() {
@@ -49,7 +49,7 @@ Env confirms (required for most commands):
   all                 staging isolation (no CONFIRM_*)
   demo                CONFIRM_DEMO_CLEAR=yes
   keep-users          CONFIRM_WIPE_KEEP_USERS=yes
-  keep-superadmin     CONFIRM_PRODUCTION_RESET=yes
+  keep-admin     CONFIRM_PRODUCTION_RESET=yes
 
 Examples:
   npm run db:reset -- all

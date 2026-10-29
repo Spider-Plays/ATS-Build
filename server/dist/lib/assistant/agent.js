@@ -1,4 +1,4 @@
-import { groqChatCompletion, isGroqConfigured } from './groqClient.js';
+import { groqChatCompletion, isGroqConfigured, maskContactDetails } from './groqClient.js';
 import { ASSISTANT_EXAMPLE_QUESTIONS } from './intents.js';
 import { runAssistantQuestion } from './tools.js';
 import { ASSISTANT_GROQ_TOOLS, executeAssistantTool, } from './toolRegistry.js';
@@ -7,7 +7,8 @@ const MAX_HISTORY = 8;
 function systemPrompt(auth) {
     return [
         'You are the Stitch ATS staff assistant.',
-        `The signed-in user has role ${auth.role} (email ${auth.email}).`,
+        `The signed-in user has role ${auth.role}.`,
+        'Email addresses and phone numbers are masked in tool results; the user sees them in the result cards, so refer them there.',
         'Answer questions about live ATS data and how to navigate the application.',
         'Use tools for any counts, lists, searches, or navigation guidance. Never invent IDs, counts, or names.',
         'Respect tool results: data is already scoped to what this user can see.',
@@ -110,7 +111,9 @@ export async function runAssistantAgent(auth, question, options) {
                         role: 'tool',
                         tool_call_id: call.id,
                         name: call.function.name,
-                        content: JSON.stringify(result),
+                        // The full result (with contact details) goes to the UI cards via `collected`; the
+                        // third-party model only needs names, counts and statuses to answer.
+                        content: maskContactDetails(JSON.stringify(result)),
                     });
                 }
                 continue;

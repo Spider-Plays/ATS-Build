@@ -61,11 +61,24 @@ export const assistantRateLimiter = rateLimit({
 export const lookupRateLimiter = rateLimit({
     store: new PostgresRateLimitStore('lookup:'),
     windowMs: 60 * 60 * 1000,
-    max: 40,
+    max: 25,
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? ''),
     message: { error: 'Too many lookups. Please try again later.' },
+});
+/**
+ * Resume auto-fill from the external portals. Anyone can register a candidate account, and every
+ * call parses an uploaded file, so the budget covers filling in forms but not bulk parsing.
+ */
+export const resumeParseRateLimiter = rateLimit({
+    store: new PostgresRateLimitStore('resume-parse:'),
+    windowMs: 60 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? ''),
+    message: { error: 'Too many resume uploads. Please try again later.' },
 });
 /** General per-user limit for expensive authenticated endpoints (search, PDF generation). */
 export const expensiveRateLimiter = rateLimit({

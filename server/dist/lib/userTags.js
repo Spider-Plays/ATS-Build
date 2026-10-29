@@ -55,7 +55,7 @@ export const FEATURE_TAG_DEFINITIONS = [
 export function canEditRequirementRaisedOn(role, userTags) {
     if (!role)
         return false;
-    if (role === 'DEVELOPER' || role === 'SUPER_ADMIN')
+    if (role === 'DEVELOPER' || role === 'ADMIN')
         return true;
     if (role === 'TA_MANAGER')
         return true;
@@ -76,7 +76,7 @@ export function sanitizeFeatureTags(tags) {
     return [...new Set(tags.filter((t) => FEATURE_TAG_KEYS.includes(t)))];
 }
 export function hasFeatureTag(role, userTags, tag) {
-    if (role === 'ADMIN' || role === 'SUPER_ADMIN')
+    if (role === 'ADMIN')
         return true;
     return (userTags ?? []).includes(tag);
 }

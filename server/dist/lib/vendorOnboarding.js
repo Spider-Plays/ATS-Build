@@ -322,6 +322,6 @@ export function isVendorPortalBlocked(status) {
         return false; // grandfathered vendors without a record
     return status !== 'APPROVED';
 }
-export const HR_SCORE_ROLES = ['SUPER_ADMIN', 'ADMIN', 'TA_MANAGER', 'HR_HEAD'];
+export const HR_SCORE_ROLES = ['ADMIN', 'TA_MANAGER', 'HR_HEAD'];
 /** TA Manager reviews first; HR Head gives the final approve or reject. */
 export const HR_APPROVER_ROLES = ['TA_MANAGER', 'HR_HEAD'];

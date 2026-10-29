@@ -1,4 +1,4 @@
-import { lookupRateLimiter } from '../middleware/rateLimit.js';
+import { lookupRateLimiter, resumeParseRateLimiter } from '../middleware/rateLimit.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { httpUrlOptional } from '../lib/httpUrl.js';
@@ -309,7 +309,7 @@ router.get('/referrals/:id', async (req, res) => {
         })),
     });
 });
-router.post('/parse-resume', handleUploadResume, async (req, res) => {
+router.post('/parse-resume', resumeParseRateLimiter, handleUploadResume, async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'Resume file is required' });
@@ -339,6 +339,15 @@ router.post('/check-email', lookupRateLimiter, async (req, res) => {
     if (!existing) {
         return res.json({ exists: false });
     }
+    // A match tells an external user that this person is in the candidate database; keep a record.
+    await logActivity({
+        entityType: 'CANDIDATE',
+        entityId: existing.id,
+        action: 'DUPLICATE_LOOKUP_MATCH',
+        performedBy: req.auth.userId,
+        performerRole: req.auth.role,
+        details: { check: 'email' },
+    });
     res.json({
         exists: true,
         error: DUPLICATE_CANDIDATE_EMAIL_MESSAGE,
@@ -353,6 +362,15 @@ router.post('/check-pan', lookupRateLimiter, async (req, res) => {
     if (!existing) {
         return res.json({ exists: false });
     }
+    // A match tells an external user that this person is in the candidate database; keep a record.
+    await logActivity({
+        entityType: 'CANDIDATE',
+        entityId: existing.id,
+        action: 'DUPLICATE_LOOKUP_MATCH',
+        performedBy: req.auth.userId,
+        performerRole: req.auth.role,
+        details: { check: 'pan' },
+    });
     res.json({
         exists: true,
         error: DUPLICATE_CANDIDATE_PAN_MESSAGE,

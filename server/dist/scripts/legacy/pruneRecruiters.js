@@ -28,7 +28,6 @@ function removeIdFromJsonArray(raw, removeId) {
     }
 }
 const DO_NOT_PROMOTE = new Set([
-    'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',

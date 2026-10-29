@@ -1,4 +1,5 @@
-import mammoth from 'mammoth';
+import { fork } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { isAllowedResumeFile, resolveResumeMime } from './resumeStorage.js';
 import { extractSkillsFromText } from './skills.js';
 export async function extractResumeText(buffer, mime, filename) {
@@ -8,23 +9,81 @@ export async function extractResumeText(buffer, mime, filename) {
     const resolved = resolveResumeMime(mime, filename);
     const lower = filename.toLowerCase();
     if (resolved === 'application/pdf' || lower.endsWith('.pdf')) {
-        const { PDFParse } = await import('pdf-parse');
-        const parser = new PDFParse({ data: buffer });
-        try {
-            const result = await parser.getText();
-            return (result.text || '').trim();
-        }
-        finally {
-            await parser.destroy();
-        }
+        return extractInWorker(buffer, 'pdf');
     }
     if (resolved ===
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
         lower.endsWith('.docx')) {
-        const { value } = await mammoth.extractRawText({ buffer });
-        return value.trim();
+        assertDocxWithinLimits(buffer);
+        return extractInWorker(buffer, 'docx');
     }
     throw new Error('Auto-fill works with PDF and DOCX. Save Word files as DOCX or PDF and try again.');
+}
+/** Parsing an uploaded file may not take longer than this or use more memory than this. */
+const PARSE_TIMEOUT_MS = 15_000;
+const PARSE_MAX_HEAP_MB = 256;
+/** A DOCX is a zip; refuse archives that would expand past this (zip bombs). */
+const DOCX_MAX_UNCOMPRESSED_BYTES = 50 * 1024 * 1024;
+const DOCX_MAX_ENTRIES = 2000;
+/**
+ * Parses in a short-lived child process so a hostile or pathological file cannot block the
+ * API's event loop or exhaust its memory: the child is killed when it runs out of time or heap.
+ * (Not a worker thread: pdf-parse loads native modules that crash inside worker threads.)
+ */
+function extractInWorker(buffer, kind) {
+    // Under tsx (development) this module is .ts and the child inherits tsx's loader via execArgv;
+    // the compiled build runs the .js file.
+    const ext = import.meta.url.endsWith('.ts') ? '.ts' : '.js';
+    const child = fork(fileURLToPath(new URL(`./resumeTextWorker${ext}`, import.meta.url)), [], {
+        execArgv: [...process.execArgv, `--max-old-space-size=${PARSE_MAX_HEAP_MB}`],
+        serialization: 'advanced',
+        stdio: ['ignore', 'ignore', 'inherit', 'ipc'],
+    });
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (fn) => {
+            if (settled)
+                return;
+            settled = true;
+            clearTimeout(timer);
+            if (child.exitCode === null)
+                child.kill();
+            fn();
+        };
+        const timer = setTimeout(() => finish(() => reject(new Error('This file took too long to read. Try saving it again as a simple PDF or DOCX.'))), PARSE_TIMEOUT_MS);
+        child.once('message', (msg) => finish(() => (msg.ok ? resolve(msg.text ?? '') : reject(new Error(msg.error || 'Could not read this file')))));
+        child.once('error', (err) => finish(() => reject(new Error(`Could not read this file: ${err.message}`))));
+        child.once('exit', () => finish(() => reject(new Error('Could not read this file'))));
+        child.send({ buffer: new Uint8Array(buffer), kind });
+    });
+}
+/** Reads the zip central directory and rejects archives that are too large once expanded. */
+function assertDocxWithinLimits(buffer) {
+    const tooLarge = new Error('This DOCX is too large to read. Save it as PDF and try again.');
+    // End-of-central-directory record: signature 0x06054b50, within the last 64 KB + 22 bytes.
+    let eocd = -1;
+    for (let i = buffer.length - 22; i >= Math.max(0, buffer.length - 65_557); i--) {
+        if (buffer.readUInt32LE(i) === 0x06054b50) {
+            eocd = i;
+            break;
+        }
+    }
+    if (eocd < 0)
+        throw new Error('This file is not a valid DOCX document');
+    const entries = buffer.readUInt16LE(eocd + 10);
+    let offset = buffer.readUInt32LE(eocd + 16);
+    if (entries > DOCX_MAX_ENTRIES)
+        throw tooLarge;
+    let total = 0;
+    for (let n = 0; n < entries; n++) {
+        if (offset + 46 > buffer.length || buffer.readUInt32LE(offset) !== 0x02014b50) {
+            throw new Error('This file is not a valid DOCX document');
+        }
+        total += buffer.readUInt32LE(offset + 24);
+        if (total > DOCX_MAX_UNCOMPRESSED_BYTES)
+            throw tooLarge;
+        offset += 46 + buffer.readUInt16LE(offset + 28) + buffer.readUInt16LE(offset + 30) + buffer.readUInt16LE(offset + 32);
+    }
 }
 export function parseResumeFields(text, catalogNames = []) {
     if (!text.trim())

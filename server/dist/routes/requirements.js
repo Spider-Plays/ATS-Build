@@ -10,7 +10,7 @@ import { generateJobCode } from '../lib/jobCode.js';
 import { parseSkillList, serializeSkills } from '../lib/skills.js';
 import { computeMatchScore, loadCandidateResumeText, rankCandidatesForRequirement, } from '../lib/profileMatching.js';
 import { appendRequirementVersion, parseRequirementVersions, snapshotLinkedCandidates, snapshotMatchingProfiles, } from '../lib/requirementVersions.js';
-import { pickRequirementExtrasForCreate, pickRequirementExtrasPatch, parseOptionalDate, parseCalendarDate, fiscalQuarterLabel, calendarMonthKey, RequirementFieldError, } from '../lib/requirementFields.js';
+import { pickRequirementExtrasForCreate, pickRequirementExtrasPatch, validateRequirementBasicsPatch, parseOptionalDate, parseCalendarDate, fiscalQuarterLabel, calendarMonthKey, RequirementFieldError, } from '../lib/requirementFields.js';
 import { canEditRequirementRaisedOn, parseFeatureTags } from '../lib/userTags.js';
 import { calendarDaysBetween } from '../lib/reportCommon.js';
 import { buildApprovalRecord, parseRequirementApprovalBody, requireApprovalComments, } from '../lib/requirementApproval.js';
@@ -599,6 +599,7 @@ router.patch('/:id', requireRoles(...STAFF_MUTATE, 'HIRING_MANAGER'), requireReq
     delete data._user;
     let extras = {};
     try {
+        validateRequirementBasicsPatch(data);
         extras = pickRequirementExtrasPatch(data);
         Object.assign(data, extras);
     }
@@ -633,7 +634,8 @@ router.patch('/:id', requireRoles(...STAFF_MUTATE, 'HIRING_MANAGER'), requireReq
         changedBy: req.auth.userId,
         changedAt: timestamp,
         kind: 'UPDATE',
-        changes: data,
+        // Only fields that can actually change; never the raw request body.
+        changes: { ...pickRequirementFields(data), ...extras },
         linkedCandidates,
         matchingProfiles,
     });

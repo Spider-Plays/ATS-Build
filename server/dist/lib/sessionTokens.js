@@ -16,18 +16,20 @@ export function signAccessToken(payload) {
         email: payload.email,
         role: payload.role,
         tokenVersion: payload.tokenVersion,
+        sid: payload.sid,
         typ: 'access',
     }, env.jwtSecret, { expiresIn: ACCESS_TOKEN_EXPIRES });
 }
 export async function issueSession(user, req, familyId) {
+    const family = familyId || crypto.randomUUID();
     const token = signAccessToken({
         userId: user.id,
         email: user.email,
         role: user.role,
         tokenVersion: user.tokenVersion ?? 0,
+        sid: family,
     });
     const rawRefresh = newRefreshSecret();
-    const family = familyId || crypto.randomUUID();
     await prisma.refreshToken.create({
         data: {
             userId: user.id,
@@ -90,12 +92,15 @@ export async function rotateRefreshToken(rawRefresh, req) {
     });
     return next;
 }
+/** Ends one session: revokes every refresh token in its family, which also invalidates its access tokens. */
 export async function revokeRefreshToken(rawRefresh) {
     const tokenHash = hashRefreshToken(rawRefresh);
-    const row = await prisma.refreshToken.findUnique({ where: { tokenHash }, select: { userId: true } });
+    const row = await prisma.refreshToken.findUnique({ where: { tokenHash }, select: { userId: true, familyId: true } });
+    if (!row)
+        return null;
     await prisma.refreshToken.updateMany({
-        where: { tokenHash, revokedAt: null },
+        where: { familyId: row.familyId, revokedAt: null },
         data: { revokedAt: new Date() },
     });
-    return row?.userId ?? null;
+    return row.userId;
 }

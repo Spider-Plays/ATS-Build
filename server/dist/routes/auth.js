@@ -12,7 +12,7 @@ import { requireAuth, requireActiveUser } from '../middleware/auth.js';
 import { authRateLimiter, loginRateLimiter, refreshRateLimiter } from '../middleware/rateLimit.js';
 import { closeLoginSession, reopenRecentTabClose } from '../lib/recordLogin.js';
 import { issueAppSession } from '../lib/appSession.js';
-import { CSRF_HEADER, clearRefreshCookie, readRefreshCookie, withRefreshCookie } from '../lib/refreshCookie.js';
+import { CSRF_HEADER, clearRefreshCookie, isCrossSiteRequest, readRefreshCookie, withRefreshCookie } from '../lib/refreshCookie.js';
 import { isTrustedDevice, mfaRequiredForRole, revokeTrustedDevices, signMfaToken } from '../lib/mfa.js';
 import { readMfaDeviceCookie, setMfaDeviceCookie } from '../lib/mfaDeviceCookie.js';
 import mfaRoutes from './mfa.js';
@@ -56,7 +56,7 @@ const microsoftSignInSchema = z.object({
     idToken: z.string().min(1),
 });
 /** Roles an Entra sign-in may never claim by email alone (see the Microsoft route). */
-const SSO_EMAIL_LINK_BLOCKED_ROLES = ['SUPER_ADMIN', 'DEVELOPER'];
+const SSO_EMAIL_LINK_BLOCKED_ROLES = ['ADMIN', 'DEVELOPER'];
 /** First-time Microsoft linking by email, limited to MICROSOFT_ALLOWED_EMAIL_DOMAINS when set. */
 function canLinkMicrosoftByEmail(email) {
     const domains = env.microsoftAllowedEmailDomains;
@@ -95,49 +95,66 @@ router.post('/register-candidate', authRateLimiter, async (req, res, next) => {
             verificationRequired: true,
             message: 'Check your email for a confirmation link to finish creating your account. If you already have an account, sign in or use "Forgot password".',
         };
-        const existing = await prisma.user.findUnique({ where: { email } });
-        if (existing)
-            return res.status(202).json(accepted);
-        const name = `${parsed.data.firstName.trim()} ${parsed.data.lastName.trim()}`.trim();
-        const passwordHash = await bcrypt.hash(parsed.data.password, BCRYPT_ROUNDS);
-        let user;
-        try {
-            user = await prisma.user.create({
-                data: {
-                    email,
-                    name,
-                    passwordHash,
-                    role: 'CANDIDATE',
-                    status: 'ACTIVE',
-                    department: 'Candidate',
-                },
-            });
-        }
-        catch (err) {
-            // Lost a race with a parallel registration for the same address.
-            if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-                return res.status(202).json(accepted);
-            }
-            throw err;
-        }
-        await sendEmailVerification(user);
+        // Answer before any lookup, hashing or mail: doing that work only for new addresses would
+        // reveal, by response time, which addresses already have an account.
         res.status(202).json(accepted);
+        const name = `${parsed.data.firstName.trim()} ${parsed.data.lastName.trim()}`.trim();
+        registerCandidateInBackground(email, name, parsed.data.password).catch((err) => console.error('[auth] candidate registration failed:', err));
     }
     catch (err) {
         next(err);
     }
 });
+async function registerCandidateInBackground(email, name, password) {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing)
+        return;
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    let user;
+    try {
+        user = await prisma.user.create({
+            data: {
+                email,
+                name,
+                passwordHash,
+                role: 'CANDIDATE',
+                status: 'ACTIVE',
+                department: 'Candidate',
+            },
+        });
+    }
+    catch (err) {
+        // Lost a race with a parallel registration for the same address.
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')
+            return;
+        throw err;
+    }
+    if (await underVerificationMailCap(email))
+        await sendEmailVerification(user);
+}
+/** Confirmation emails per address per hour, so the endpoints cannot be used to flood an inbox. */
+const VERIFICATION_EMAILS_PER_HOUR = 3;
+async function underVerificationMailCap(address) {
+    const { totalHits } = await hitCounter(`verifymail:${address}`, 60 * 60 * 1000);
+    return totalHits <= VERIFICATION_EMAILS_PER_HOUR;
+}
 /** Sends a fresh confirmation link. Always answers the same way so it reveals nothing about the address. */
 router.post('/resend-verification', authRateLimiter, async (req, res, next) => {
     try {
         const parsed = z.object({ email: z.string().email() }).safeParse(req.body);
+        // Answer before sending: waiting on the mail provider only for real accounts would reveal them.
+        res.json({ ok: true, message: 'If that account needs confirming, a new link was sent.' });
         if (parsed.success) {
             const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
-            if (user && user.role === 'CANDIDATE' && !user.emailVerifiedAt && user.passwordHash && user.status === 'ACTIVE') {
-                await sendEmailVerification(user);
+            if (user &&
+                user.role === 'CANDIDATE' &&
+                !user.emailVerifiedAt &&
+                user.passwordHash &&
+                user.status === 'ACTIVE' &&
+                (await underVerificationMailCap(user.email))) {
+                sendEmailVerification(user).catch((err) => console.error('[auth] verification email failed:', err));
             }
         }
-        res.json({ ok: true, message: 'If that account needs confirming, a new link was sent.' });
     }
     catch (err) {
         next(err);
@@ -387,6 +404,19 @@ router.post('/microsoft', authRateLimiter, async (req, res, next) => {
                 data: { microsoftId: profile.microsoftId, authProvider: user.passwordHash ? user.authProvider : 'microsoft' },
             });
         }
+        // Microsoft proves the identity but not a second factor this app can see, so staff pass the
+        // same MFA challenge as password sign-in (a remembered device skips it, as there).
+        if (mfaRequiredForRole(user.role)) {
+            const trusted = user.mfaEnabled && (await isTrustedDevice(user.id, readMfaDeviceCookie(req)));
+            if (!trusted) {
+                return res.json({
+                    mfaRequired: true,
+                    mfaSetupRequired: !user.mfaEnabled,
+                    mfaToken: signMfaToken(user.id, user.mfaEnabled ? 'verify' : 'setup'),
+                    email: user.email,
+                });
+            }
+        }
         const session = await issueAppSession(user.id, req, res);
         res.json(session);
     }
@@ -405,6 +435,7 @@ router.get('/me', requireAuth, requireActiveUser, async (req, res) => {
             email: user.email,
             role: user.role,
             tokenVersion: user.tokenVersion ?? 0,
+            sid: req.auth.sid,
         })
         : undefined;
     res.json({ ...mapUser(user), allowedPages, ...(token ? { token } : {}) });
@@ -525,7 +556,7 @@ router.post('/reset-password', authRateLimiter, async (req, res) => {
 function presentedRefreshToken(req) {
     const fromCookie = readRefreshCookie(req);
     if (fromCookie)
-        return req.get(CSRF_HEADER) ? fromCookie : null;
+        return req.get(CSRF_HEADER) && !isCrossSiteRequest(req) ? fromCookie : null;
     const fromBody = req.body?.refreshToken;
     return typeof fromBody === 'string' && fromBody ? fromBody : null;
 }

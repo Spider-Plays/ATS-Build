@@ -13,7 +13,7 @@ export function mapVendorOnboarding(row, opts) {
     const status = row.status;
     const includeScoring = opts?.includeScoring === true ||
         (opts?.role != null &&
-            ['SUPER_ADMIN', 'ADMIN', 'TA_MANAGER', 'HR_HEAD'].includes(opts.role));
+            ['ADMIN', 'TA_MANAGER', 'HR_HEAD'].includes(opts.role));
     const category = row.category ?? null;
     const scoring = includeScoring ? parseScoringJson(row.scoringJson) : undefined;
     return {

@@ -1,7 +1,7 @@
 import { prisma } from './prisma.js';
 import { businessRequirementIdsForStakeholder, canViewBusinessRequirement, } from './businessRequirementAccess.js';
 import { assertCanViewCandidate, buildCandidateListWhere, interviewIdsForInterviewer, INTERVIEWER_VISIBLE_CANDIDATE_ACTIONS, } from './candidateAccess.js';
-import { hasOrgWideAccess, isSuperAdminRole } from './orgAccess.js';
+import { hasOrgWideAccess, isAdminRole } from './orgAccess.js';
 import { assertCanViewRequirement, requirementIdsForAuth } from './requirementAccess.js';
 async function visibleCandidateIds(auth) {
     const where = await buildCandidateListWhere(auth, { includeReferralReview: true });
@@ -112,7 +112,7 @@ async function scopedActivityWhere(auth) {
     }
     return or.length > 0 ? { OR: or } : { id: { in: ['__none__'] } };
 }
-/** Entity types shown in the shared staff notification inbox (non–super-admin). */
+/** Entity types shown in the shared staff notification inbox (non–admin). */
 const INBOX_ACTIVITY_ENTITY_TYPES = new Set([
     'CANDIDATE',
     'REQUIREMENT',
@@ -130,7 +130,7 @@ function isBusinessRequirementActivityLog(log) {
 async function allowedBusinessRequirementIdsForAuth(auth, entityIds) {
     if (entityIds.length === 0)
         return new Set();
-    if (isSuperAdminRole(auth.role))
+    if (isAdminRole(auth.role))
         return new Set(entityIds);
     const rows = await prisma.businessRequirement.findMany({
         where: { id: { in: entityIds } },
@@ -146,7 +146,7 @@ async function filterBusinessRequirementLogsForAuth(auth, logs) {
     const bizLogs = logs.filter(isBusinessRequirementActivityLog);
     if (bizLogs.length === 0)
         return logs;
-    if (isSuperAdminRole(auth.role) || hasOrgWideAccess(auth.role))
+    if (isAdminRole(auth.role) || hasOrgWideAccess(auth.role))
         return logs;
     const allowed = await allowedBusinessRequirementIdsForAuth(auth, [...new Set(bizLogs.map((l) => l.entityId))]);
     return logs.filter((log) => {
@@ -157,7 +157,7 @@ async function filterBusinessRequirementLogsForAuth(auth, logs) {
 }
 async function filterActivityLogsForAuth(auth, logs) {
     let filtered = logs;
-    if (!isSuperAdminRole(auth.role)) {
+    if (!isAdminRole(auth.role)) {
         filtered = filtered.filter((log) => isInboxActivityEntityType(log.entityType));
     }
     return filterBusinessRequirementLogsForAuth(auth, filtered);

@@ -33,7 +33,7 @@ export async function ensureRolePageAccessPatches() {
         ],
     };
     for (const role of CONFIGURABLE_ROLES) {
-        if (role === 'SUPER_ADMIN')
+        if (role === 'ADMIN')
             continue;
         const defaults = defaultPagesForRole(role);
         const row = await prisma.rolePageAccess.findUnique({ where: { role } });

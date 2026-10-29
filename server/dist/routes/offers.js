@@ -327,28 +327,8 @@ router.post('/:id/submit', requireRoles(...OFFER_ROLES), async (req, res) => {
         notifyOfferSubmittedForApproval(row);
         return res.json(mapOffer(row));
     }
-    const record = buildOfferApprovalRecord('REQUESTED', req.auth, 'HR');
-    const row = await prisma.offer.update({
-        where: { id: req.params.id },
-        data: {
-            status: 'PENDING_HR_APPROVAL',
-            approvalStep: 'HR',
-            approval: JSON.stringify(record.approval),
-            approvalHistory: appendApprovalHistory(existing.approvalHistory, record.historyEntry),
-            rejectionReason: null,
-            history: appendOfferHistory(existing.history, 'SUBMITTED_FOR_APPROVAL', 'Submitted for HR approval', req.auth.userId),
-            updatedAt: new Date(),
-        },
-    });
-    await logActivity({
-        entityType: 'OFFER',
-        entityId: row.id,
-        action: 'SUBMITTED_FOR_APPROVAL',
-        performedBy: req.auth.userId,
-        performerRole: req.auth.role,
-    });
-    notifyOfferSubmittedForApproval(row);
-    res.json(mapOffer(row));
+    // Offers are approved only by the users assigned at each approval level, so a chain is required.
+    return res.status(400).json({ error: 'Assign approvers for at least L1 and L2 before submitting this offer' });
 });
 router.post('/:id/approve-hr', requireRoles(...OFFER_HR_APPROVERS), async (req, res) => {
     const existing = await prisma.offer.findUnique({ where: { id: req.params.id } });
@@ -574,7 +554,7 @@ router.post('/:id/reject', requireRoles(...OFFER_HR_APPROVERS, ...OFFER_EXEC_APP
     notifyOfferRejected(row);
     res.json(mapOffer(row));
 });
-router.post('/:id/rollback-approval', requireRoles('SUPER_ADMIN'), async (req, res) => {
+router.post('/:id/rollback-approval', requireRoles('ADMIN'), async (req, res) => {
     const existing = await prisma.offer.findUnique({ where: { id: req.params.id } });
     if (!existing)
         return res.status(404).json({ error: 'Not found' });

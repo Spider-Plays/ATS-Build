@@ -34,12 +34,12 @@ router.get('/', async (_req, res) => {
     const catalogs = await getDropdownCatalogs();
     res.json(catalogs);
 });
-router.put('/', requireRoles('SUPER_ADMIN'), async (req, res) => {
+router.put('/', requireRoles('ADMIN'), async (req, res) => {
     const body = catalogsSchema.parse(req.body);
     const catalogs = await setDropdownCatalogs(body, req.auth.userId);
     res.json(catalogs);
 });
-router.post('/reset-defaults', requireRoles('SUPER_ADMIN'), async (req, res) => {
+router.post('/reset-defaults', requireRoles('ADMIN'), async (req, res) => {
     const catalogs = await resetDropdownCatalogs(req.auth.userId);
     res.json(catalogs);
 });

@@ -1,7 +1,6 @@
 import { hasOrgWideAccess } from './orgAccess.js';
 import { isAdminRole } from './roles.js';
 export const BUSINESS_MUTATE_ROLES = [
-    'SUPER_ADMIN',
     'ADMIN',
     'ACCOUNT_MANAGER',
     'HIRING_MANAGER',

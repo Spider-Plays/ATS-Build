@@ -9,8 +9,7 @@ import '../../config/loadEnv.js';
 import { prisma } from '../../lib/prisma.js';
 import { isProtectedStitchEmail, isSamePersonName, normalizePersonName, personNameTokens, slugFromName, stitchEmailFromName, } from '../../lib/legacyImport/ensureStitchUser.js';
 const ROLE_RANK = {
-    SUPER_ADMIN: 100,
-    ADMIN: 90,
+    ADMIN: 100,
     HR_HEAD: 80,
     TA_MANAGER: 70,
     FINANCE_HEAD: 65,

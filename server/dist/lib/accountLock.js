@@ -4,7 +4,7 @@ export const ACCOUNT_LOCK_MS = 30 * 60 * 1000;
 export function accountLockedMessage(user) {
     const leftMs = user.lockedAt ? ACCOUNT_LOCK_MS - (Date.now() - user.lockedAt.getTime()) : ACCOUNT_LOCK_MS;
     const minutes = Math.max(1, Math.ceil(leftMs / 60000));
-    return `Your account is locked. Please wait ${minutes} minute${minutes === 1 ? '' : 's'} and try logging in again, use "Forgot password" to reset it now, or contact your Super Admin.`;
+    return `Your account is locked. Please wait ${minutes} minute${minutes === 1 ? '' : 's'} and try logging in again, use "Forgot password" to reset it now, or contact your Admin.`;
 }
 /** True while the lockout is still running. An expired lockout no longer blocks sign-in. */
 export function isAccountLocked(user) {

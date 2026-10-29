@@ -25,7 +25,7 @@ export async function run(argv = []) {
     })
         .filter((x) => Boolean(x)));
     const fallbackUserId = (await prisma.user.findFirst({
-        where: { role: 'SUPER_ADMIN' },
+        where: { role: 'ADMIN' },
         select: { id: true },
     }))?.id ?? null;
     const candidates = await prisma.candidate.findMany({

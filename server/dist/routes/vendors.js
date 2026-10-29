@@ -41,7 +41,7 @@ async function assertVendorApprovedForOps(vendorId) {
     return null;
 }
 router.use(requireAuth, requireActiveUser, requireRoles(...INTERNAL_ROLES));
-const VENDOR_CREATORS = ['SUPER_ADMIN', 'DEVELOPER'];
+const VENDOR_CREATORS = ['ADMIN', 'DEVELOPER'];
 async function actorHasTaOperation(userId) {
     const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -69,7 +69,7 @@ function mapCreationRequest(row) {
 }
 router.get('/creation-requests', async (req, res) => {
     const role = req.auth.role;
-    const isCreator = role === 'SUPER_ADMIN' || role === 'DEVELOPER';
+    const isCreator = role === 'ADMIN' || role === 'DEVELOPER';
     const isTaManager = role === 'TA_MANAGER';
     const isOps = await actorHasTaOperation(req.auth.userId);
     if (!isCreator && !isTaManager && !isOps) {
@@ -146,7 +146,7 @@ router.post('/creation-requests/:id/decision', requireExactRoles('TA_MANAGER'), 
         },
     });
     if (body.action === 'APPROVE') {
-        const creators = await getUserEmailsByRoles(['SUPER_ADMIN', 'DEVELOPER']);
+        const creators = await getUserEmailsByRoles(['ADMIN', 'DEVELOPER']);
         const url = `${env.clientOrigin.replace(/\/$/, '')}/vendors/new?requestId=${row.id}`;
         await Promise.all(creators.map((r) => sendStaffNotificationEmail({
             to: r.email,
@@ -614,8 +614,8 @@ router.post('/:id/invite', requireRoles(...VENDOR_MANAGERS), async (req, res) =>
             : {}),
     });
 });
-/** Super Admin: reset credentials and resend invite to the vendor primary email. */
-router.post('/:id/reinvite', requireRoles('SUPER_ADMIN'), async (req, res) => {
+/** Admin: reset credentials and resend invite to the vendor primary email. */
+router.post('/:id/reinvite', requireRoles('ADMIN'), async (req, res) => {
     try {
         const vendor = await prisma.vendor.findUnique({ where: { id: req.params.id } });
         if (!vendor)
@@ -697,8 +697,8 @@ router.post('/:id/reinvite', requireRoles('SUPER_ADMIN'), async (req, res) => {
         res.status(500).json({ error: clientErrorMessage(err) });
     }
 });
-/** Super Admin: permanently delete a vendor (allowed before or after onboarding approval). */
-router.delete('/:id', requireRoles('SUPER_ADMIN'), async (req, res) => {
+/** Admin: permanently delete a vendor (allowed before or after onboarding approval). */
+router.delete('/:id', requireRoles('ADMIN'), async (req, res) => {
     try {
         const vendor = await prisma.vendor.findUnique({ where: { id: req.params.id } });
         if (!vendor)

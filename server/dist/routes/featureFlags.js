@@ -8,7 +8,7 @@ router.use(requireAuth, requireActiveUser);
 router.get('/', async (_req, res) => {
     res.json({ flags: await getFeatureFlags(), keys: FEATURE_FLAG_KEYS });
 });
-router.put('/', requireRoles('SUPER_ADMIN'), async (req, res) => {
+router.put('/', requireRoles('ADMIN'), async (req, res) => {
     const flags = z.record(z.string(), z.boolean()).parse(req.body.flags);
     const previous = await getFeatureFlags();
     const saved = await saveFeatureFlags(flags, req.auth.userId);
@@ -25,7 +25,7 @@ router.put('/', requireRoles('SUPER_ADMIN'), async (req, res) => {
     });
     res.json({ flags: saved, keys: FEATURE_FLAG_KEYS });
 });
-router.post('/reset', requireRoles('SUPER_ADMIN'), async (req, res) => {
+router.post('/reset', requireRoles('ADMIN'), async (req, res) => {
     const previous = await getFeatureFlags();
     const saved = await saveFeatureFlags(DEFAULT_FEATURE_FLAGS, req.auth.userId);
     const changes = Object.fromEntries(FEATURE_FLAG_KEYS

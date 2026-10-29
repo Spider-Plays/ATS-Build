@@ -1,3 +1,4 @@
+import { z } from 'zod';
 export const EMPLOYMENT_TYPES = ['REGULAR', 'CONSULTANT', 'CONTRACT', 'GRADUATE_HIRE'];
 export const WORK_MODES = ['REMOTE', 'HYBRID', 'ONSITE'];
 export const SENIORITY_LEVELS = [
@@ -523,5 +524,31 @@ export class RequirementFieldError extends Error {
     constructor(message) {
         super(message);
         this.name = 'RequirementFieldError';
+    }
+}
+const optionalText = (max) => z.string().trim().max(max).nullable().optional();
+/** Types and lengths of the plain fields a requirement PATCH may change; the rest go through pickRequirementExtrasPatch. */
+const requirementBasicsPatchSchema = z.object({
+    title: z.string().trim().min(1, 'Title is required').max(200).optional(),
+    department: z.string().trim().max(200).optional(),
+    hiringManager: z.string().trim().max(200).optional(),
+    accountManager: z.string().trim().max(200).optional(),
+    openings: z.coerce.number().int().min(1).max(10000).optional(),
+    priority: optionalText(50),
+    location: optionalText(200),
+    locationCity: optionalText(200),
+    description: optionalText(100_000),
+    jobDescription: optionalText(100_000),
+});
+/** Validates the plain PATCH fields in place; throws RequirementFieldError on a bad value. */
+export function validateRequirementBasicsPatch(body) {
+    const parsed = requirementBasicsPatchSchema.safeParse(body);
+    if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        throw new RequirementFieldError(`${issue?.path.join('.') || 'Field'}: ${issue?.message || 'Invalid value'}`);
+    }
+    for (const [key, value] of Object.entries(parsed.data)) {
+        if (value !== undefined)
+            body[key] = value;
     }
 }

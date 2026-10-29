@@ -398,7 +398,7 @@ async function toolChangeRequests(auth) {
     const role = auth.role;
     const userId = auth.userId;
     let where;
-    if (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'DEVELOPER') {
+    if (role === 'ADMIN' || role === 'DEVELOPER') {
         where = { status: { in: ['PENDING_HR', 'PENDING_ADMIN', 'PENDING_DEVELOPER', 'IN_PROCESS'] } };
     }
     else if (role === 'HR_HEAD' || role === 'TA_MANAGER') {

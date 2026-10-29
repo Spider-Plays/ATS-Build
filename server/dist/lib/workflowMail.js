@@ -353,8 +353,26 @@ function fill(template, values) {
     return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => values[key] ?? '');
 }
 function escapeHtml(value) {
-    return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
+/** Button links must be absolute http(s) URLs; anything else is dropped rather than rendered. */
+function safeButtonHref(raw) {
+    const value = raw.trim();
+    try {
+        const url = new URL(value);
+        return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : '';
+    }
+    catch {
+        return '';
+    }
+}
+/** Stands in for a button row until the surrounding text has been escaped. */
+const BUTTON_SLOT = (index) => `\u0000button${index}\u0000`;
 const WORKFLOW_BUTTONS = {
     joinMeetingButton: { valueKey: 'meetingLink', label: 'Join meeting' },
     portalButton: { valueKey: 'portalUrl', label: 'Go to portal', outline: true },
@@ -363,6 +381,7 @@ const WORKFLOW_BUTTONS = {
 };
 function workflowButtonRow(actions) {
     const cells = actions
+        .map((action) => ({ ...action, href: safeButtonHref(action.href) }))
         .filter((action) => action.href)
         .map((action, index) => {
         const gap = index > 0 ? '<td width="10" style="width:10px;font-size:0;line-height:0;">&nbsp;</td>' : '';
@@ -377,22 +396,29 @@ function workflowButtonRow(actions) {
 }
 function bodyToHtml(template, values) {
     const token = '\\{\\{\\s*(?:joinMeetingButton|portalButton|acceptInviteButton|declineInviteButton)\\s*\\}\\}';
+    // Buttons become placeholders on their own paragraph; their markup is swapped in only after
+    // every value has been filled and escaped, so no value is ever emitted as raw HTML.
+    const buttonRows = [];
     const withButtons = template.replace(new RegExp(`${token}(?:\\s+${token})*`, 'g'), (match) => {
         const actions = [...match.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)].map((found) => {
             const spec = WORKFLOW_BUTTONS[found[1]];
             return { href: values[spec.valueKey] ?? '', label: spec.label, outline: spec.outline };
         });
-        return workflowButtonRow(actions);
+        buttonRows.push(workflowButtonRow(actions));
+        return `\n\n${BUTTON_SLOT(buttonRows.length - 1)}\n\n`;
     });
-    const text = fill(withButtons, values);
+    // Values cannot smuggle in a placeholder of their own.
+    const safeValues = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, String(value ?? '').replace(/\u0000/g, '')]));
+    const text = fill(withButtons, safeValues);
     return text
         .split(/\n{2,}/)
         .map((block) => {
         const trimmed = block.trim();
         if (!trimmed)
             return '';
-        if (trimmed.includes('<table'))
-            return trimmed;
+        const slot = /^\u0000button(\d+)\u0000$/.exec(trimmed);
+        if (slot)
+            return buttonRows[Number(slot[1])] ?? '';
         const lines = trimmed.split('\n').map((line) => line.trim()).filter(Boolean);
         const detailLines = [];
         const rest = [];

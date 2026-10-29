@@ -1,7 +1,6 @@
 import { prisma } from './prisma.js';
 /** Internal staff roles configurable in User Management → Role access */
 export const CONFIGURABLE_ROLES = [
-    'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',
@@ -93,8 +92,7 @@ export const PAGE_DEFINITIONS = [
 ];
 /** Default page access (matches original sidebar / route behavior) */
 export const DEFAULT_ROLE_PAGES = {
-    SUPER_ADMIN: [...PAGE_KEYS],
-    ADMIN: PAGE_KEYS.filter((k) => k !== 'admin_users'),
+    ADMIN: [...PAGE_KEYS],
     HR_HEAD: [
         'dashboard',
         'requirements',
@@ -206,7 +204,7 @@ export function defaultPagesForRole(role) {
 }
 export function sanitizePagesForRole(role, pages) {
     let result = sanitizePages(pages);
-    if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
+    if (role !== 'ADMIN') {
         result = result.filter((p) => p !== 'admin_users');
     }
     if (role === 'INTERVIEWER') {
@@ -223,7 +221,7 @@ async function pagesAssignedToRole(role) {
     if (role === 'DEVELOPER') {
         return [...PAGE_KEYS];
     }
-    if (role === 'SUPER_ADMIN') {
+    if (role === 'ADMIN') {
         const row = await prisma.rolePageAccess.findUnique({ where: { role } });
         if (!row)
             return [...PAGE_KEYS];
@@ -265,7 +263,7 @@ export async function setRolePageAccess(role, pages) {
         return [...PAGE_KEYS];
     }
     let sanitized = sanitizePages(pages);
-    if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
+    if (role !== 'ADMIN') {
         sanitized = sanitized.filter((p) => p !== 'admin_users');
     }
     if (role === 'INTERVIEWER') {

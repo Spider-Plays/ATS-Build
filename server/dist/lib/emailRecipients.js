@@ -136,7 +136,6 @@ export async function getUserEmailsByRoles(roles) {
 /** Hiring manager, account manager, and leadership for business requirement stage alerts. */
 export async function getBusinessRequirementStageNotificationRecipients(businessReq) {
     return getBusinessRequirementNotificationRecipients(businessReq, [
-        'SUPER_ADMIN',
         'ADMIN',
         'TA_MANAGER',
         'HR_HEAD',
@@ -145,7 +144,6 @@ export async function getBusinessRequirementStageNotificationRecipients(business
 /** Recipients when a role is added on a client card after SOW. */
 export async function getLinkedRequirementCreatedNotificationRecipients(businessReq) {
     return getBusinessRequirementNotificationRecipients(businessReq, [
-        'SUPER_ADMIN',
         'ADMIN',
         'TA_MANAGER',
         'HR_HEAD',

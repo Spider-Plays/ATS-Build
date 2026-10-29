@@ -1,4 +1,4 @@
-import { expensiveRateLimiter } from '../middleware/rateLimit.js';
+import { expensiveRateLimiter, resumeParseRateLimiter } from '../middleware/rateLimit.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
@@ -128,7 +128,7 @@ function mapPortalUpdateEntry(log) {
         performerName: log.performerName ?? undefined,
     };
 }
-router.post('/parse-resume', handleUploadResume, async (req, res) => {
+router.post('/parse-resume', resumeParseRateLimiter, handleUploadResume, async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'Resume file is required' });

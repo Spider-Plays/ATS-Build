@@ -5,7 +5,7 @@ import { getOpenRequisitionReportRecipients, saveOpenRequisitionReportRecipients
 import { runOpenRequisitionReport } from '../lib/emailDispatch.js';
 import { logActivity } from '../services/activityLog.js';
 const router = Router();
-router.use(requireAuth, requireActiveUser, requireRoles('SUPER_ADMIN'));
+router.use(requireAuth, requireActiveUser, requireRoles('ADMIN'));
 const bodySchema = z.object({
     to: z.array(z.string()).default([]),
     cc: z.array(z.string()).default([]),

@@ -7,7 +7,7 @@
  * The SQL runs in one transaction and:
  *   - aborts unless the target already has the candidates these interviews belong to;
  *   - creates missing interviewer / hiring-manager / recruiter users (no password) and maps all user ids by email
- *     (dev/demo users → the target's first active SUPER_ADMIN);
+ *     (dev/demo users → the target's first active ADMIN);
  *   - upserts interviews and feedback by id: new rows are inserted, existing rows get the latest values.
  */
 import '../../config/loadEnv.js';
@@ -62,7 +62,7 @@ export async function run(argv = []) {
     const idArray = (ids) => `ARRAY[${ids.map(lit).join(', ')}]::text[]`;
     const sql = [];
     const sourceDb = (process.env.DATABASE_URL ?? '').replace(/\/\/[^@]*@/, '//***@');
-    sql.push(`-- Interview feedback → hosted ATS (run AFTER legacy-import-live.sql)`, `-- Generated ${new Date().toISOString()} from ${sourceDb}`, `-- ${interviews.length} interviews, ${feedback.length} feedback, ${carried.length} users to create if missing.`, `-- Run:  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f feedback-import-live.sql`, `-- One transaction; safe to re-run (rows are upserted by id).`, '', 'BEGIN;', '', `DO $$`, `DECLARE missing int;`, `BEGIN`, `  SELECT count(*) INTO missing FROM unnest(${idArray(candidateIds)}) AS c(id)`, `    WHERE NOT EXISTS (SELECT 1 FROM "Candidate" x WHERE x.id = c.id);`, `  IF missing > 0 THEN`, `    RAISE EXCEPTION '% candidate(s) for these interviews are not on this database. Run legacy-import-live.sql first.', missing;`, `  END IF;`, `  SELECT count(*) INTO missing FROM unnest(${idArray(stageIds)}) AS s(id)`, `    WHERE NOT EXISTS (SELECT 1 FROM "InterviewPlanStage" x WHERE x.id = s.id);`, `  IF missing > 0 THEN`, `    RAISE EXCEPTION '% interview plan stage(s) are missing. Run legacy-import-live.sql first.', missing;`, `  END IF;`, `  IF NOT EXISTS (SELECT 1 FROM "User" WHERE role = 'SUPER_ADMIN' AND status = 'ACTIVE') THEN`, `    RAISE EXCEPTION 'Target has no active SUPER_ADMIN to own unmapped records. Aborting.';`, `  END IF;`, `END $$;`, '');
+    sql.push(`-- Interview feedback → hosted ATS (run AFTER legacy-import-live.sql)`, `-- Generated ${new Date().toISOString()} from ${sourceDb}`, `-- ${interviews.length} interviews, ${feedback.length} feedback, ${carried.length} users to create if missing.`, `-- Run:  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f feedback-import-live.sql`, `-- One transaction; safe to re-run (rows are upserted by id).`, '', 'BEGIN;', '', `DO $$`, `DECLARE missing int;`, `BEGIN`, `  SELECT count(*) INTO missing FROM unnest(${idArray(candidateIds)}) AS c(id)`, `    WHERE NOT EXISTS (SELECT 1 FROM "Candidate" x WHERE x.id = c.id);`, `  IF missing > 0 THEN`, `    RAISE EXCEPTION '% candidate(s) for these interviews are not on this database. Run legacy-import-live.sql first.', missing;`, `  END IF;`, `  SELECT count(*) INTO missing FROM unnest(${idArray(stageIds)}) AS s(id)`, `    WHERE NOT EXISTS (SELECT 1 FROM "InterviewPlanStage" x WHERE x.id = s.id);`, `  IF missing > 0 THEN`, `    RAISE EXCEPTION '% interview plan stage(s) are missing. Run legacy-import-live.sql first.', missing;`, `  END IF;`, `  IF NOT EXISTS (SELECT 1 FROM "User" WHERE role = 'ADMIN' AND status = 'ACTIVE') THEN`, `    RAISE EXCEPTION 'Target has no active ADMIN to own unmapped records. Aborting.';`, `  END IF;`, `END $$;`, '');
     sql.push(`-- Users (matched by email; interviewers etc. created if missing, without a password)`);
     sql.push(`CREATE TEMP TABLE _fb_user_map (old_id text PRIMARY KEY, email text NOT NULL, new_id text) ON COMMIT DROP;`);
     for (const u of users) {
@@ -87,7 +87,7 @@ export async function run(argv = []) {
             ` WHERE NOT EXISTS (SELECT 1 FROM "User" WHERE lower(email) = lower(${lit(u.email)}))` +
             ` AND NOT EXISTS (SELECT 1 FROM "User" WHERE id = ${lit(u.id)});`);
     }
-    sql.push(`UPDATE _fb_user_map m SET new_id = COALESCE(`, `  (SELECT id FROM "User" u WHERE lower(u.email) = lower(m.email) LIMIT 1),`, `  (SELECT id FROM "User" WHERE role = 'SUPER_ADMIN' AND status = 'ACTIVE' ORDER BY "createdAt" LIMIT 1));`, '');
+    sql.push(`UPDATE _fb_user_map m SET new_id = COALESCE(`, `  (SELECT id FROM "User" u WHERE lower(u.email) = lower(m.email) LIMIT 1),`, `  (SELECT id FROM "User" WHERE role = 'ADMIN' AND status = 'ACTIVE' ORDER BY "createdAt" LIMIT 1));`, '');
     sql.push(`-- Interviews: ${interviews.length} row(s)`, ...upsertStatements('Interview', interviews), '');
     sql.push(`-- Feedback: ${feedback.length} row(s)`, ...upsertStatements('Feedback', feedback), '');
     const interviewIds = interviews.map((i) => String(i.id));
@@ -97,5 +97,5 @@ export async function run(argv = []) {
     fs.writeFileSync(out, sql.join('\n'), 'utf8');
     console.log(`SQL written: ${out} (${(fs.statSync(out).size / 1024 / 1024).toFixed(1)} MB)`);
     console.log(`  interviews ${interviews.length}, feedback ${feedback.length}`);
-    console.log(`  users referenced ${users.length} (create-if-missing ${carried.length}, others mapped by email / SUPER_ADMIN)`);
+    console.log(`  users referenced ${users.length} (create-if-missing ${carried.length}, others mapped by email / ADMIN)`);
 }

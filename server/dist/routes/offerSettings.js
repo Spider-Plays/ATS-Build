@@ -8,8 +8,8 @@ import { renderOfferLetterHtml } from '../lib/offerLetterRender.js';
 import { mergeOfferLetterTemplate } from '../lib/offerLetterTemplate.js';
 const router = Router();
 router.use(requireAuth, requireActiveUser, requireRoles(...INTERNAL_ROLES));
-const COMPENSATION_EDITORS = ['FINANCE_HEAD', 'SUPER_ADMIN', 'ADMIN'];
-const LETTER_TEMPLATE_EDITORS = ['HR_HEAD', 'SUPER_ADMIN', 'ADMIN'];
+const COMPENSATION_EDITORS = ['FINANCE_HEAD', 'ADMIN'];
+const LETTER_TEMPLATE_EDITORS = ['HR_HEAD', 'ADMIN'];
 const compensationSchema = z.object({
     basicPercentOfCtc: z.number().min(1).max(100),
     hraPercentOfBasic: z.number().min(0).max(100),

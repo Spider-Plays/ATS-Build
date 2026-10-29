@@ -6,7 +6,7 @@
  * The SQL runs in one transaction and:
  *   - aborts if the target already has any of these requirements or legacy candidates;
  *   - creates missing recruiter / hiring-manager / vendor users (no password → Microsoft SSO or admin reset);
- *   - maps every user reference by email onto the target's existing users (dev/demo users → first SUPER_ADMIN);
+ *   - maps every user reference by email onto the target's existing users (dev/demo users → first ADMIN);
  *   - maps legacy vendors by name onto existing vendors, creating the rest;
  *   - inserts requirements, interview plans, candidates, interviews, feedback, offers, vendor links.
  *
@@ -147,7 +147,7 @@ export async function run(argv = []) {
         `${feedback.length} feedback, ${offers.length} offers, ${vendors.length} vendors, ${carried.length} users to create if missing.`, `-- Run once:  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f legacy-import-live.sql`, `-- Everything runs in one transaction; any error rolls the whole import back.`, '', 'BEGIN;', '');
     // Guard: never double-import.
     const jobCodes = requirements.map((r) => r.jobCode).filter(Boolean);
-    sql.push(`DO $$`, `BEGIN`, `  IF EXISTS (SELECT 1 FROM "Requirement" WHERE "jobCode" = ANY(ARRAY[${jobCodes.map(lit).join(', ')}]::text[])) THEN`, `    RAISE EXCEPTION 'Target already has some of these requirements (jobCode). Aborting legacy import.';`, `  END IF;`, `  IF EXISTS (SELECT 1 FROM "Candidate" WHERE "legacyResumeId" IS NOT NULL) THEN`, `    RAISE EXCEPTION 'Target already has legacy-imported candidates. Aborting legacy import.';`, `  END IF;`, `  IF NOT EXISTS (SELECT 1 FROM "User" WHERE role = 'SUPER_ADMIN' AND status = 'ACTIVE') THEN`, `    RAISE EXCEPTION 'Target has no active SUPER_ADMIN to own unmapped records. Aborting.';`, `  END IF;`, `END $$;`, '');
+    sql.push(`DO $$`, `BEGIN`, `  IF EXISTS (SELECT 1 FROM "Requirement" WHERE "jobCode" = ANY(ARRAY[${jobCodes.map(lit).join(', ')}]::text[])) THEN`, `    RAISE EXCEPTION 'Target already has some of these requirements (jobCode). Aborting legacy import.';`, `  END IF;`, `  IF EXISTS (SELECT 1 FROM "Candidate" WHERE "legacyResumeId" IS NOT NULL) THEN`, `    RAISE EXCEPTION 'Target already has legacy-imported candidates. Aborting legacy import.';`, `  END IF;`, `  IF NOT EXISTS (SELECT 1 FROM "User" WHERE role = 'ADMIN' AND status = 'ACTIVE') THEN`, `    RAISE EXCEPTION 'Target has no active ADMIN to own unmapped records. Aborting.';`, `  END IF;`, `END $$;`, '');
     // Vendors: reuse by name, else create.
     sql.push(`-- Vendors (matched by name, created if missing)`);
     sql.push(`CREATE TEMP TABLE _legacy_vendor_map (old_id text PRIMARY KEY, name text NOT NULL, new_id text) ON COMMIT DROP;`);
@@ -183,7 +183,7 @@ export async function run(argv = []) {
             ` WHERE NOT EXISTS (SELECT 1 FROM "User" WHERE lower(email) = lower(${lit(u.email)}))` +
             ` AND NOT EXISTS (SELECT 1 FROM "User" WHERE id = ${lit(u.id)});`);
     }
-    sql.push(`UPDATE _legacy_user_map m SET new_id = COALESCE(`, `  (SELECT id FROM "User" u WHERE lower(u.email) = lower(m.email) LIMIT 1),`, `  (SELECT id FROM "User" WHERE role = 'SUPER_ADMIN' AND status = 'ACTIVE' ORDER BY "createdAt" LIMIT 1));`, `-- Vendor logins point at the (possibly pre-existing) vendor row.`, `UPDATE "User" u SET "vendorId" = m.new_id FROM _legacy_vendor_map m`, `  WHERE u."vendorId" = m.old_id AND u.id IN (SELECT new_id FROM _legacy_user_map);`, '');
+    sql.push(`UPDATE _legacy_user_map m SET new_id = COALESCE(`, `  (SELECT id FROM "User" u WHERE lower(u.email) = lower(m.email) LIMIT 1),`, `  (SELECT id FROM "User" WHERE role = 'ADMIN' AND status = 'ACTIVE' ORDER BY "createdAt" LIMIT 1));`, `-- Vendor logins point at the (possibly pre-existing) vendor row.`, `UPDATE "User" u SET "vendorId" = m.new_id FROM _legacy_vendor_map m`, `  WHERE u."vendorId" = m.old_id AND u.id IN (SELECT new_id FROM _legacy_user_map);`, '');
     // Data rows, keeping local ids (plan stages FK the plan; interviews FK the stage).
     for (const [table, rows] of tables) {
         sql.push(`-- ${table}: ${rows.length} row(s)`);
@@ -233,6 +233,6 @@ export async function run(argv = []) {
     console.log(`SQL written: ${out} (${sizeMb} MB)`);
     console.log(`  requirements ${requirements.length}, candidates ${candidates.length}, interviews ${interviews.length}, ` +
         `feedback ${feedback.length}, offers ${offers.length}, vendors ${vendors.length}, vendor links ${vendorLinks.length}`);
-    console.log(`  users referenced ${users.length} (create-if-missing ${carried.length}, others mapped by email / SUPER_ADMIN)`);
+    console.log(`  users referenced ${users.length} (create-if-missing ${carried.length}, others mapped by email / ADMIN)`);
     console.log(`Resumes copied: ${copied}/${wanted.size} → ${resumesOut}`);
 }

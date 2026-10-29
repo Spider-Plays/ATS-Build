@@ -19,7 +19,7 @@
     "db:reset": "tsx src/scripts/reset.ts",
     "db:clear": "tsx src/scripts/reset.ts all",
     "db:clear-demo": "tsx src/scripts/reset.ts demo",
-    "db:reset-keep-superadmin": "tsx src/scripts/reset.ts keep-superadmin",
+    "db:reset-keep-admin": "tsx src/scripts/reset.ts keep-admin",
     "db:wipe-keep-users": "tsx src/scripts/reset.ts keep-users",
     "db:bootstrap": "tsx src/scripts/bootstrap-admin.ts",
     "db:verify": "tsx src/scripts/verify-db.ts",

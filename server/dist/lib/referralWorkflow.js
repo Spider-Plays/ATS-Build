@@ -87,7 +87,7 @@ export async function canViewReferralQueue(auth) {
 }
 /** Grant / cancel / mark paid: TA Manager and admins. */
 export function canManageReferralBonus(role) {
-    return ['TA_MANAGER', 'SUPER_ADMIN', 'ADMIN', 'DEVELOPER'].includes(role);
+    return ['TA_MANAGER', 'ADMIN', 'DEVELOPER'].includes(role);
 }
 /** Why Grant bonus is unavailable, or null when it can be granted. */
 export function referralBonusBlockReason(c) {

@@ -20,9 +20,8 @@ import { listLoginHistory } from '../lib/recordLogin.js';
 const router = Router();
 router.use(requireAuth, requireActiveUser);
 const staffRoles = [
-    'SUPER_ADMIN',
-    'DEVELOPER',
     'ADMIN',
+    'DEVELOPER',
     'HR_HEAD',
     'TA_MANAGER',
     'HUMAN_RESOURCE',
@@ -38,13 +37,13 @@ const staffRoles = [
 ];
 /**
  * Role hierarchy for account management: only Developer manages Developer accounts,
- * and only Super Admin or Developer manages Super Admin accounts.
+ * and only Admin or Developer manages Admin accounts.
  */
 function canManageRole(actorRole, targetRole) {
     if (targetRole === 'DEVELOPER')
         return actorRole === 'DEVELOPER';
-    if (targetRole === 'SUPER_ADMIN')
-        return actorRole === 'SUPER_ADMIN' || actorRole === 'DEVELOPER';
+    if (targetRole === 'ADMIN')
+        return actorRole === 'ADMIN' || actorRole === 'DEVELOPER';
     return true;
 }
 /** Blocks changes to an account whose role sits above the caller's. */
@@ -57,12 +56,26 @@ async function requireManageableTarget(req, res, next) {
     }
     next();
 }
+/**
+ * Admins may edit and unlock each other, but taking over or removing an Admin account
+ * (password reset, disable, role change, delete) needs a Developer, so one compromised
+ * Admin cannot lock out or replace the others.
+ */
+async function requireDeveloperForAdminTarget(req, res, next) {
+    const target = await prisma.user.findUnique({ where: { id: req.params.id }, select: { role: true } });
+    if (!target)
+        return res.status(404).json({ error: 'User not found' });
+    if (target.role === 'ADMIN' && req.auth.role !== 'DEVELOPER') {
+        return res.status(403).json({ error: 'Only a Developer can reset, disable, change or delete an Admin account' });
+    }
+    next();
+}
 router.get('/', requireRoles('ADMIN', 'HR_HEAD', 'TA_MANAGER', 'RECRUITER', 'TEAM_LEAD', 'HIRING_MANAGER', 'ACCOUNT_MANAGER', 'INTERVIEWER'), async (req, res) => {
     const listWhere = await buildUserListWhere(req.auth);
     const users = await prisma.user.findMany({ where: listWhere, orderBy: { createdAt: 'desc' } });
     res.json(users.map(mapUser));
 });
-router.post('/', requireRoles('SUPER_ADMIN', 'ADMIN'), async (req, res) => {
+router.post('/', requireRoles('ADMIN'), async (req, res) => {
     const body = z
         .object({
         email: z.string().email(),
@@ -187,7 +200,7 @@ router.patch('/me', async (req, res) => {
     });
     res.json(mapUser(user));
 });
-router.get('/:id/login-history', requireRoles('SUPER_ADMIN'), async (req, res) => {
+router.get('/:id/login-history', requireRoles('ADMIN'), async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!user)
         return res.status(404).json({ error: 'Not found' });
@@ -202,13 +215,13 @@ router.get('/:id/login-history', requireRoles('SUPER_ADMIN'), async (req, res) =
         userAgent: e.userAgent ?? undefined,
     })));
 });
-router.get('/:id', requireRoles('SUPER_ADMIN'), async (req, res) => {
+router.get('/:id', requireRoles('ADMIN'), async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!user)
         return res.status(404).json({ error: 'Not found' });
     res.json(mapUser(user));
 });
-router.patch('/:id', requireRoles('SUPER_ADMIN'), requireManageableTarget, async (req, res) => {
+router.patch('/:id', requireRoles('ADMIN'), requireManageableTarget, async (req, res) => {
     const body = z
         .object({
         email: z.string().email().optional(),
@@ -255,7 +268,7 @@ router.patch('/:id', requireRoles('SUPER_ADMIN'), requireManageableTarget, async
     });
     res.json(mapUser(user));
 });
-router.post('/:id/send-password-reset-link', requireRoles('SUPER_ADMIN'), requireManageableTarget, async (req, res) => {
+router.post('/:id/send-password-reset-link', requireRoles('ADMIN'), requireManageableTarget, requireDeveloperForAdminTarget, async (req, res) => {
     const target = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!target)
         return res.status(404).json({ error: 'User not found' });
@@ -265,15 +278,15 @@ router.post('/:id/send-password-reset-link', requireRoles('SUPER_ADMIN'), requir
     await issuePasswordResetLink(target, req);
     res.json({ ok: true, message: `Password reset link sent to ${target.email}.` });
 });
-/** Clears a failed-sign-in lockout. requireRoles always admits Super Admin and Developer only here. */
-router.post('/:id/unlock', requireRoles('SUPER_ADMIN'), requireManageableTarget, async (req, res) => {
+/** Clears a failed-sign-in lockout. requireRoles always admits Admin and Developer only here. */
+router.post('/:id/unlock', requireRoles('ADMIN'), requireManageableTarget, async (req, res) => {
     const user = await prisma.user.update({
         where: { id: req.params.id },
         data: { lockedAt: null, failedLoginAttempts: 0, mfaFailedAttempts: 0 },
     });
     res.json(mapUser(user));
 });
-router.post('/:id/reset-password', requireRoles('SUPER_ADMIN'), requireManageableTarget, async (req, res) => {
+router.post('/:id/reset-password', requireRoles('ADMIN'), requireManageableTarget, requireDeveloperForAdminTarget, async (req, res) => {
     const body = z
         .object({
         newPassword: newPasswordSchema.optional(),
@@ -320,7 +333,7 @@ router.post('/:id/reset-password', requireRoles('SUPER_ADMIN'), requireManageabl
             : { message: 'Password updated.' }),
     });
 });
-router.patch('/:id/tags', requireRoles('SUPER_ADMIN'), requireManageableTarget, async (req, res) => {
+router.patch('/:id/tags', requireRoles('ADMIN'), requireManageableTarget, async (req, res) => {
     const { tags } = z.object({ tags: z.array(z.string()) }).parse(req.body);
     const sanitized = sanitizeFeatureTags(tags);
     const user = await prisma.user.update({
@@ -329,7 +342,7 @@ router.patch('/:id/tags', requireRoles('SUPER_ADMIN'), requireManageableTarget, 
     });
     res.json(mapUser(user));
 });
-router.patch('/:id/role', requireRoles('SUPER_ADMIN'), requireManageableTarget, async (req, res) => {
+router.patch('/:id/role', requireRoles('ADMIN'), requireManageableTarget, requireDeveloperForAdminTarget, async (req, res) => {
     const { role } = z.object({ role: z.enum(staffRoles) }).parse(req.body);
     if (!canManageRole(req.auth.role, role)) {
         return res.status(403).json({ error: 'You cannot assign this role' });
@@ -344,7 +357,7 @@ router.patch('/:id/role', requireRoles('SUPER_ADMIN'), requireManageableTarget, 
     await bumpTokenVersionAndRevoke(user.id);
     res.json(mapUser(user));
 });
-router.patch('/:id/status', requireRoles('SUPER_ADMIN'), requireManageableTarget, async (req, res) => {
+router.patch('/:id/status', requireRoles('ADMIN'), requireManageableTarget, requireDeveloperForAdminTarget, async (req, res) => {
     const { status } = z.object({ status: z.enum(['ACTIVE', 'DISABLED']) }).parse(req.body);
     if (req.params.id === req.auth.userId) {
         return res.status(400).json({ error: 'Cannot change your own status' });
@@ -358,7 +371,7 @@ router.patch('/:id/status', requireRoles('SUPER_ADMIN'), requireManageableTarget
     }
     res.json(mapUser(user));
 });
-router.delete('/:id', requireRoles('SUPER_ADMIN'), requireManageableTarget, async (req, res) => {
+router.delete('/:id', requireRoles('ADMIN'), requireManageableTarget, requireDeveloperForAdminTarget, async (req, res) => {
     if (req.params.id === req.auth.userId) {
         return res.status(400).json({ error: 'Cannot delete your own account' });
     }

@@ -12,12 +12,22 @@ const isProduction = process.env.NODE_ENV === 'production';
  */
 // NODE_TEST_CONTEXT is set by the Node test runner, so unit tests run without a .env file.
 export const isLocalDev = process.env.ATS_ENV === 'local' || process.env.NODE_ENV === 'test' || Boolean(process.env.NODE_TEST_CONTEXT);
+/** True when APP_URL / CLIENT_ORIGIN name a public host, i.e. this is a deployed server, not a laptop. */
+function hasPublicAppOrigin() {
+    const configured = parseClientOrigins(process.env.CLIENT_ORIGIN || process.env.APP_URL || '');
+    return configured.some((origin) => !isPrivateOrLocalOrigin(origin));
+}
 function resolveJwtSecret() {
     const secret = process.env.JWT_SECRET?.trim();
     if (secret && secret.length >= 32)
         return secret;
-    if (!isProduction && isLocalDev)
+    if (!isProduction && isLocalDev) {
+        // ATS_ENV=local copied onto a deployed host must not silently run with a known secret.
+        if (hasPublicAppOrigin() && process.env.NODE_ENV !== 'test' && !process.env.NODE_TEST_CONTEXT) {
+            throw new Error('ATS_ENV=local is set but APP_URL/CLIENT_ORIGIN is a public address. Set a strong JWT_SECRET (32+ characters) or remove ATS_ENV=local.');
+        }
         return secret || 'dev-secret';
+    }
     throw new Error('JWT_SECRET must be set to a strong random string (32+ characters). ' +
         'For local development only, set ATS_ENV=local to allow the built-in dev secret.');
 }

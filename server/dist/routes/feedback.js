@@ -19,7 +19,8 @@ const VALID_RECOMMENDATIONS = [
     'STRONG_NO_HIRE',
 ];
 /** Roles that may record feedback on an interview they are not a panelist on. */
-const FEEDBACK_OVERRIDE_ROLES = ['ADMIN', 'SUPER_ADMIN', 'DEVELOPER'];
+// Admin may delete feedback but never submit it for an interview assigned to someone else.
+const FEEDBACK_OVERRIDE_ROLES = ['DEVELOPER'];
 router.get('/by-interview/:interviewId', async (req, res) => {
     try {
         await assertCanViewInterview(req.auth, req.params.interviewId);

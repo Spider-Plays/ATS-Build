@@ -102,7 +102,7 @@ export function notifyOfferSubmittedForApproval(offer) {
     fireAndForget((async () => {
         const [candidate, approvers] = await Promise.all([
             prisma.candidate.findUnique({ where: { id: offer.candidateId } }),
-            getUserEmailsByRoles(['HR_HEAD', 'SUPER_ADMIN']),
+            getUserEmailsByRoles(['HR_HEAD', 'ADMIN']),
         ]);
         if (!candidate)
             return;
@@ -120,7 +120,7 @@ export function notifyOfferPendingExecApproval(offer) {
     fireAndForget((async () => {
         const [candidate, approvers] = await Promise.all([
             prisma.candidate.findUnique({ where: { id: offer.candidateId } }),
-            getUserEmailsByRoles(['SUPER_ADMIN']),
+            getUserEmailsByRoles(['ADMIN']),
         ]);
         if (!candidate)
             return;

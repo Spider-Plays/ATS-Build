@@ -181,8 +181,8 @@ export async function runExport(argv = []) {
         `DO $$ BEGIN`,
         `  IF NOT EXISTS (SELECT 1 FROM "Candidate" WHERE "legacyResumeId" IS NOT NULL) THEN`,
         `    RAISE EXCEPTION 'No legacy candidates on this database. Run legacy-import-live.sql first.'; END IF;`,
-        `  IF NOT EXISTS (SELECT 1 FROM "User" WHERE role = 'SUPER_ADMIN' AND status = 'ACTIVE') THEN`,
-        `    RAISE EXCEPTION 'Target has no active SUPER_ADMIN to own unmapped records.'; END IF;`,
+        `  IF NOT EXISTS (SELECT 1 FROM "User" WHERE role = 'ADMIN' AND status = 'ACTIVE') THEN`,
+        `    RAISE EXCEPTION 'Target has no active ADMIN to own unmapped records.'; END IF;`,
         `END $$;`,
         '',
         `CREATE TEMP TABLE _d_vendor_map (old_id text PRIMARY KEY, name text NOT NULL, new_id text) ON COMMIT DROP;`,
@@ -213,7 +213,7 @@ export async function runExport(argv = []) {
         sql.push(`INSERT INTO "User" (${cols.map(ident).join(', ')}) SELECT ${cols.map((c) => lit(row[c])).join(', ')}` +
             ` WHERE NOT EXISTS (SELECT 1 FROM "User" WHERE lower(email) = lower(${lit(u.email)})) AND NOT EXISTS (SELECT 1 FROM "User" WHERE id = ${lit(u.id)});`);
     }
-    sql.push(`UPDATE _d_user_map m SET new_id = COALESCE((SELECT id FROM "User" u WHERE lower(u.email) = lower(m.email) LIMIT 1),`, `  (SELECT id FROM "User" WHERE role = 'SUPER_ADMIN' AND status = 'ACTIVE' ORDER BY "createdAt" LIMIT 1));`, `UPDATE "User" u SET "vendorId" = m.new_id FROM _d_vendor_map m WHERE u."vendorId" = m.old_id AND u.id IN (SELECT new_id FROM _d_user_map);`, '');
+    sql.push(`UPDATE _d_user_map m SET new_id = COALESCE((SELECT id FROM "User" u WHERE lower(u.email) = lower(m.email) LIMIT 1),`, `  (SELECT id FROM "User" WHERE role = 'ADMIN' AND status = 'ACTIVE' ORDER BY "createdAt" LIMIT 1));`, `UPDATE "User" u SET "vendorId" = m.new_id FROM _d_vendor_map m WHERE u."vendorId" = m.old_id AND u.id IN (SELECT new_id FROM _d_user_map);`, '');
     for (const t of TABLES) {
         const fullRows = changed[t].filter((r) => !changedCols[t].has(String(r.id)));
         const updates = changed[t].filter((r) => changedCols[t].has(String(r.id))).map((r) => {

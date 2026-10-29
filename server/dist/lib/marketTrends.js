@@ -44,20 +44,20 @@ export function forecastExpectedCtc(bands, experience, locationMultiplier) {
 export function canEditMarketData(role, tags) {
     if (!role)
         return false;
-    if (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR_HEAD' || role === 'TA_MANAGER') {
+    if (role === 'ADMIN' || role === 'HR_HEAD' || role === 'TA_MANAGER') {
         return true;
     }
     return hasFeatureTag(role, tags, 'market_data');
 }
 export async function userCanAccessMarketTrendsPage(role) {
-    if (role === 'SUPER_ADMIN')
+    if (role === 'ADMIN')
         return true;
     const pages = await getAllowedPagesForRole(role);
     return pages.includes('market_trends');
 }
 /** Read-only market CTC for requisition forms (roles with requirements access). */
 export async function userCanReadMarketTrends(role) {
-    if (role === 'SUPER_ADMIN')
+    if (role === 'ADMIN')
         return true;
     const pages = await getAllowedPagesForRole(role);
     return pages.includes('market_trends') || pages.includes('requirements');

@@ -1,4 +1,4 @@
-import { groqChatCompletion, isGroqConfigured } from './assistant/groqClient.js';
+import { groqChatCompletion, isGroqConfigured, maskContactDetails } from './assistant/groqClient.js';
 import { deserializeSkills } from './skills.js';
 const MAX_RESUME_CHARS = 14_000;
 const MAX_JD_CHARS = 8_000;
@@ -100,7 +100,8 @@ function parseAssessment(content, primary, secondary) {
 export async function assessResumeAgainstJd(input) {
     if (!isGroqConfigured())
         return null;
-    const resume = input.resumeText.trim();
+    // Contact and identity details are not needed to judge fit and must not reach the external model.
+    const resume = maskContactDetails(input.resumeText.trim());
     if (resume.length < 80)
         return null;
     const primary = input.primarySkills ?? [];

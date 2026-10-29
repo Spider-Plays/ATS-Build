@@ -190,9 +190,9 @@ const NAV_CATALOG = [
         id: 'admin-role-access',
         title: 'Role page access',
         href: '/admin/role-access',
-        description: 'Control which roles can open which pages (super admin).',
+        description: 'Control which roles can open which pages (admin).',
         keywords: ['role access', 'permissions', 'page access'],
-        roles: ['SUPER_ADMIN'],
+        roles: ['ADMIN'],
     },
     {
         id: 'admin-panels',
@@ -204,12 +204,12 @@ const NAV_CATALOG = [
     },
 ];
 function roleCanSee(entry, role) {
-    if (role === 'SUPER_ADMIN')
+    if (role === 'DEVELOPER')
         return true;
     if (entry.roles?.length)
         return entry.roles.includes(role);
     if (entry.adminOnly)
-        return role === 'ADMIN' || role === 'SUPER_ADMIN';
+        return role === 'ADMIN';
     return true;
 }
 export function searchNavCatalog(role, query) {

@@ -45,7 +45,7 @@ router.post('/', requireRoles(...INTERNAL_ROLES), async (req, res) => {
     invalidateCityCatalogCache();
     res.status(201).json(row);
 });
-router.patch('/:id', requireRoles('SUPER_ADMIN'), async (req, res) => {
+router.patch('/:id', requireRoles('ADMIN'), async (req, res) => {
     const body = z
         .object({
         city: catalogText(2, 120, 'City').optional(),
@@ -75,7 +75,7 @@ router.patch('/:id', requireRoles('SUPER_ADMIN'), async (req, res) => {
     invalidateCityCatalogCache();
     res.json(updated);
 });
-router.delete('/:id', requireRoles('SUPER_ADMIN'), async (req, res) => {
+router.delete('/:id', requireRoles('ADMIN'), async (req, res) => {
     const row = await prisma.cityCatalog.findUnique({ where: { id: req.params.id } });
     if (!row)
         return res.status(404).json({ error: 'City not found' });
@@ -83,7 +83,7 @@ router.delete('/:id', requireRoles('SUPER_ADMIN'), async (req, res) => {
     invalidateCityCatalogCache();
     res.status(204).send();
 });
-router.post('/seed-defaults', requireRoles('SUPER_ADMIN'), async (_req, res) => {
+router.post('/seed-defaults', requireRoles('ADMIN'), async (_req, res) => {
     const added = await syncDefaultCityCatalog();
     const cities = await listCityCatalog();
     res.json({ added, count: cities.length, cities });

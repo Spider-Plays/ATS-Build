@@ -10,10 +10,25 @@ function ensureTable() {
       CREATE TABLE IF NOT EXISTS "RateLimitHit" (
         "key" TEXT NOT NULL,
         "hits" INTEGER NOT NULL,
-        "resetAt" TIMESTAMP(3) NOT NULL,
+        "resetAt" TIMESTAMPTZ(3) NOT NULL,
         CONSTRAINT "RateLimitHit_pkey" PRIMARY KEY ("key")
       )
     `)
+        // Older tables used TIMESTAMP without a time zone, which stored the database's local time and
+        // made the Retry-After / RateLimit-Reset headers wrong by the server's UTC offset. The stored
+        // values are in the session time zone, so convert them from it.
+        .then(() => prisma.$executeRawUnsafe(`
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'RateLimitHit' AND column_name = 'resetAt' AND data_type = 'timestamp without time zone'
+          ) THEN
+            ALTER TABLE "RateLimitHit" ALTER COLUMN "resetAt" TYPE TIMESTAMPTZ(3)
+              USING "resetAt" AT TIME ZONE current_setting('TimeZone');
+          END IF;
+        END $$
+      `))
         .then(() => undefined)
         .catch((err) => {
         tableReady = null;

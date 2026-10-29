@@ -16,7 +16,7 @@ router.use(requireAuth, requireActiveUser, requireRoles(...INTERNAL_ROLES, 'ACCO
 function invalidMeetingLink(value) {
     if (value == null || value === '')
         return false;
-    return typeof value !== 'string' || !/^https?:\/\/\S+$/i.test(value.trim());
+    return typeof value !== 'string' || !/^https?:\/\/[^\s"'<>]+$/i.test(value.trim());
 }
 function interviewEndTime(scheduledAt, durationMinutes) {
     const end = new Date(scheduledAt);

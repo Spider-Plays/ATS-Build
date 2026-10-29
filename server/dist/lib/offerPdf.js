@@ -2,7 +2,11 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import puppeteerCore from 'puppeteer-core';
 let browserInstance = null;
-const HEADLESS_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
+// Chromium's OS sandbox works on Windows and macOS; only Linux (root / containers, which use the
+// bundled @sparticuz build with its own args) needs it switched off. Keep it on everywhere else.
+const HEADLESS_ARGS = process.platform === 'linux'
+    ? ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    : ['--disable-dev-shm-usage'];
 function useBundledChromium() {
     return process.platform === 'linux';
 }

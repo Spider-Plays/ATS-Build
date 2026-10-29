@@ -1,5 +1,5 @@
-/** Default technical + non-technical skills seeded into SkillCatalog on first load. */
-export const DEFAULT_SKILL_CATALOG = [
+import { EXTENDED_SKILLS_BY_CATEGORY } from './defaultSkillsExtended.js';
+const BASE_SKILL_CATALOG = [
     // Languages
     { name: 'JavaScript', category: 'Languages' },
     { name: 'TypeScript', category: 'Languages' },
@@ -748,3 +748,22 @@ export const DEFAULT_SKILL_CATALOG = [
     { name: 'Firmware Development', category: 'Emerging' },
     { name: 'MQTT', category: 'Emerging' },
 ];
+/** Default technical + non-technical skills seeded into SkillCatalog on first load. */
+export const DEFAULT_SKILL_CATALOG = (() => {
+    const seen = new Set();
+    const out = [];
+    const add = (name, category) => {
+        const key = name.trim().toLowerCase();
+        if (!key || seen.has(key))
+            return;
+        seen.add(key);
+        out.push({ name: name.trim(), category });
+    };
+    for (const skill of BASE_SKILL_CATALOG)
+        add(skill.name, skill.category);
+    for (const [category, names] of Object.entries(EXTENDED_SKILLS_BY_CATEGORY)) {
+        for (const name of names)
+            add(name, category);
+    }
+    return out;
+})();

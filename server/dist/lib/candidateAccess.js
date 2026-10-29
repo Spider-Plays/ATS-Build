@@ -188,7 +188,7 @@ async function assignedInterviewWhere(userId) {
 }
 /**
  * Dashboard calendar and interview lists:
- * - Org-wide (super admin, developer, admin, HR head, TA Manager): every interview.
+ * - Org-wide (admin, developer, admin, HR head, TA Manager): every interview.
  * - Recruiter and team lead: scheduled by them or assigned to them.
  * - Everyone else (finance head, hiring manager, account manager, interviewer): assigned only.
  */

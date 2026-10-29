@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import readline from 'node:readline';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import ExcelJS from 'exceljs';
 import { msUntilNextMidnightIst } from './databaseBackup.js';
@@ -178,8 +180,47 @@ export function appLogMiddleware(req, res, next) {
     });
     next();
 }
-function workbookPath(day) {
+/** Legacy monthly workbook (one sheet per day). Only read, to skip days already exported there. */
+function monthlyWorkbookPath(day) {
     return path.join(appLogDir(), `ats-app-log-${day.slice(0, 7)}.xlsx`);
+}
+/** One workbook per day, written by streaming so memory stays flat however large the log is. */
+function workbookPath(day) {
+    return path.join(appLogDir(), `ats-app-log-${day}.xlsx`);
+}
+/**
+ * Sheet names of an .xlsx, read from xl/workbook.xml inside the zip without loading the workbook
+ * (a large monthly workbook loaded through ExcelJS used to exhaust the API's memory).
+ */
+function xlsxSheetNames(file) {
+    const zip = fs.readFileSync(file);
+    let eocd = -1;
+    for (let i = zip.length - 22; i >= Math.max(0, zip.length - 65_557); i--) {
+        if (zip.readUInt32LE(i) === 0x06054b50) {
+            eocd = i;
+            break;
+        }
+    }
+    if (eocd < 0)
+        return [];
+    let offset = zip.readUInt32LE(eocd + 16);
+    for (let n = zip.readUInt16LE(eocd + 10); n > 0; n--) {
+        if (zip.readUInt32LE(offset) !== 0x02014b50)
+            return [];
+        const method = zip.readUInt16LE(offset + 10);
+        const compressedSize = zip.readUInt32LE(offset + 20);
+        const nameLength = zip.readUInt16LE(offset + 28);
+        const localHeader = zip.readUInt32LE(offset + 42);
+        const name = zip.toString('utf8', offset + 46, offset + 46 + nameLength);
+        if (name === 'xl/workbook.xml') {
+            const dataStart = localHeader + 30 + zip.readUInt16LE(localHeader + 26) + zip.readUInt16LE(localHeader + 28);
+            const raw = zip.subarray(dataStart, dataStart + compressedSize);
+            const xml = (method === 8 ? zlib.inflateRawSync(raw) : raw).toString('utf8');
+            return [...xml.matchAll(/<sheet\b[^>]*\bname="([^"]+)"/g)].map((m) => m[1]);
+        }
+        offset += 46 + nameLength + zip.readUInt16LE(offset + 30) + zip.readUInt16LE(offset + 32);
+    }
+    return [];
 }
 const COLUMNS = [
     { header: 'Time (IST)', key: 'time', width: 22 },
@@ -227,35 +268,44 @@ function toRow(entry) {
         details: Object.keys(details).length ? JSON.stringify(details).slice(0, 32000) : '',
     };
 }
-/** Adds the day's log as a sheet (named YYYY-MM-DD) to that month's workbook. Skips if the sheet exists. */
+/**
+ * Writes the day's log to its own workbook (sheet named YYYY-MM-DD). Reads the log line by line
+ * and streams rows to disk, so memory stays flat for any log size. Skips days already exported,
+ * including days that are sheets in the legacy monthly workbook.
+ */
 export async function exportDayToWorkbook(day) {
     const source = logFilePath(day);
     if (!fs.existsSync(source))
         return false;
     const target = workbookPath(day);
-    const workbook = new ExcelJS.Workbook();
     if (fs.existsSync(target))
-        await workbook.xlsx.readFile(target);
-    if (workbook.getWorksheet(day))
         return false;
+    const monthly = monthlyWorkbookPath(day);
+    if (fs.existsSync(monthly) && xlsxSheetNames(monthly).includes(day))
+        return false;
+    const tmp = `${target}.tmp`;
+    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({ filename: tmp, useStyles: true });
     const sheet = workbook.addWorksheet(day, { views: [{ state: 'frozen', ySplit: 1 }] });
     sheet.columns = COLUMNS;
     sheet.getRow(1).font = { bold: true };
     sheet.autoFilter = { from: 'A1', to: `${String.fromCharCode(64 + COLUMNS.length)}1` };
-    for (const line of fs.readFileSync(source, 'utf8').split('\n')) {
+    sheet.getRow(1).commit();
+    const lines = readline.createInterface({ input: fs.createReadStream(source, 'utf8'), crlfDelay: Infinity });
+    for await (const line of lines) {
         if (!line.trim())
             continue;
         try {
             const row = sheet.addRow(toRow(JSON.parse(line)));
             if (row.getCell('result').value === 'Failed')
                 row.font = { color: { argb: 'FFC00000' } };
+            row.commit();
         }
         catch {
             // skip malformed line
         }
     }
-    const tmp = `${target}.tmp`;
-    await workbook.xlsx.writeFile(tmp);
+    sheet.commit();
+    await workbook.commit();
     fs.renameSync(tmp, target);
     return true;
 }

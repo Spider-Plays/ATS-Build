@@ -11,7 +11,7 @@ import { sendStaffNotificationEmail } from '../services/email.js';
 import { env } from '../config/env.js';
 import { clientErrorMessage } from '../lib/safeError.js';
 const router = Router();
-const VENDOR_MANAGERS = ['ADMIN', 'HR_HEAD', 'TA_MANAGER', 'RECRUITER', 'TEAM_LEAD', 'SUPER_ADMIN'];
+const VENDOR_MANAGERS = ['ADMIN', 'HR_HEAD', 'TA_MANAGER', 'RECRUITER', 'TEAM_LEAD'];
 async function ensureOnboardingRow(vendorId) {
     const existing = await prisma.vendorOnboarding.findUnique({ where: { vendorId } });
     if (existing)
@@ -41,7 +41,6 @@ async function notifyHrManagersSubmitted(vendorName, vendorId) {
             'TA_MANAGER',
             'HR_HEAD',
             'ADMIN',
-            'SUPER_ADMIN',
             'DEVELOPER',
         ]);
         if (recipients.length === 0)

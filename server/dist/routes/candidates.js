@@ -204,7 +204,7 @@ router.get('/by-requirement/:requirementId', async (req, res) => {
     }));
     res.json(rows.map((c) => mapCandidate(c)));
 });
-router.post('/parse-resume', requireRoles(...STAFF_MUTATE), handleUploadResume, async (req, res) => {
+router.post('/parse-resume', requireRoles(...STAFF_MUTATE), expensiveRateLimiter, handleUploadResume, async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'Resume file is required' });
@@ -1068,7 +1068,7 @@ router.post('/:id/send-jd', requireRoles(...STAFF_MUTATE), async (req, res) => {
         res.status(500).json({ error: 'Failed to send job description' });
     }
 });
-router.delete('/:id', requireRoles('SUPER_ADMIN', 'ADMIN', 'HR_HEAD'), async (req, res) => {
+router.delete('/:id', requireRoles('ADMIN', 'HR_HEAD'), async (req, res) => {
     const row = await prisma.candidate.findUnique({ where: { id: req.params.id } });
     if (!row)
         return res.status(404).json({ error: 'Not found' });

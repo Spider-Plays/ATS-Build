@@ -270,7 +270,6 @@ const PANEL_MEMBER_ROLES = [
     'ACCOUNT_MANAGER',
     'TEAM_LEAD',
     'RECRUITER',
-    'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',

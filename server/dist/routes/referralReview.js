@@ -249,7 +249,7 @@ async function requireAssignee(auth, row) {
     if (row.referralStage !== 'ASSIGNED') {
         throw new ReferralWorkflowError('This referral is not waiting on a recruiter');
     }
-    const isAdmin = ['SUPER_ADMIN', 'DEVELOPER'].includes(auth.role);
+    const isAdmin = ['ADMIN', 'DEVELOPER'].includes(auth.role);
     if (row.referralAssignedToUserId !== auth.userId && !isAdmin) {
         throw new ReferralWorkflowError('Only the assigned recruiter can do this', 403);
     }

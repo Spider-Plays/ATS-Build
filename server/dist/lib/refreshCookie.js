@@ -22,6 +22,13 @@ export function setRefreshCookie(res, refreshToken) {
 export function clearRefreshCookie(res) {
     res.clearCookie(REFRESH_COOKIE, cookieOptions());
 }
+/**
+ * True when the browser reports the request came from another site. Defence in depth on top of
+ * SameSite=Strict and the CSRF header, should either ever be relaxed.
+ */
+export function isCrossSiteRequest(req) {
+    return req.get('sec-fetch-site') === 'cross-site';
+}
 export function readRefreshCookie(req) {
     return readCookie(req, REFRESH_COOKIE);
 }

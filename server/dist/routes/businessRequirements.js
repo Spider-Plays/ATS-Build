@@ -8,6 +8,7 @@ import { parseSkillList, serializeSkills } from '../lib/skills.js';
 import { parseRequirementClientInput, resolveClientFromCatalog, } from '../lib/clientCatalog.js';
 import { ensureInterviewPlan } from '../lib/interviewPlan.js';
 import { RequirementFieldError, pickBusinessRequirementExtrasForCreate, pickBusinessRequirementExtrasPatch, } from '../lib/businessRequirementFields.js';
+import { validateRequirementBasicsPatch } from '../lib/requirementFields.js';
 import { BUSINESS_MUTATE_ROLES, BUSINESS_VIEW_ROLES, BusinessRequirementAccessError, assertCanMutateBusinessRequirement, assertCanViewBusinessRequirement, buildBusinessRequirementListWhere, } from '../lib/businessRequirementAccess.js';
 import { assertCanMutateClientDeal } from '../lib/clientDealAccess.js';
 import { businessStagePercentage, isBusinessStageKey, isRequirementDealStageKey, isBusinessStageRollback, STAGE_ROLLBACK_ERROR, } from '../lib/businessStages.js';
@@ -238,6 +239,30 @@ router.get('/:id', requireRoles(...BUSINESS_VIEW_ROLES), async (req, res) => {
         return res.status(404).json({ error: 'Not found' });
     res.json(mapBusinessRequirement(row));
 });
+const BUSINESS_REQUIREMENT_EDITABLE_FIELDS = [
+    'title',
+    'client',
+    'department',
+    'accountManager',
+    'hiringManager',
+    'openings',
+    'priority',
+    'location',
+    'locationCity',
+    'isRemote',
+    'workMode',
+    'employmentType',
+    'seniorityLevel',
+    'experienceMinYears',
+    'experienceMaxYears',
+    'salaryBand',
+    'targetStartDate',
+    'hiringDeadline',
+    'description',
+    'jobDescription',
+    'primarySkills',
+    'secondarySkills',
+];
 router.patch('/:id', requireRoles(...BUSINESS_MUTATE_ROLES), async (req, res) => {
     try {
         await assertCanMutateBusinessRequirement(req.auth, req.params.id);
@@ -255,15 +280,20 @@ router.patch('/:id', requireRoles(...BUSINESS_MUTATE_ROLES), async (req, res) =>
     if (existing.status !== 'ACTIVE') {
         return res.status(400).json({ error: 'Only active business requirements can be edited' });
     }
-    const data = { ...req.body };
-    delete data._user;
-    delete data.businessStage;
-    delete data.stagePercentage;
-    delete data.status;
-    delete data.publishedRequirementId;
-    delete data.stageHistory;
+    // Allow-list: stage, status, links and ownership change only through their own workflow routes.
+    const data = {};
+    for (const key of BUSINESS_REQUIREMENT_EDITABLE_FIELDS) {
+        if (req.body?.[key] !== undefined)
+            data[key] = req.body[key];
+    }
     try {
+        validateRequirementBasicsPatch(data);
         Object.assign(data, pickBusinessRequirementExtrasPatch(data));
+        // The shared extras parser also derives requirement-only fields; keep only real columns.
+        for (const key of Object.keys(data)) {
+            if (!BUSINESS_REQUIREMENT_EDITABLE_FIELDS.includes(key))
+                delete data[key];
+        }
     }
     catch (e) {
         if (e instanceof RequirementFieldError) {

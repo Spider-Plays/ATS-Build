@@ -28,7 +28,7 @@ export function assertOfferTransition(from, to) {
         throw new Error(`Cannot transition offer from ${from} to ${to}`);
     }
 }
-export const OFFER_DETAIL_EDITOR_ROLES = ['SUPER_ADMIN', 'HR_HEAD', 'TA_MANAGER'];
+export const OFFER_DETAIL_EDITOR_ROLES = ['ADMIN', 'HR_HEAD', 'TA_MANAGER'];
 const HR_EDITABLE_STATUSES = [
     'DRAFT',
     'NEGOTIATION',

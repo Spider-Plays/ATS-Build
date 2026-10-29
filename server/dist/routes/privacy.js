@@ -6,7 +6,7 @@ import { getLastRetentionRun, getRetentionHistory, isRetentionRunning, runDataRe
 import { logActivity } from '../services/activityLog.js';
 const router = Router();
 router.use(requireAuth, requireActiveUser);
-const READ_ROLES = ['SUPER_ADMIN', 'ADMIN', 'HR_HEAD'];
+const READ_ROLES = ['ADMIN', 'HR_HEAD'];
 async function overview() {
     const [settings, lastRun] = await Promise.all([getPrivacySettings(), getLastRetentionRun()]);
     return {
@@ -35,7 +35,7 @@ function settingsSchema() {
         runHourIst: z.number().int().min(0).max(23),
     });
 }
-/** Developer only. Super Admin is not exempt here. */
+/** Developer only. Admin is not exempt here. */
 router.put('/', requireExactRoles(), async (req, res) => {
     const parsed = settingsSchema().safeParse(req.body);
     if (!parsed.success) {

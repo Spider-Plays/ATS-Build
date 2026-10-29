@@ -6,7 +6,6 @@ import { logActivity } from '../services/activityLog.js';
 import { CHANGE_REQUEST_MODULES } from '../lib/changeRequestModules.js';
 const router = Router();
 const SELF_SERVICE_ROLES = [
-    'SUPER_ADMIN',
     'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',
@@ -22,9 +21,9 @@ const SELF_SERVICE_ROLES = [
     'DEVELOPER',
 ];
 const HR_REVIEW_ROLES = ['TA_MANAGER', 'HR_HEAD'];
-const ADMIN_APPROVE_ROLES = ['ADMIN', 'SUPER_ADMIN'];
+const ADMIN_APPROVE_ROLES = ['ADMIN'];
 const DEVELOPER_ROLES = ['DEVELOPER'];
-const DELETE_ROLES = ['SUPER_ADMIN', 'DEVELOPER'];
+const DELETE_ROLES = ['ADMIN', 'DEVELOPER'];
 const ADMIN_CLOSE_ROLES = ADMIN_APPROVE_ROLES;
 function parseHistory(raw) {
     try {
@@ -118,7 +117,7 @@ router.get('/', async (req, res) => {
         where = { requestedBy: userId };
     }
     else if (tab === 'pending_hr') {
-        if (!HR_REVIEW_ROLES.includes(role) && role !== 'SUPER_ADMIN' && role !== 'ADMIN' && role !== 'DEVELOPER') {
+        if (!HR_REVIEW_ROLES.includes(role) && role !== 'ADMIN' && role !== 'DEVELOPER') {
             return res.status(403).json({ error: 'Forbidden' });
         }
         where = { status: 'PENDING_HR' };
@@ -176,9 +175,6 @@ router.get('/:id', async (req, res) => {
     res.json(mapChangeRequest(row));
 });
 router.post('/', async (req, res) => {
-    if (req.auth.role === 'SUPER_ADMIN') {
-        return res.status(403).json({ error: 'Super Admin cannot submit change requests' });
-    }
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success)
         return res.status(400).json({ error: 'Validation failed' });
@@ -362,7 +358,7 @@ router.post('/:id/close', async (req, res) => {
 });
 router.post('/:id/approve-admin', async (req, res) => {
     if (!ADMIN_APPROVE_ROLES.includes(req.auth.role)) {
-        return res.status(403).json({ error: 'Only Admin or Super Admin can approve' });
+        return res.status(403).json({ error: 'Only Admin can approve' });
     }
     const parsed = hrReviewSchema.safeParse(req.body ?? {});
     if (!parsed.success)
@@ -403,7 +399,7 @@ router.post('/:id/approve-admin', async (req, res) => {
 });
 router.post('/:id/reject-admin', async (req, res) => {
     if (!ADMIN_APPROVE_ROLES.includes(req.auth.role)) {
-        return res.status(403).json({ error: 'Only Admin or Super Admin can reject at this stage' });
+        return res.status(403).json({ error: 'Only Admin can reject at this stage' });
     }
     const parsed = rejectSchema.safeParse(req.body);
     if (!parsed.success)
@@ -523,7 +519,7 @@ router.post('/:id/developer', async (req, res) => {
 });
 router.delete('/:id', async (req, res) => {
     if (!DELETE_ROLES.includes(req.auth.role)) {
-        return res.status(403).json({ error: 'Only Super Admin or Developer can delete change requests' });
+        return res.status(403).json({ error: 'Only Admin or Developer can delete change requests' });
     }
     const row = await prisma.changeRequest.findUnique({ where: { id: req.params.id } });
     if (!row)

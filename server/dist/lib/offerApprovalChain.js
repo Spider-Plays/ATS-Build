@@ -1,6 +1,4 @@
 export const OFFER_APPROVER_ELIGIBLE_ROLES = [
-    'SUPER_ADMIN',
-    'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',
 ];
@@ -85,8 +83,6 @@ export function getCurrentStage(offer) {
     return chain.stages[idx] ?? null;
 }
 export function canUserApproveCurrentStage(auth, offer) {
-    if (auth.role === 'SUPER_ADMIN')
-        return true;
     if (offer.createdBy === auth.userId)
         return false;
     const stage = getCurrentStage(offer);

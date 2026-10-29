@@ -16,6 +16,7 @@ import { ensureInterviewScheduledByColumn } from './lib/ensureInterviewScheduled
 import { ensureUserProfileColumns } from './lib/ensureUserProfileColumns.js';
 import { retireDevAccounts } from './lib/retireDevAccounts.js';
 import { ensureTaManagerRole } from './lib/ensureTaManagerRole.js';
+import { ensureRemoveSuperAdminRole } from './lib/ensureRemoveSuperAdminRole.js';
 import { ensureRolePageAccessPatches } from './lib/ensureRolePageAccessPatches.js';
 import { ensureRefreshTokenTable } from './lib/ensureRefreshTokenTable.js';
 import { ensureChangeRequestTable } from './lib/ensureChangeRequestTable.js';
@@ -63,6 +64,7 @@ async function prepareDatabase() {
     await retireDevAccounts();
     await ensureChangeRequestTable();
     await ensureTaManagerRole();
+    await ensureRemoveSuperAdminRole();
     await ensureRolePageAccessPatches();
     await ensureRefreshTokenTable();
     startInterviewReminderJob();
