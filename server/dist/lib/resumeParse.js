@@ -114,7 +114,18 @@ export function parseResumeFields(text, catalogNames = []) {
         firstName = words[0];
         lastName = words.slice(1).join(' ');
     }
-    const portfolio = portfolioMatch?.find((u) => !/linkedin\.com/i.test(u)) ?? undefined;
+    // Match on the URL host, not a loose substring: an unanchored /linkedin\.com/
+    // would also treat hosts like `linkedin.com.evil.com` as LinkedIn.
+    const isLinkedInHost = (u) => {
+        try {
+            const host = new URL(u.includes('://') ? u : `https://${u}`).hostname.toLowerCase();
+            return host === 'linkedin.com' || host.endsWith('.linkedin.com');
+        }
+        catch {
+            return false;
+        }
+    };
+    const portfolio = portfolioMatch?.find((u) => !isLinkedInHost(u)) ?? undefined;
     const extracted = extractSkillsFromText(text, catalogNames);
     const primarySkills = extracted.slice(0, 12);
     const secondarySkills = extracted.slice(12, 24);

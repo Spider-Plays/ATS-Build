@@ -13,7 +13,9 @@ function splitJobDescriptionSections(text) {
 }
 /** Extract primary and secondary skills from a job description. */
 export function parseJobDescriptionSkills(text, catalog = []) {
-    const trimmed = text.trim();
+    // Clamp to a generous upper bound before any regex work: a real JD is far smaller,
+    // and matching the section/heading patterns on unbounded text risks ReDoS.
+    const trimmed = text.trim().slice(0, 200_000);
     if (!trimmed)
         return { primarySkills: [], secondarySkills: [] };
     // Whole-word catalog hits, most-mentioned first. Required section → primary; the rest → secondary.

@@ -57,7 +57,9 @@ export function parseRequirementClientInput(raw) {
     if (typeof raw !== 'string') {
         throw new Error('Invalid client');
     }
-    const name = raw.trim().replace(/\s+/g, ' ');
+    // Clamp length before whitespace normalization: a client name is always short,
+    // and an unbounded `\s+` replace on attacker-controlled text risks ReDoS.
+    const name = raw.trim().slice(0, 200).replace(/\s+/g, ' ');
     if (!name)
         throw new Error('Client is required');
     if (/[,;|]/.test(name) || /\s+and\s+/i.test(name)) {

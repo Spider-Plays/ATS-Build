@@ -14,7 +14,7 @@ import { closeLoginSession, reopenRecentTabClose } from '../lib/recordLogin.js';
 import { issueAppSession } from '../lib/appSession.js';
 import { CSRF_HEADER, clearRefreshCookie, isCrossSiteRequest, readRefreshCookie, withRefreshCookie } from '../lib/refreshCookie.js';
 import { isTrustedDevice, mfaRequiredForRole, revokeTrustedDevices, signMfaToken } from '../lib/mfa.js';
-import { readMfaDeviceCookie, setMfaDeviceCookie } from '../lib/mfaDeviceCookie.js';
+import { readMfaDeviceCookie } from '../lib/mfaDeviceCookie.js';
 import mfaRoutes from './mfa.js';
 import emailVerificationRoutes from './emailVerification.js';
 import { sendEmailVerification } from '../lib/emailVerification.js';
@@ -34,7 +34,6 @@ const loginSchema = z.object({
     email: z.string().email(),
     password: z.string().min(1),
     /** "Remember this device" token from a previous MFA sign-in on this browser. */
-    deviceToken: z.string().min(1).max(200).optional(),
 });
 const registerCandidateSchema = z.object({
     firstName: z.string().min(1, 'First name is required'),
@@ -248,12 +247,7 @@ router.post('/login', authRateLimiter, loginRateLimiter, async (req, res, next) 
         if (mfaRequiredForRole(user.role)) {
             const cookieDevice = readMfaDeviceCookie(req);
             const trustedByCookie = user.mfaEnabled && (await isTrustedDevice(user.id, cookieDevice));
-            // Devices remembered before the cookie existed send their token in the body; move it into
-            // the HttpOnly cookie. The body token can be dropped once those have expired (15 days).
-            const trustedByBody = !trustedByCookie && user.mfaEnabled && (await isTrustedDevice(user.id, parsed.data.deviceToken));
-            if (trustedByBody)
-                setMfaDeviceCookie(res, parsed.data.deviceToken);
-            if (!trustedByCookie && !trustedByBody) {
+            if (!trustedByCookie) {
                 return res.json({
                     mfaRequired: true,
                     mfaSetupRequired: !user.mfaEnabled,

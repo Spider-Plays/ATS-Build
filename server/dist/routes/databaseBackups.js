@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireActiveUser, requireAuth } from '../middleware/auth.js';
-import { databaseBackupDir, listDatabaseBackups, runDatabaseBackup } from '../lib/databaseBackup.js';
+import { listDatabaseBackups, runDatabaseBackup } from '../lib/databaseBackup.js';
 const router = Router();
 router.use(requireAuth, requireActiveUser);
 function requireDeveloper(req, res, next) {
@@ -11,7 +11,7 @@ function requireDeveloper(req, res, next) {
     next();
 }
 router.get('/', requireDeveloper, (_req, res) => {
-    res.json({ directory: databaseBackupDir(), backups: listDatabaseBackups() });
+    res.json({ backups: listDatabaseBackups() });
 });
 /** A full pg_dump is heavy: run one at a time, and space manual runs out so repeated clicks or scripts can't stack them. */
 const MANUAL_BACKUP_COOLDOWN_MS = 60_000;
@@ -30,7 +30,7 @@ router.post('/', requireDeveloper, async (_req, res) => {
     lastManualBackupAt = Date.now();
     try {
         const backup = await runDatabaseBackup();
-        res.status(201).json({ backup, directory: databaseBackupDir(), backups: listDatabaseBackups() });
+        res.status(201).json({ backup, backups: listDatabaseBackups() });
     }
     catch (error) {
         res.status(500).json({ error: error instanceof Error ? error.message : 'Backup failed' });

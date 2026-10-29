@@ -16,7 +16,9 @@ function parseSkillJson(raw) {
 export function parseExperienceYears(raw) {
     if (!raw?.trim())
         return null;
-    const s = raw.trim();
+    // Clamp length before regex: these fields are always short, and an unbounded
+    // match on attacker-controlled text risks polynomial-time backtracking (ReDoS).
+    const s = raw.trim().slice(0, 100);
     const match = s.match(/(\d+(?:\.\d+)?)\s*\+?\s*(years?|yrs?)?/i);
     if (!match) {
         const bare = s.match(/^(\d+(?:\.\d+)?)$/);
@@ -32,7 +34,8 @@ export function parseExperienceYears(raw) {
 export function parseCtcLakhs(raw) {
     if (!raw?.trim())
         return null;
-    const s = raw.trim();
+    // Clamp length before regex (ReDoS guard — see parseExperienceYears).
+    const s = raw.trim().slice(0, 100);
     const match = s.match(/(\d+(?:\.\d+)?)/);
     if (!match)
         return null;
@@ -52,7 +55,8 @@ export function parseCtcLakhs(raw) {
 export function parseNoticeDays(raw) {
     if (!raw?.trim())
         return null;
-    const s = raw.trim();
+    // Clamp length before regex (ReDoS guard — see parseExperienceYears).
+    const s = raw.trim().slice(0, 100);
     if (/immediate|serving|negotiable/i.test(s) && !/\d/.test(s)) {
         if (/immediate/i.test(s))
             return 0;

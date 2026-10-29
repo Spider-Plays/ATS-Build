@@ -1,10 +1,19 @@
 import { Resend } from 'resend';
+import sanitizeHtml from 'sanitize-html';
 import { env } from '../config/env.js';
 import { emailBrandLockupHtml, getEmailBrandInlineAttachments, } from '../lib/emailBrandAssets.js';
 import { isM365EmailConfigured, sendM365HtmlEmail } from '../integrations/m365/index.js';
 import { isEmailKindEnabled } from '../lib/emailToggles.js';
 import { emailCopyLabel, fillEmailCopy, getEmailCopies, resolveEmailWording } from '../lib/emailCopy.js';
 import { emailsForRoleSlots } from '../lib/emailRecipients.js';
+/**
+ * Reduce arbitrary (possibly HTML) input to plain text. A regex tag-strip is not a
+ * safe sanitizer — malformed or nested markup can survive — so defer to sanitize-html
+ * with no allowed tags, which also decodes entities correctly.
+ */
+function toPlainText(value) {
+    return sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} });
+}
 function escapeHtml(value) {
     return value
         .replace(/&/g, '&amp;')
@@ -639,7 +648,7 @@ export async function sendStaffNotificationEmail(params) {
             recipientName: params.recipientName,
             subject: params.subject,
             headline: params.headline,
-            body: params.body.replace(/<[^>]+>/g, ''),
+            body: toPlainText(params.body),
         },
         to: params.to,
         subject: params.subject,

@@ -1,0 +1,1 @@
+import{j as r}from"./vendor-query-CrokG8JW.js";import{U as o}from"./UnderConstructionPage-PYTS26_t.js";import{B as t}from"./bar-chart-3-lE8TPDwK.js";import"./index-9R5-fn0V.js";import"./vendor-react-dR6ePmA6.js";import"./vendor-forms-3bKYC1oC.js";import"./vendor-motion-D4gKVS0E.js";import"./vendor-lit-QNvgJy_F.js";const u=()=>r.jsx(o,{icon:t});export{u as default};

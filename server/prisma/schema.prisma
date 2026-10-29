@@ -38,7 +38,7 @@ model User {
   passwordResetExpires DateTime?
   /// Consecutive wrong-password sign-ins; reset on success or admin unlock.
   failedLoginAttempts  Int      @default(0)
-  /// Set after 5 consecutive failures; only Super Admin / Developer can clear it.
+  /// Set after 5 consecutive failures; only Admin / Developer can clear it.
   lockedAt             DateTime?
   /// Set once the owner proves they control the email (verification link, Google sign-in, or emailed credentials). Enforced for CANDIDATE accounts.
   emailVerifiedAt      DateTime?
@@ -176,7 +176,7 @@ model VendorOnboarding {
   @@index([status])
 }
 
-/// TA Operation asks for a new vendor. TA Manager approves, then Super Admin or Developer creates it.
+/// TA Operation asks for a new vendor. TA Manager approves, then Admin or Developer creates it.
 model VendorCreationRequest {
   id          String  @id @default(cuid())
   name        String

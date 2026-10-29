@@ -58,7 +58,9 @@ export function sanitizeSkillList(skills) {
     return [
         ...new Set(skills
             // Strip markup characters: skills are rendered inside search highlights.
-            .map((s) => s.replace(/[<>`]/g, '').trim().replace(/^["'\[\]|]+|["'\[\]|]+$/g, '').trim())
+            // Clamp first: a skill token is short, and the anchored +-quantified trim
+            // regex below can backtrack super-linearly on a long crafted token (ReDoS).
+            .map((s) => s.slice(0, 200).replace(/[<>`]/g, '').trim().replace(/^["'\[\]|]+|["'\[\]|]+$/g, '').trim())
             .filter(Boolean)
             .filter((s) => s.length >= 2 && s.length <= 60)
             .filter((s) => !isSectionHeaderLabel(s))
