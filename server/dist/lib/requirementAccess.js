@@ -36,7 +36,6 @@ export function requirementVisibleToAuth(auth, requirement, interviewerRequireme
     const openBook = options?.includeOpenBook === true;
     switch (auth.role) {
         case 'RECRUITER':
-        case 'TEAM_LEAD':
             return assigned || invited || created || openBook;
         case 'HIRING_MANAGER':
             return created || isRequirementHiringManager(auth, requirement);
@@ -87,9 +86,9 @@ export async function requirementIdsForAuth(auth) {
 export async function buildRequirementListWhere(auth) {
     if (hasOrgWideAccess(auth.role))
         return {};
-    // All recruiters / team leads can browse every requirement;
+    // All recruiters can browse every requirement;
     // adding profiles is gated separately via assignment.
-    if (auth.role === 'RECRUITER' || auth.role === 'TEAM_LEAD') {
+    if (auth.role === 'RECRUITER') {
         return {};
     }
     const ids = await requirementIdsForAuth(auth);
@@ -125,7 +124,7 @@ export async function assertCanViewRequirement(auth, requirementId) {
 }
 /**
  * Changing a requirement needs a real stake in it: org-wide roles, its creator, its hiring manager,
- * or an assigned recruiter / team lead. The open book and pending invites grant view access only.
+ * or an assigned recruiter. The open book and pending invites grant view access only.
  */
 export async function assertCanEditRequirement(auth, requirementId) {
     if (hasOrgWideAccess(auth.role))
@@ -162,7 +161,7 @@ export async function assertCanAddCandidatesToRequirement(auth, requirementId) {
     if (!row) {
         throw new RequirementAccessError('Requirement not found');
     }
-    if (auth.role === 'RECRUITER' || auth.role === 'TEAM_LEAD') {
+    if (auth.role === 'RECRUITER') {
         const assigned = parseRecruiterIds(row.recruiters);
         if (assigned.includes(auth.userId))
             return;

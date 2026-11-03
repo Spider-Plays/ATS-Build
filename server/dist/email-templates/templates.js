@@ -363,7 +363,7 @@ export function newCandidateNotificationEmail(p) {
 }
 // ── Referrals ──
 export function referralSubmittedEmail(p) {
-    const portalUrl = `${origin()}/referral-portal/login`;
+    const portalUrl = `${origin()}/referral-portal/dashboard`;
     return {
         subject: `Referral submitted — ${env.appName}`,
         html: renderEmail({
@@ -401,7 +401,7 @@ export function referralStatusEmail(p) {
                 joined
                     ? { type: 'person', initials: initials(p.candidateName), name: p.candidateName, meta: p.jobTitle, chips: [{ tone: 'success', label: 'Joined' }] }
                     : { type: 'callout', tone: 'neutral', title: 'Keep them coming', html: 'Thank you for thinking of us. Good referrals are how we find great people.' },
-                { type: 'actions', items: [{ label: 'View referral portal', href: `${origin()}/referral-portal/login` }] },
+                { type: 'actions', items: [{ label: 'View referral portal', href: `${origin()}/referral-portal/dashboard` }] },
             ],
         }),
     };

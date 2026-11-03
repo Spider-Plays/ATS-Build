@@ -27,7 +27,6 @@ const staffRoles = [
     'HUMAN_RESOURCE',
     'FINANCE_HEAD',
     'RECRUITER',
-    'TEAM_LEAD',
     'HIRING_MANAGER',
     'ACCOUNT_MANAGER',
     'INTERVIEWER',
@@ -70,7 +69,7 @@ async function requireDeveloperForAdminTarget(req, res, next) {
     }
     next();
 }
-router.get('/', requireRoles('ADMIN', 'HR_HEAD', 'TA_MANAGER', 'RECRUITER', 'TEAM_LEAD', 'HIRING_MANAGER', 'ACCOUNT_MANAGER', 'INTERVIEWER'), async (req, res) => {
+router.get('/', requireRoles('ADMIN', 'HR_HEAD', 'TA_MANAGER', 'RECRUITER', 'HIRING_MANAGER', 'ACCOUNT_MANAGER', 'INTERVIEWER'), async (req, res) => {
     const listWhere = await buildUserListWhere(req.auth);
     const users = await prisma.user.findMany({ where: listWhere, orderBy: { createdAt: 'desc' } });
     res.json(users.map(mapUser));

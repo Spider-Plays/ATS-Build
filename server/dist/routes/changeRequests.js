@@ -4,6 +4,8 @@ import { prisma } from '../lib/prisma.js';
 import { requireAuth, requireActiveUser } from '../middleware/auth.js';
 import { logActivity } from '../services/activityLog.js';
 import { CHANGE_REQUEST_MODULES } from '../lib/changeRequestModules.js';
+import { changeRequestImagePath, deleteChangeRequestImages, parseAttachments, saveChangeRequestImages, sniffImageMime, } from '../lib/changeRequestImageStorage.js';
+import { handleUploadChangeRequestImages } from '../middleware/uploadChangeRequestImages.js';
 const router = Router();
 const SELF_SERVICE_ROLES = [
     'ADMIN',
@@ -11,7 +13,6 @@ const SELF_SERVICE_ROLES = [
     'TA_MANAGER',
     'FINANCE_HEAD',
     'RECRUITER',
-    'TEAM_LEAD',
     'HIRING_MANAGER',
     'ACCOUNT_MANAGER',
     'INTERVIEWER',
@@ -62,6 +63,7 @@ function mapChangeRequest(row) {
         closedByName: row.closedByName ?? undefined,
         closedAt: row.closedAt?.toISOString(),
         history: parseHistory(row.history),
+        attachments: parseAttachments(row.attachments),
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
     };
@@ -159,22 +161,39 @@ router.get('/', async (req, res) => {
     });
     res.json(rows.map(mapChangeRequest));
 });
+function canViewChangeRequest(req, row) {
+    const role = req.auth.role;
+    return (row.requestedBy === req.auth.userId ||
+        HR_REVIEW_ROLES.includes(role) ||
+        ADMIN_APPROVE_ROLES.includes(role) ||
+        DEVELOPER_ROLES.includes(role));
+}
 router.get('/:id', async (req, res) => {
     const row = await prisma.changeRequest.findUnique({ where: { id: req.params.id } });
     if (!row)
         return res.status(404).json({ error: 'Change request not found' });
-    const role = req.auth.role;
-    const userId = req.auth.userId;
-    const isOwner = row.requestedBy === userId;
-    const canHr = HR_REVIEW_ROLES.includes(role);
-    const canAdmin = ADMIN_APPROVE_ROLES.includes(role);
-    const canDeveloper = DEVELOPER_ROLES.includes(role);
-    if (!isOwner && !canHr && !canAdmin && !canDeveloper) {
+    if (!canViewChangeRequest(req, row))
         return res.status(403).json({ error: 'Forbidden' });
-    }
     res.json(mapChangeRequest(row));
 });
-router.post('/', async (req, res) => {
+router.get('/:id/attachments/:attachmentId', async (req, res) => {
+    const row = await prisma.changeRequest.findUnique({ where: { id: req.params.id } });
+    if (!row)
+        return res.status(404).json({ error: 'Change request not found' });
+    if (!canViewChangeRequest(req, row))
+        return res.status(403).json({ error: 'Forbidden' });
+    const attachment = parseAttachments(row.attachments).find((a) => a.id === req.params.attachmentId);
+    if (!attachment)
+        return res.status(404).json({ error: 'Image not found' });
+    res.setHeader('Content-Type', attachment.mime);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.sendFile(changeRequestImagePath(row.id, attachment), (err) => {
+        if (err && !res.headersSent)
+            res.status(404).json({ error: 'Image file is missing' });
+    });
+});
+router.post('/', handleUploadChangeRequestImages, async (req, res) => {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success)
         return res.status(400).json({ error: 'Validation failed' });
@@ -189,7 +208,7 @@ router.post('/', async (req, res) => {
         byRole: user.role,
         comment: 'Change request submitted',
     });
-    const row = await prisma.changeRequest.create({
+    const created = await prisma.changeRequest.create({
         data: {
             title,
             module,
@@ -202,6 +221,23 @@ router.post('/', async (req, res) => {
             history,
         },
     });
+    let row = created;
+    const files = req.files ?? [];
+    if (files.length > 0) {
+        try {
+            const attachments = await saveChangeRequestImages(created.id, files.map((f) => ({ buffer: f.buffer, originalname: f.originalname, mime: sniffImageMime(f.buffer) })));
+            row = await prisma.changeRequest.update({
+                where: { id: created.id },
+                data: { attachments: JSON.stringify(attachments) },
+            });
+        }
+        catch (err) {
+            await deleteChangeRequestImages(created.id);
+            await prisma.changeRequest.delete({ where: { id: created.id } }).catch(() => undefined);
+            console.error('[change-requests] failed to save images', err);
+            return res.status(500).json({ error: 'Could not save the attached images' });
+        }
+    }
     await logActivity({
         entityType: 'CHANGE_REQUEST',
         entityId: row.id,
@@ -525,6 +561,7 @@ router.delete('/:id', async (req, res) => {
     if (!row)
         return res.status(404).json({ error: 'Change request not found' });
     await prisma.changeRequest.delete({ where: { id: row.id } });
+    await deleteChangeRequestImages(row.id);
     const actorName = await getUserName(req.auth.userId);
     await logActivity({
         entityType: 'CHANGE_REQUEST',

@@ -15,6 +15,7 @@
     "db:push:schema": "prisma db push",
     "db:seed-skills": "tsx src/scripts/seed-skill-catalog.ts",
     "db:seed-vendors": "tsx src/scripts/seed-vendors.ts",
+    "db:seed-demo-users": "tsx src/scripts/seed-demo-users.ts",
     "db:attach-resumes": "tsx src/scripts/attach-resumes.ts",
     "db:reset": "tsx src/scripts/reset.ts",
     "db:clear": "tsx src/scripts/reset.ts all",

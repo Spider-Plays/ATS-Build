@@ -231,14 +231,14 @@ function noneById() {
 }
 /**
  * TA Report scopes:
- * - HR Head / TA Manager / Team Lead (TA Lead) / Admin: entire org
+ * - HR Head / TA Manager / Admin / TA Operation tag: entire org
  * - Recruiter + groupBy project: assigned requirements only, but full job metrics
  *   (all candidates / interviews / offers on those requirements)
  * - Recruiter + groupBy recruiter: purely individual — own activity only;
  *   teammate pivot rows never appear
  */
 async function resolveTaReportScopes(auth, groupBy) {
-    if (hasTaReportOrgWideAccess(auth.role)) {
+    if (hasTaReportOrgWideAccess(auth.role, auth.tags)) {
         return {
             reqWhere: {},
             candWhere: {},

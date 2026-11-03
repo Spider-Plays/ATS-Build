@@ -1,7 +1,7 @@
 import { env } from '../../config/env.js';
 import { m365Config } from './config.js';
 import { getGraphAccessToken, isM365EmailConfigured } from './client.js';
-function calendarOrganizerEmail() {
+export function calendarOrganizerEmail() {
     return (process.env.M365_CALENDAR_ORGANIZER_EMAIL?.trim() ||
         m365Config.senderEmail);
 }
@@ -80,12 +80,13 @@ function buildEventPayload(input) {
             emailAddress: { address: a.email, name: a.name },
             type: 'required',
         })),
+        ...(input.createTeamsMeeting ? { isOnlineMeeting: true, onlineMeetingProvider: 'teamsForBusiness' } : {}),
     };
 }
 export async function createTeamsOnlineMeeting(input) {
     if (!isM365CalendarEnabled())
         return { ok: false, message: 'Calendar is not configured' };
-    const organizer = calendarOrganizerEmail();
+    const organizer = input.organizer || calendarOrganizerEmail();
     const result = await graphRequest(`/users/${encodeURIComponent(organizer)}/onlineMeetings`, {
         method: 'POST',
         body: JSON.stringify({
@@ -103,10 +104,9 @@ export async function createTeamsOnlineMeeting(input) {
         return { ok: false, message: 'Graph online meeting returned no joinWebUrl' };
     return { ok: true, joinUrl };
 }
-export async function createM365InterviewEvent(input) {
+export async function createM365InterviewEvent(input, organizer = calendarOrganizerEmail()) {
     if (!isM365CalendarEnabled())
         return { ok: false, reason: 'not_configured' };
-    const organizer = calendarOrganizerEmail();
     const result = await graphRequest(`/users/${encodeURIComponent(organizer)}/events`, {
         method: 'POST',
         body: JSON.stringify(buildEventPayload(input)),
@@ -128,10 +128,9 @@ export async function createM365InterviewEvent(input) {
         meetingLink: payload.onlineMeeting?.joinUrl ?? input.meetingLink,
     };
 }
-export async function updateM365InterviewEvent(eventId, input) {
+export async function updateM365InterviewEvent(eventId, input, organizer = calendarOrganizerEmail()) {
     if (!isM365CalendarEnabled())
         return { ok: false, reason: 'not_configured' };
-    const organizer = calendarOrganizerEmail();
     const result = await graphRequest(`/users/${encodeURIComponent(organizer)}/events/${encodeURIComponent(eventId)}`, {
         method: 'PATCH',
         body: JSON.stringify(buildEventPayload(input)),
@@ -150,10 +149,9 @@ export async function updateM365InterviewEvent(eventId, input) {
         meetingLink: payload.onlineMeeting?.joinUrl ?? input.meetingLink,
     };
 }
-export async function cancelM365InterviewEvent(eventId) {
+export async function cancelM365InterviewEvent(eventId, organizer = calendarOrganizerEmail()) {
     if (!isM365CalendarEnabled())
         return { ok: false, reason: 'not_configured' };
-    const organizer = calendarOrganizerEmail();
     const result = await graphRequest(`/users/${encodeURIComponent(organizer)}/events/${encodeURIComponent(eventId)}/cancel`, {
         method: 'POST',
         body: JSON.stringify({

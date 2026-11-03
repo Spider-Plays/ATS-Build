@@ -105,7 +105,7 @@ async function scopedActivityWhere(auth) {
     if (interviewIds.length > 0) {
         or.push({ entityType: 'INTERVIEW', entityId: { in: interviewIds } });
     }
-    // Recruiters / team leads / etc. also see offers on candidates they can access.
+    // Recruiters etc. also see offers on candidates they can access.
     const offerIds = await offerIdsForCandidates(candidateIds);
     if (offerIds.length > 0) {
         or.push({ entityType: 'OFFER', entityId: { in: offerIds } });

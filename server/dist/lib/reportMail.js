@@ -5,7 +5,7 @@ export const DEFAULT_REPORT_MAIL = {
     aging: {
         extraTo: [],
         cc: [],
-        bcc: ['karthik.vc@igsglobal.com'],
+        bcc: [],
         subject: '{{headline}}: {{jobTitle}}',
     },
 };

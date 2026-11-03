@@ -1,8 +1,30 @@
 import { prisma } from './prisma.js';
 import { env } from '../config/env.js';
 import { interviewEndTime } from './calendarInvite.js';
-import { cancelM365InterviewEvent, createM365InterviewEvent, createTeamsOnlineMeeting, deletePrivateBusyHold, shouldAutoCreateTeamsMeeting, updateM365InterviewEvent, } from '../integrations/m365/calendar.js';
+import { calendarOrganizerEmail, cancelM365InterviewEvent, createM365InterviewEvent, createTeamsOnlineMeeting, deletePrivateBusyHold, shouldAutoCreateTeamsMeeting, updateM365InterviewEvent, } from '../integrations/m365/calendar.js';
 import { getInterviewerUsers } from './emailRecipients.js';
+/**
+ * New invites are organized from the scheduler's own Outlook calendar when their address is in
+ * the tenant (same domain as the shared organizer, or M365_CALENDAR_ORGANIZER_DOMAINS).
+ * M365_CALENDAR_USE_SCHEDULER_MAILBOX=false keeps everything on the shared mailbox.
+ */
+async function schedulerOrganizerEmail(interviewId) {
+    const flag = process.env.M365_CALENDAR_USE_SCHEDULER_MAILBOX?.trim().toLowerCase();
+    if (flag === 'false' || flag === '0')
+        return undefined;
+    const interview = await prisma.interview.findUnique({ where: { id: interviewId }, select: { scheduledBy: true } });
+    if (!interview?.scheduledBy)
+        return undefined;
+    const user = await prisma.user.findUnique({ where: { id: interview.scheduledBy }, select: { email: true, status: true } });
+    const email = user?.status === 'ACTIVE' ? user.email?.trim().toLowerCase() : undefined;
+    if (!email)
+        return undefined;
+    const domains = (process.env.M365_CALENDAR_ORGANIZER_DOMAINS || calendarOrganizerEmail().split('@')[1] || '')
+        .split(',')
+        .map((domain) => domain.trim().toLowerCase())
+        .filter(Boolean);
+    return domains.includes(email.split('@')[1] ?? '') ? email : undefined;
+}
 function interviewInviteWhen(date) {
     const parts = new Intl.DateTimeFormat('en-GB', {
         timeZone: 'Asia/Kolkata',
@@ -118,15 +140,18 @@ export async function syncInterviewCalendar(ctx) {
     if (ctx.cancelled) {
         const { isEmailKindEnabled } = await import('./emailToggles.js');
         const sendCancel = await isEmailKindEnabled('interviewCancelled');
-        if (sendCancel && calendarEventId) {
+        if (sendCancel && calendarEventId && !holds.some((hold) => hold.eventId === calendarEventId)) {
             const cancelResult = await cancelM365InterviewEvent(calendarEventId);
             if (!cancelResult.ok && cancelResult.reason === 'error')
                 console.error('[calendar]', cancelResult.message);
         }
         for (const hold of holds) {
             if (hold.mailbox === 'organizer') {
-                if (sendCancel)
-                    await cancelM365InterviewEvent(hold.eventId);
+                if (sendCancel) {
+                    const cancelResult = await cancelM365InterviewEvent(hold.eventId, holdOrganizer(hold));
+                    if (!cancelResult.ok && cancelResult.reason === 'error')
+                        console.error('[calendar]', cancelResult.message);
+                }
             }
             else
                 await deletePrivateBusyHold(hold.email, hold.eventId);
@@ -135,12 +160,13 @@ export async function syncInterviewCalendar(ctx) {
         return { meetingLink, calendarEventId, calendarSequence };
     }
     if (!meetingLink && shouldAutoCreateTeamsMeeting() && ctx.createOnlineMeeting !== false) {
-        const meeting = await createTeamsOnlineMeeting({ subject: meta.summary, start: ctx.scheduledAt, end });
+        const meeting = await createTeamsOnlineMeeting({ subject: meta.summary, start: ctx.scheduledAt, end, organizer: ctx.organizerEmail });
         if (meeting.ok)
             meetingLink = meeting.joinUrl;
         else
             console.error('[calendar]', meeting.message);
     }
+    const sharedOrganizer = calendarOrganizerEmail();
     const known = new Set(holds.map((hold) => hold.eventId));
     if (calendarEventId && !known.has(calendarEventId)) {
         const cancelResult = await cancelM365InterviewEvent(calendarEventId);
@@ -192,22 +218,34 @@ export async function syncInterviewCalendar(ctx) {
         else if (person.role === 'candidate' ? !candidateMailOn : !panelMailOn) {
             continue;
         }
-        const values = { ...sharedValues, panelName: person.name, candidateName: person.role === 'candidate' ? person.name : meta.candidateName };
-        const bodyHtml = inviteShell(person.role === 'candidate' ? 'IGS Global | Interview Invitation' : 'IGS Global | Interview Panel', renderWorkflowContent(template.body, values));
-        const subject = fillWorkflowText(template.subject, values) || meta.summary;
-        const eventInput = {
-            subject,
-            bodyHtml,
-            start: ctx.scheduledAt,
-            end,
-            location: 'Microsoft Teams Meeting',
-            attendees: [{ email: person.email, name: person.name }],
+        const buildInput = () => {
+            const values = { ...sharedValues, panelName: person.name, candidateName: person.role === 'candidate' ? person.name : meta.candidateName };
+            return {
+                subject: fillWorkflowText(template.subject, values) || meta.summary,
+                bodyHtml: inviteShell(person.role === 'candidate' ? 'IGS Global | Interview Invitation' : 'IGS Global | Interview Panel', renderWorkflowContent(template.body, values)),
+                start: ctx.scheduledAt,
+                end,
+                location: 'Microsoft Teams Meeting',
+                attendees: [{ email: person.email, name: person.name }],
+            };
         };
+        const eventInput = buildInput();
         const key = person.email.toLowerCase();
         const existing = existingHold;
-        const result = existing
-            ? await updateM365InterviewEvent(existing.eventId, eventInput)
-            : await createM365InterviewEvent(eventInput);
+        // Standalone onlineMeetings needs a Teams application access policy; when that failed, let the
+        // first event host the Teams meeting and reuse its join link for everyone else.
+        const hostTeams = !meetingLink && ctx.createOnlineMeeting !== false && shouldAutoCreateTeamsMeeting();
+        // Existing invites stay with the mailbox that sent them; new ones go out from the scheduler's
+        // calendar, falling back to the shared mailbox when theirs is not reachable.
+        let organizer = existing ? holdOrganizer(existing) : ctx.organizerEmail || sharedOrganizer;
+        let result = existing
+            ? await updateM365InterviewEvent(existing.eventId, { ...eventInput, createTeamsMeeting: hostTeams }, organizer)
+            : await createM365InterviewEvent({ ...eventInput, createTeamsMeeting: hostTeams }, organizer);
+        if (!result.ok && !existing && organizer !== sharedOrganizer) {
+            console.error('[calendar] scheduler mailbox failed, using shared organizer:', result.message);
+            organizer = sharedOrganizer;
+            result = await createM365InterviewEvent({ ...eventInput, createTeamsMeeting: hostTeams }, organizer);
+        }
         if (!result.ok) {
             if (result.reason === 'error')
                 console.error('[calendar]', result.message);
@@ -215,7 +253,14 @@ export async function syncInterviewCalendar(ctx) {
                 nextHolds.push(existing);
             continue;
         }
-        nextHolds.push({ email: key, eventId: result.eventId, mailbox: 'organizer' });
+        if (hostTeams && result.meetingLink) {
+            meetingLink = result.meetingLink;
+            sharedValues.meetingLink = meetingLink;
+            const patched = await updateM365InterviewEvent(result.eventId, buildInput(), organizer);
+            if (!patched.ok && patched.reason === 'error')
+                console.error('[calendar]', patched.message);
+        }
+        nextHolds.push({ email: key, eventId: result.eventId, mailbox: 'organizer', organizer });
         if (person.role === 'candidate')
             calendarEventId = result.eventId;
     }
@@ -224,7 +269,7 @@ export async function syncInterviewCalendar(ctx) {
         if (kept.has(hold.eventId))
             continue;
         if (hold.mailbox === 'organizer')
-            await cancelM365InterviewEvent(hold.eventId);
+            await cancelM365InterviewEvent(hold.eventId, holdOrganizer(hold));
         else
             await deletePrivateBusyHold(hold.email, hold.eventId);
     }
@@ -232,6 +277,9 @@ export async function syncInterviewCalendar(ctx) {
     if (!calendarEventId && nextHolds[0])
         calendarEventId = nextHolds[0].eventId;
     return { meetingLink, calendarEventId, calendarSequence };
+}
+function holdOrganizer(hold) {
+    return hold.organizer || calendarOrganizerEmail();
 }
 function holdsKey(interviewId) {
     return `interview_private_holds:${interviewId}`;
@@ -249,6 +297,7 @@ async function readHolds(interviewId) {
                 email: hold.email,
                 eventId: hold.eventId,
                 mailbox: hold.mailbox || hold.email,
+                organizer: hold.organizer,
             }))
             : [];
     }
@@ -270,7 +319,7 @@ export async function releasePrivateBusyHold(interviewId, email) {
     if (!hold)
         return;
     if (hold.mailbox === 'organizer')
-        await cancelM365InterviewEvent(hold.eventId);
+        await cancelM365InterviewEvent(hold.eventId, holdOrganizer(hold));
     else
         await deletePrivateBusyHold(hold.email, hold.eventId);
     await writeHolds(interviewId, existing.filter((item) => item.email !== key));
@@ -300,5 +349,6 @@ export async function interviewRowToCalendarContext(row, options) {
         stageName,
         cancelled: options?.cancelled,
         createOnlineMeeting: options?.createOnlineMeeting,
+        organizerEmail: await schedulerOrganizerEmail(row.id),
     };
 }

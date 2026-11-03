@@ -554,7 +554,7 @@ export async function sendJobDescriptionEmail(params) {
     });
 }
 export async function sendReferralSubmittedEmail(params) {
-    const portalUrl = `${env.clientOrigin.replace(/\/$/, '')}/referral-portal/login`;
+    const portalUrl = `${env.clientOrigin.replace(/\/$/, '')}/referral-portal/dashboard`;
     return sendHtmlEmail({
         kind: 'referralSubmitted',
         vars: { referrerName: params.referrerName, candidateName: params.candidateName, jobTitle: params.jobTitle, appName: env.appName },

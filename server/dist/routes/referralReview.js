@@ -102,7 +102,7 @@ router.get('/access', handle(async (req, res) => {
 router.get('/recruiters', handle(async (req, res) => {
     await requireReviewer(req.auth);
     const users = await prisma.user.findMany({
-        where: { status: 'ACTIVE', role: { in: ['RECRUITER', 'TEAM_LEAD'] } },
+        where: { status: 'ACTIVE', role: 'RECRUITER' },
         select: { id: true, name: true, email: true, role: true },
         orderBy: { name: 'asc' },
     });
@@ -174,7 +174,7 @@ router.post('/:id/assign', handle(async (req, res) => {
         throw new ReferralWorkflowError('Only referrals in review can be assigned');
     }
     const recruiter = await prisma.user.findFirst({
-        where: { id: recruiterId, status: 'ACTIVE', role: { in: ['RECRUITER', 'TEAM_LEAD'] } },
+        where: { id: recruiterId, status: 'ACTIVE', role: 'RECRUITER' },
         select: { id: true, name: true },
     });
     if (!recruiter)

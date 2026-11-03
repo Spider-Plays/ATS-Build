@@ -29,6 +29,9 @@ export async function ensureChangeRequestTable() {
     )
   `);
     await prisma.$executeRawUnsafe(`
+    ALTER TABLE "ChangeRequest" ADD COLUMN IF NOT EXISTS attachments TEXT NOT NULL DEFAULT '[]'
+  `);
+    await prisma.$executeRawUnsafe(`
     CREATE INDEX IF NOT EXISTS "ChangeRequest_status_createdAt_idx"
     ON "ChangeRequest" (status, "createdAt")
   `);

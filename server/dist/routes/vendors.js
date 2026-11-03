@@ -22,7 +22,7 @@ import { getUserEmailsByRoles } from '../lib/emailRecipients.js';
 import { sendStaffNotificationEmail } from '../services/email.js';
 import { env } from '../config/env.js';
 const router = Router();
-const VENDOR_MANAGERS = ['ADMIN', 'HR_HEAD', 'TA_MANAGER', 'RECRUITER', 'TEAM_LEAD'];
+const VENDOR_MANAGERS = ['ADMIN', 'HR_HEAD', 'TA_MANAGER', 'RECRUITER'];
 async function getVendorOnboardingStatus(vendorId) {
     const row = await prisma.vendorOnboarding.findUnique({
         where: { vendorId },

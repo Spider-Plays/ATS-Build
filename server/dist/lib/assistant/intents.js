@@ -42,7 +42,6 @@ const USER_ROLE_ALIASES = [
     { role: 'ADMIN', patterns: [/\badmins?\b/] },
     { role: 'VENDOR', patterns: [/\bvendors?\b.*\b(users?|accounts?)\b/, /\bvendor (users?|accounts?)\b/] },
     { role: 'HIRING_MANAGER', patterns: [/\bhiring managers?\b/] },
-    { role: 'TEAM_LEAD', patterns: [/\bteam leads?\b/] },
     { role: 'FINANCE_HEAD', patterns: [/\bfinance\b/] },
     { role: 'CANDIDATE', patterns: [/\bcandidate (users?|accounts?)\b/] },
     { role: 'EMPLOYEE', patterns: [/\bemployees?\b/] },

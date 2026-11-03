@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth, requireActiveUser, requireRoles } from '../middleware/auth.js';
+import { requireAuth, requireActiveUser, requireRoles, requireRolesOrTag } from '../middleware/auth.js';
 import { CHANNEL_REPORT_ROLES, HIRING_REPORT_ROLES, TA_REPORT_ROLES, } from '../lib/roles.js';
 import { buildTaReport, normalizePreset, parseMonthFilters, parseQuarterFilters, parseReportDayRanges, parseRequirementStatuses, resolveDateRange, } from '../lib/taReport.js';
 import { buildHiringReport } from '../lib/hiringReport.js';
@@ -49,7 +49,7 @@ router.get('/ta', requireRoles(...TA_REPORT_ROLES), async (req, res) => {
         total: report.total,
     });
 });
-router.get('/hiring', requireRoles(...HIRING_REPORT_ROLES), async (req, res) => {
+router.get('/hiring', requireRolesOrTag('ta_operation', ...HIRING_REPORT_ROLES), async (req, res) => {
     try {
         const groupBy = parseHiringGroupBy(req.query.groupBy);
         const preset = normalizePreset(req.query.preset);

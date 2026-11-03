@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { env } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
 import { applyNoStoreAuth, sendAuthUnauthorized } from '../lib/authResponse.js';
+import { hasFeatureTag, parseFeatureTags } from '../lib/userTags.js';
 function forwardDbError(err, next) {
     if (err instanceof Prisma.PrismaClientInitializationError ||
         (err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -52,6 +53,19 @@ export function requireRoles(...roles) {
         next();
     };
 }
+/** Passes for the listed roles, or any user holding the feature tag. Run after requireActiveUser. */
+export function requireRolesOrTag(tag, ...roles) {
+    return (req, res, next) => {
+        if (!req.auth)
+            return sendAuthUnauthorized(res);
+        if (req.auth.role === 'DEVELOPER')
+            return next();
+        if (!roles.includes(req.auth.role) && !hasFeatureTag(req.auth.role, req.auth.tags, tag)) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+        next();
+    };
+}
 /** Same as requireRoles, but Admin is not exempt. Developer always passes. */
 export function requireExactRoles(...roles) {
     return (req, res, next) => {
@@ -94,6 +108,7 @@ export async function requireActiveUser(req, res, next) {
         req.auth.role = user.role;
         req.auth.email = user.email;
         req.auth.tokenVersion = tokenVersion;
+        req.auth.tags = parseFeatureTags(user.permissions);
         next();
     }
     catch (err) {

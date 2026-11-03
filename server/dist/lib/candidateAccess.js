@@ -118,7 +118,7 @@ export async function buildCandidateMatchPoolWhere(auth, requirementId) {
         return listWhere;
     }
     // Only accepted assignees get the unlinked candidate pool for linking.
-    if ((auth.role === 'RECRUITER' || auth.role === 'TEAM_LEAD') &&
+    if (auth.role === 'RECRUITER' &&
         !parseRecruiterIds(requirement.recruiters).includes(auth.userId)) {
         return listWhere;
     }
@@ -189,14 +189,14 @@ async function assignedInterviewWhere(userId) {
 /**
  * Dashboard calendar and interview lists:
  * - Org-wide (admin, developer, admin, HR head, TA Manager): every interview.
- * - Recruiter and team lead: scheduled by them or assigned to them.
+ * - Recruiter: scheduled by them or assigned to them.
  * - Everyone else (finance head, hiring manager, account manager, interviewer): assigned only.
  */
 export async function buildInterviewListWhere(auth) {
     if (hasOrgWideAccess(auth.role))
         return {};
     const assigned = await assignedInterviewWhere(auth.userId);
-    if (auth.role === 'RECRUITER' || auth.role === 'TEAM_LEAD') {
+    if (auth.role === 'RECRUITER') {
         return { OR: [{ scheduledBy: auth.userId }, assigned] };
     }
     return assigned;

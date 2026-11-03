@@ -39,6 +39,23 @@ export async function ensureInterviewPlan(requirementId, options) {
         }
         return existing;
     }
+    if (options?.stages && options.stages.length > 0) {
+        return prisma.interviewPlan.create({
+            data: {
+                requirementId,
+                stages: {
+                    create: options.stages.map((s, order) => ({
+                        order,
+                        name: s.name,
+                        interviewType: s.interviewType,
+                        defaultDuration: s.defaultDuration,
+                        defaultInterviewerIds: JSON.stringify(s.defaultInterviewerIds),
+                    })),
+                },
+            },
+            include: { stages: { orderBy: { order: 'asc' } } },
+        });
+    }
     const stagesData = await Promise.all(DEFAULT_INTERVIEW_STAGES.map(async (s, order) => {
         const override = options?.stageInterviewerIdsByOrder?.[order];
         const panelIds = override && override.length > 0
@@ -268,7 +285,6 @@ const PANEL_MEMBER_ROLES = [
     'INTERVIEWER',
     'HIRING_MANAGER',
     'ACCOUNT_MANAGER',
-    'TEAM_LEAD',
     'RECRUITER',
     'ADMIN',
     'HR_HEAD',
@@ -293,12 +309,9 @@ function parseInterviewerIdList(raw, label) {
 export async function resolveCreateInterviewPanels(body) {
     const l1 = parseInterviewerIdList(body.l1InterviewerIds, 'L1 interview panel');
     const l2 = parseInterviewerIdList(body.l2InterviewerIds, 'L2 interview panel');
-    if (l1.length === 0) {
-        throw new Error('Select at least one interviewer for the L1 interview panel');
-    }
-    if (l2.length === 0) {
-        throw new Error('Select at least one interviewer for the L2 / Managerial interview panel');
-    }
+    // Panels are optional — empty levels fall back to the org panel catalog in ensureInterviewPlan.
+    if (l1.length === 0 && l2.length === 0)
+        return {};
     const allIds = [...new Set([...l1, ...l2])];
     const users = await prisma.user.findMany({
         where: { id: { in: allIds } },
@@ -317,5 +330,59 @@ export async function resolveCreateInterviewPanels(body) {
             throw new Error(`${user.name} cannot be assigned as an interviewer`);
         }
     }
-    return { 0: l1, 1: l2 };
+    return {
+        ...(l1.length > 0 ? { 0: l1 } : {}),
+        ...(l2.length > 0 ? { 1: l2 } : {}),
+    };
+}
+/**
+ * Parse the interview stages configured on the create-requirement wizard.
+ * Returns undefined when the body has no `interviewStages` (legacy L1/L2 panel payloads).
+ */
+export async function resolveCreateInterviewStages(body) {
+    const raw = body.interviewStages;
+    if (raw === undefined || raw === null)
+        return undefined;
+    if (!Array.isArray(raw) || raw.length < 1) {
+        throw new Error('Configure at least one interview stage');
+    }
+    if (raw.length > 10) {
+        throw new Error('A requirement can have at most 10 interview stages');
+    }
+    const stages = raw.map((item, i) => {
+        const row = (item ?? {});
+        const name = typeof row.name === 'string' ? row.name.trim() : '';
+        if (!name)
+            throw new Error(`Stage ${i + 1} must have a name`);
+        return {
+            name: name.slice(0, 120),
+            interviewType: typeof row.interviewType === 'string' && row.interviewType.trim()
+                ? row.interviewType.trim()
+                : 'TECHNICAL',
+            defaultDuration: typeof row.defaultDuration === 'number' && row.defaultDuration >= 15
+                ? row.defaultDuration
+                : 60,
+            defaultInterviewerIds: parseInterviewerIdList(row.defaultInterviewerIds, `Stage ${i + 1} interviewers`),
+        };
+    });
+    const allIds = [...new Set(stages.flatMap((s) => s.defaultInterviewerIds))];
+    if (allIds.length > 0) {
+        const users = await prisma.user.findMany({
+            where: { id: { in: allIds } },
+            select: { id: true, role: true, status: true, name: true },
+        });
+        const byId = new Map(users.map((u) => [u.id, u]));
+        for (const id of allIds) {
+            const user = byId.get(id);
+            if (!user)
+                throw new Error('One or more selected interviewers were not found');
+            if (user.status !== 'ACTIVE') {
+                throw new Error(`${user.name} is not an active user and cannot be on an interview panel`);
+            }
+            if (!PANEL_MEMBER_ROLES.includes(user.role)) {
+                throw new Error(`${user.name} cannot be assigned as an interviewer`);
+            }
+        }
+    }
+    return stages;
 }

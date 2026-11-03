@@ -46,7 +46,7 @@ export const FEATURE_TAG_DEFINITIONS = [
     {
         key: 'ta_operation',
         label: 'TA Operation',
-        description: 'Edit the date a job requirement is raised.',
+        description: 'TA leadership: org-wide TA Report, Hiring Report, posting status and portal visibility, raised date and repurpose, vendor requests, referral queue.',
         path: '/requirements/new',
         icon: 'event',
     },
@@ -79,6 +79,10 @@ export function hasFeatureTag(role, userTags, tag) {
     if (role === 'ADMIN')
         return true;
     return (userTags ?? []).includes(tag);
+}
+/** TA Operation tag holders (and admins) get TA leadership controls on top of their role. */
+export function hasTaOperation(role, userTags) {
+    return role === 'DEVELOPER' || hasFeatureTag(role, userTags, 'ta_operation');
 }
 export function featureTagFromPath(pathname) {
     if (pathname.startsWith('/features/careers'))

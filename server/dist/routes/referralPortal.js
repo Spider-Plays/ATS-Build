@@ -278,6 +278,63 @@ router.get('/referrals', async (req, res) => {
         referralNotes: c.referralNotes ?? undefined,
     })));
 });
+/** Referrer-facing events only (allowlist), so internal staff actions never reach this feed. */
+const REFERRER_NOTIFICATION_ACTIONS = [
+    'STATUS_CHANGED',
+    'REFERRAL_REJECTED',
+    'REFERRAL_EXPIRED',
+    'REFERRAL_BONUS_GRANTED',
+    'REFERRAL_BONUS_PAID',
+    'REFERRAL_BONUS_CANCELLED',
+];
+/** New pipeline status from a STATUS_CHANGED log, without exposing the rest of its details. */
+function loggedNewStatus(action, details) {
+    if (action !== 'STATUS_CHANGED' || !details)
+        return undefined;
+    try {
+        const d = JSON.parse(details);
+        const s = d.newStatus ?? d.status;
+        return typeof s === 'string' ? s : undefined;
+    }
+    catch {
+        // older rows may not hold JSON
+        return undefined;
+    }
+}
+/** Updates on the caller's own referrals; the bell in the referral portal reads only this. */
+router.get('/notifications', async (req, res) => {
+    const userId = req.auth.userId;
+    const referrals = await prisma.candidate.findMany({
+        where: { referredByUserId: userId },
+        select: { id: true, name: true, jobTitle: true, role: true },
+    });
+    if (referrals.length === 0)
+        return res.json([]);
+    const byId = new Map(referrals.map((c) => [c.id, c]));
+    const logs = await prisma.activityLog.findMany({
+        where: {
+            entityType: 'CANDIDATE',
+            entityId: { in: referrals.map((c) => c.id) },
+            action: { in: [...REFERRER_NOTIFICATION_ACTIONS] },
+            performedBy: { not: userId },
+            seed: false,
+        },
+        orderBy: { timestamp: 'desc' },
+        take: 50,
+    });
+    res.json(logs.map((l) => {
+        const c = byId.get(l.entityId);
+        return {
+            id: `referral:${l.id}`,
+            action: l.action,
+            candidateId: c.id,
+            candidateName: c.name,
+            jobTitle: c.jobTitle ?? c.role ?? undefined,
+            newStatus: loggedNewStatus(l.action, l.details),
+            timestamp: l.timestamp.toISOString(),
+        };
+    }));
+});
 router.get('/referrals/:id', async (req, res) => {
     const row = await prisma.candidate.findFirst({
         where: { id: req.params.id, referredByUserId: req.auth.userId },
@@ -291,8 +348,8 @@ router.get('/referrals/:id', async (req, res) => {
         where: {
             entityType: 'CANDIDATE',
             entityId: row.id,
-            // Assignment and recruiter decisions are internal to the referral team.
-            action: { notIn: ['REFERRAL_ASSIGNED', 'REFERRAL_RECRUITER_REJECTED', 'REFERRAL_ACCEPTED'] },
+            // Allowlist: internal steps (assignment, recruiter decisions, edits, duplicate checks) stay hidden.
+            action: { in: ['REFERRAL_SUBMITTED', ...REFERRER_NOTIFICATION_ACTIONS] },
         },
         orderBy: { timestamp: 'desc' },
         take: 20,
@@ -306,6 +363,7 @@ router.get('/referrals/:id', async (req, res) => {
         timeline: logs.map((l) => ({
             action: l.action,
             timestamp: l.timestamp.toISOString(),
+            newStatus: loggedNewStatus(l.action, l.details),
         })),
     });
 });

@@ -7,7 +7,6 @@ export const CONFIGURABLE_ROLES = [
     'HUMAN_RESOURCE',
     'FINANCE_HEAD',
     'RECRUITER',
-    'TEAM_LEAD',
     'HIRING_MANAGER',
     'ACCOUNT_MANAGER',
     'INTERVIEWER',
@@ -23,6 +22,7 @@ export const PAGE_KEYS = [
     'market_trends',
     'pipeline',
     'interviews',
+    'my_interviews',
     'offers',
     'offer_compensation_config',
     'offer_letter_template',
@@ -50,6 +50,11 @@ export const PAGE_DEFINITIONS = [
     { key: 'market_trends', label: 'Market Trends', description: 'Skill pay analyzer and forecasted market CTC' },
     { key: 'pipeline', label: 'Pipeline', description: 'Hiring pipeline by requirement' },
     { key: 'interviews', label: 'Interviews', description: 'Schedule and manage interviews' },
+    {
+        key: 'my_interviews',
+        label: 'Interviews For Me',
+        description: 'Interviews where you are on the panel',
+    },
     { key: 'offers', label: 'Offers', description: 'Offer letters and approvals' },
     {
         key: 'offer_compensation_config',
@@ -103,6 +108,7 @@ export const DEFAULT_ROLE_PAGES = {
         'candidates',
         'pipeline',
         'interviews',
+        'my_interviews',
         'offers',
         'offer_letter_template',
         'self_service',
@@ -122,6 +128,7 @@ export const DEFAULT_ROLE_PAGES = {
         'candidates',
         'pipeline',
         'interviews',
+        'my_interviews',
         'offers',
         'self_service',
         'ta_process',
@@ -146,6 +153,7 @@ export const DEFAULT_ROLE_PAGES = {
         'candidates',
         'pipeline',
         'interviews',
+        'my_interviews',
         'offers',
         'self_service',
         'ta_process',
@@ -154,22 +162,8 @@ export const DEFAULT_ROLE_PAGES = {
         'notifications',
         'settings',
     ],
-    TEAM_LEAD: [
-        'dashboard',
-        'requirements',
-        'reports',
-        'vendors',
-        'candidate_search',
-        'candidates',
-        'pipeline',
-        'interviews',
-        'offers',
-        'self_service',
-        'notifications',
-        'settings',
-    ],
-    HIRING_MANAGER: ['dashboard', 'business_requirements', 'requirements', 'reports', 'market_trends', 'self_service', 'notifications', 'settings'],
-    ACCOUNT_MANAGER: ['dashboard', 'business_requirements', 'requirements', 'reports', 'market_trends', 'self_service', 'notifications', 'settings'],
+    HIRING_MANAGER: ['dashboard', 'business_requirements', 'requirements', 'reports', 'market_trends', 'my_interviews', 'self_service', 'notifications', 'settings'],
+    ACCOUNT_MANAGER: ['dashboard', 'business_requirements', 'requirements', 'reports', 'market_trends', 'my_interviews', 'self_service', 'notifications', 'settings'],
     INTERVIEWER: ['dashboard', 'interviews', 'self_service', 'notifications', 'settings'],
     FINANCE_HEAD: ['dashboard', 'offer_compensation_config', 'self_service', 'notifications', 'settings'],
 };
@@ -300,6 +294,8 @@ export function pathnameToPageKey(pathname) {
         return 'pipeline';
     if (pathname.startsWith('/interviews'))
         return 'interviews';
+    if (pathname.startsWith('/my-interviews'))
+        return 'my_interviews';
     if (pathname.startsWith('/offers/compensation-config'))
         return 'offer_compensation_config';
     if (pathname.startsWith('/offers/letter-template'))

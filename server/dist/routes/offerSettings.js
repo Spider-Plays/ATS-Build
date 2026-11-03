@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth, requireActiveUser, requireRoles } from '../middleware/auth.js';
+import { requireAuth, requireActiveUser, requireRoles, requireRolesOrTag } from '../middleware/auth.js';
 import { INTERNAL_ROLES } from '../lib/roles.js';
 import { getCompensationConfig, setCompensationConfig, getOfferLetterTemplate, setOfferLetterTemplate, } from '../lib/offerSettings.js';
 import { calculateCompensationBreakdown, DEFAULT_COMPENSATION_CONFIG, } from '../lib/offerCompensation.js';
@@ -41,7 +41,7 @@ const letterTemplateSchema = z.object({
     clausePages: z.array(z.string()).min(1),
     declarationPageHtml: z.string().min(1),
 });
-router.get('/compensation', requireRoles(...COMPENSATION_EDITORS, ...LETTER_TEMPLATE_EDITORS, 'TA_MANAGER', 'TEAM_LEAD', 'HUMAN_RESOURCE'), async (_req, res) => {
+router.get('/compensation', requireRolesOrTag('ta_operation', ...COMPENSATION_EDITORS, ...LETTER_TEMPLATE_EDITORS, 'TA_MANAGER', 'HUMAN_RESOURCE'), async (_req, res) => {
     const config = await getCompensationConfig();
     res.json(config);
 });

@@ -2,9 +2,9 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { mapActivityLog, mapCandidate, mapRequirement } from '../utils/mappers.js';
-import { requireAuth, requireActiveUser, requireRoles } from '../middleware/auth.js';
+import { requireAuth, requireActiveUser, requireRoles, requireRolesOrTag } from '../middleware/auth.js';
 import { INTERVIEW_PLAN_EDITORS, REQ_APPROVERS, REQUIREMENT_API_ROLES, STAFF_MUTATE } from '../lib/roles.js';
-import { ensureInterviewPlan, getCandidateStageProgress, mapPlanResponse, resolveCreateInterviewPanels, } from '../lib/interviewPlan.js';
+import { ensureInterviewPlan, getCandidateStageProgress, mapPlanResponse, resolveCreateInterviewPanels, resolveCreateInterviewStages, } from '../lib/interviewPlan.js';
 import { logActivity } from '../services/activityLog.js';
 import { generateJobCode } from '../lib/jobCode.js';
 import { parseSkillList, serializeSkills } from '../lib/skills.js';
@@ -265,7 +265,7 @@ router.put('/:id/interview-plan', requireRoles(...INTERVIEW_PLAN_EDITORS), async
     const requirement = await prisma.requirement.findUnique({ where: { id: req.params.id } });
     if (!requirement)
         return res.status(404).json({ error: 'Not found' });
-    // Recruiters and team leads may only change plans on requirements they are assigned to.
+    // Recruiters may only change plans on requirements they are assigned to.
     if (!hasOrgWideAccess(req.auth.role)) {
         try {
             await assertCanAddCandidatesToRequirement(req.auth, req.params.id);
@@ -511,13 +511,16 @@ router.post('/', requireRoles(...STAFF_MUTATE, 'HIRING_MANAGER'), async (req, re
             error: e instanceof Error ? e.message : 'Invalid client',
         });
     }
+    let interviewStages;
     let stageInterviewerIdsByOrder;
     try {
-        stageInterviewerIdsByOrder = await resolveCreateInterviewPanels(body);
+        interviewStages = await resolveCreateInterviewStages(body);
+        if (!interviewStages)
+            stageInterviewerIdsByOrder = await resolveCreateInterviewPanels(body);
     }
     catch (e) {
         return res.status(400).json({
-            error: e instanceof Error ? e.message : 'Invalid interview panels',
+            error: e instanceof Error ? e.message : 'Invalid interview stages',
         });
     }
     const row = await prisma.requirement.create({
@@ -558,7 +561,7 @@ router.post('/', requireRoles(...STAFF_MUTATE, 'HIRING_MANAGER'), async (req, re
             visibleToCandidates: body.visibleToCandidates ?? false,
         },
     });
-    await ensureInterviewPlan(row.id, { stageInterviewerIdsByOrder });
+    await ensureInterviewPlan(row.id, { stageInterviewerIdsByOrder, stages: interviewStages });
     await logActivity({
         entityType: 'REQUIREMENT',
         entityId: row.id,
@@ -732,7 +735,7 @@ const REQUIREMENT_STATUSES = [
     'CANCELLED',
     'REJECTED',
 ];
-router.patch('/:id/status', requireRoles(...POSTING_CONTROL_ROLES), async (req, res) => {
+router.patch('/:id/status', requireRolesOrTag('ta_operation', ...POSTING_CONTROL_ROLES), async (req, res) => {
     const status = req.body.status;
     if (!REQUIREMENT_STATUSES.includes(status)) {
         return res.status(400).json({ error: 'Invalid status' });
@@ -745,7 +748,7 @@ router.patch('/:id/status', requireRoles(...POSTING_CONTROL_ROLES), async (req, 
         select: { name: true },
     });
     try {
-        assertCanManageRequirementPosting({ userId: req.auth.userId, role: req.auth.role, name: actor?.name }, { createdBy: existing.createdBy, hiringManager: existing.hiringManager });
+        assertCanManageRequirementPosting({ userId: req.auth.userId, role: req.auth.role, name: actor?.name, tags: req.auth.tags }, { createdBy: existing.createdBy, hiringManager: existing.hiringManager });
     }
     catch (e) {
         return res.status(403).json({ error: e instanceof Error ? e.message : 'Forbidden' });
@@ -819,7 +822,7 @@ router.patch('/:id/hiring-stage', requireRoles(...HIRING_STAGE_EDIT_ROLES), asyn
         return res.status(404).json({ error: 'Not found' });
     res.json(mapRequirement(row));
 });
-router.post('/:id/cancel', requireRoles(...POSTING_CONTROL_ROLES), async (req, res) => {
+router.post('/:id/cancel', requireRolesOrTag('ta_operation', ...POSTING_CONTROL_ROLES), async (req, res) => {
     const reason = typeof req.body.closureReason === 'string' ? req.body.closureReason.trim() : '';
     const closedAt = parseOptionalDate(req.body.closedAt ?? req.body.closureDate);
     if (reason.length < 3) {
@@ -836,7 +839,7 @@ router.post('/:id/cancel', requireRoles(...POSTING_CONTROL_ROLES), async (req, r
         select: { name: true },
     });
     try {
-        assertCanManageRequirementPosting({ userId: req.auth.userId, role: req.auth.role, name: actor?.name }, { createdBy: existing.createdBy, hiringManager: existing.hiringManager });
+        assertCanManageRequirementPosting({ userId: req.auth.userId, role: req.auth.role, name: actor?.name, tags: req.auth.tags }, { createdBy: existing.createdBy, hiringManager: existing.hiringManager });
     }
     catch (e) {
         return res.status(403).json({ error: e instanceof Error ? e.message : 'Forbidden' });
@@ -882,7 +885,7 @@ router.post('/:id/cancel', requireRoles(...POSTING_CONTROL_ROLES), async (req, r
     });
     res.json(mapRequirement(row));
 });
-router.patch('/:id/visibility', requireRoles(...PORTAL_VISIBILITY_ROLES), requireRequirementEditor, async (req, res) => {
+router.patch('/:id/visibility', requireRolesOrTag('ta_operation', ...PORTAL_VISIBILITY_ROLES), requireRequirementEditor, async (req, res) => {
     const visibleToCandidates = Boolean(req.body.visibleToCandidates);
     const existing = await prisma.requirement.findUnique({ where: { id: req.params.id } });
     if (!existing)
@@ -920,7 +923,7 @@ router.patch('/:id/visibility', requireRoles(...PORTAL_VISIBILITY_ROLES), requir
     });
     res.json(mapRequirement(row));
 });
-router.patch('/:id/referral-visibility', requireRoles(...PORTAL_VISIBILITY_ROLES), requireRequirementEditor, async (req, res) => {
+router.patch('/:id/referral-visibility', requireRolesOrTag('ta_operation', ...PORTAL_VISIBILITY_ROLES), requireRequirementEditor, async (req, res) => {
     const visibleToReferrals = Boolean(req.body.visibleToReferrals);
     const referralBonusAmount = req.body.referralBonusAmount === null || req.body.referralBonusAmount === undefined
         ? undefined

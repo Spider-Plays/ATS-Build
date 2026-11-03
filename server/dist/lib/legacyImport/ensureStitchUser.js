@@ -110,7 +110,7 @@ function namesMatch(a, b) {
     return normalizePersonName(a).toLowerCase() === normalizePersonName(b).toLowerCase();
 }
 function departmentForRole(role) {
-    if (role === 'RECRUITER' || role === 'TEAM_LEAD')
+    if (role === 'RECRUITER')
         return 'Talent Acquisition';
     if (role === 'EMPLOYEE')
         return 'Engineering';

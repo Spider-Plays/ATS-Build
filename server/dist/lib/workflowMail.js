@@ -67,7 +67,6 @@ export const WORKFLOW_MAIL_LABELS = {
     referralRecruiterRejected: 'Employee referral rejected by recruiter',
     referralJoined: 'Employee referral joined',
 };
-const KARTHIK = 'karthik.vc@igsglobal.com';
 const RAISED_BODY = `A new requirement has been raised for {{jobTitle}} — {{client}}.
 
 - Req ID : {{reqId}}
@@ -105,7 +104,7 @@ function template(partial) {
         bcc: [],
         extraTo: [],
         extraCc: [],
-        extraBcc: [KARTHIK],
+        extraBcc: [],
         ...partial,
     };
 }

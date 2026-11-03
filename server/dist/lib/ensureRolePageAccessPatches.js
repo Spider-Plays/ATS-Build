@@ -20,7 +20,6 @@ export async function ensureRolePageAccessPatches() {
         TA_MANAGER: ['reports', 'self_service'],
         FINANCE_HEAD: ['self_service'],
         RECRUITER: ['reports', 'self_service'],
-        TEAM_LEAD: ['reports', 'self_service'],
         INTERVIEWER: ['self_service'],
     };
     const exactPages = {

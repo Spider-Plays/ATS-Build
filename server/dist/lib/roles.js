@@ -7,7 +7,6 @@ export const INTERNAL_ROLES = [
     'HUMAN_RESOURCE',
     'FINANCE_HEAD',
     'RECRUITER',
-    'TEAM_LEAD',
     'HIRING_MANAGER',
     'INTERVIEWER',
 ];
@@ -16,13 +15,12 @@ export const REQUIREMENT_API_ROLES = [...INTERNAL_ROLES, 'ACCOUNT_MANAGER'];
 /**
  * Roles that may access the TA Report.
  * Recruiter: Client pivot = assigned jobs with full requirement metrics;
- * Recruiter pivot = own activity only. TEAM_LEAD (TA Lead) + HR + admins see org-wide.
+ * Recruiter pivot = own activity only. TA Operation tag holders + HR + admins see org-wide.
  */
 export const TA_REPORT_ROLES = [
     'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',
-    'TEAM_LEAD',
     'RECRUITER',
 ];
 /** Hiring / demand-fulfillment report (staff with Reports access; not Recruiters). */
@@ -30,7 +28,6 @@ export const HIRING_REPORT_ROLES = [
     'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',
-    'TEAM_LEAD',
     'HIRING_MANAGER',
     'ACCOUNT_MANAGER',
     'FINANCE_HEAD',
@@ -47,11 +44,10 @@ export const STAFF_MUTATE = [
     'HR_HEAD',
     'TA_MANAGER',
     'RECRUITER',
-    'TEAM_LEAD',
 ];
 /** HR Head and Admin approve directly; Admin with on-behalf-of-HR-Head flag. */
 export const REQ_APPROVERS = ['HR_HEAD', 'ADMIN'];
-export const OFFER_ROLES = ['ADMIN', 'HR_HEAD', 'TA_MANAGER', 'RECRUITER', 'TEAM_LEAD'];
+export const OFFER_ROLES = ['ADMIN', 'HR_HEAD', 'TA_MANAGER', 'RECRUITER'];
 /** Roles that may read offer data via GET /api/offers* */
 export const OFFER_VIEW_ROLES = OFFER_ROLES;
 export const OFFER_HR_APPROVERS = [];
@@ -62,7 +58,6 @@ export const INTERVIEW_PLAN_EDITORS = [
     'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',
-    'TEAM_LEAD',
     'RECRUITER',
 ];
 export function isAdminRole(role) {

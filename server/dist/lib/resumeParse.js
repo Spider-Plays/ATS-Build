@@ -96,7 +96,6 @@ export function parseResumeFields(text, catalogNames = []) {
     const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i);
     const phoneMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{2,4}\)?[-.\s]?){1,2}\d{3,4}[-.\s]?\d{3,4}(?:[-.\s]?\d{2,6})?/);
     const linkedinMatch = text.match(/https?:\/\/(?:www\.)?linkedin\.com\/in\/[\w%-]+/i);
-    const portfolioMatch = text.match(/https?:\/\/(?!www\.linkedin\.com)[\w.-]+\.[\w]{2,}(?:\/[\w./?#%+=-]*)?/gi);
     const expMatch = text.match(/(\d+(?:\.\d+)?)\s*\+?\s*(years?|yrs?)(?:\s+of\s+experience)?/i);
     const locationMatch = text.match(/(?:^|\n)\s*(?:location|address|city)\s*[:\-]\s*([^\n]{3,60})/im);
     const nameLine = lines.slice(0, 8).find((line) => {
@@ -114,18 +113,6 @@ export function parseResumeFields(text, catalogNames = []) {
         firstName = words[0];
         lastName = words.slice(1).join(' ');
     }
-    // Match on the URL host, not a loose substring: an unanchored /linkedin\.com/
-    // would also treat hosts like `linkedin.com.evil.com` as LinkedIn.
-    const isLinkedInHost = (u) => {
-        try {
-            const host = new URL(u.includes('://') ? u : `https://${u}`).hostname.toLowerCase();
-            return host === 'linkedin.com' || host.endsWith('.linkedin.com');
-        }
-        catch {
-            return false;
-        }
-    };
-    const portfolio = portfolioMatch?.find((u) => !isLinkedInHost(u)) ?? undefined;
     const extracted = extractSkillsFromText(text, catalogNames);
     const primarySkills = extracted.slice(0, 12);
     const secondarySkills = extracted.slice(12, 24);
@@ -135,7 +122,6 @@ export function parseResumeFields(text, catalogNames = []) {
         ...(emailMatch?.[0] && { email: emailMatch[0].toLowerCase() }),
         ...(phoneMatch?.[0] && { phone: phoneMatch[0].replace(/\s+/g, ' ').trim() }),
         ...(linkedinMatch?.[0] && { linkedin: linkedinMatch[0] }),
-        ...(portfolio && { portfolio }),
         ...(locationMatch?.[1]?.trim() && { location: locationMatch[1].trim() }),
         ...(expMatch && {
             totalExperience: `${expMatch[1]} Years`,

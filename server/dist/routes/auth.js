@@ -503,6 +503,21 @@ router.post('/forgot-password', authRateLimiter, async (req, res) => {
         issuePasswordResetLink(user, req).catch((err) => console.error('[auth] password reset email failed:', err));
     }
 });
+// Name and email for a live reset link so the page can check the "no name or email" rule as
+// the user types. Only the mailbox owner holds the token; POST keeps it out of URLs and logs.
+router.post('/reset-password/details', authRateLimiter, async (req, res) => {
+    const { token } = z.object({ token: z.string().min(1) }).parse(req.body);
+    const user = await prisma.user.findFirst({
+        where: {
+            passwordResetToken: hashResetToken(token),
+            passwordResetExpires: { gt: new Date() },
+        },
+        select: { name: true, email: true },
+    });
+    if (!user)
+        return res.status(400).json({ error: 'Invalid or expired reset link' });
+    res.json({ name: user.name, email: user.email });
+});
 router.post('/reset-password', authRateLimiter, async (req, res) => {
     const { token, newPassword } = z
         .object({

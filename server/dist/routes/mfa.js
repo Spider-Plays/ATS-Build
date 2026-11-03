@@ -181,15 +181,24 @@ router.post('/backup-codes/regenerate', authRateLimiter, requireAuth, requireAct
         next(err);
     }
 });
-/** "Lost my phone": only a Developer can clear a user's MFA; the user re-enrols at next sign-in. */
-router.post('/reset/:userId', authRateLimiter, requireAuth, requireActiveUser, requireExactRoles('DEVELOPER'), async (req, res, next) => {
+/**
+ * "Lost my phone": Admin or Developer clears a user's MFA; the user re-enrols at next sign-in.
+ * Only a Developer can reset an Admin or Developer, and nobody can reset their own.
+ */
+router.post('/reset/:userId', authRateLimiter, requireAuth, requireActiveUser, requireExactRoles('ADMIN', 'DEVELOPER'), async (req, res, next) => {
     try {
         const target = await prisma.user.findUnique({
             where: { id: String(req.params.userId) },
-            select: { id: true, email: true },
+            select: { id: true, email: true, role: true },
         });
         if (!target)
             return res.status(404).json({ error: 'User not found' });
+        if (target.id === req.auth.userId) {
+            return res.status(403).json({ error: 'You cannot reset your own MFA' });
+        }
+        if ((target.role === 'ADMIN' || target.role === 'DEVELOPER') && req.auth.role !== 'DEVELOPER') {
+            return res.status(403).json({ error: 'Only a Developer can reset MFA for an Admin or Developer account' });
+        }
         await resetUserMfa(target.id);
         console.info(`[mfa] ${req.auth.email} reset MFA for ${target.email}`);
         res.json({ ok: true });

@@ -1,21 +1,19 @@
+import { hasTaOperation } from './userTags.js';
 export const HIRING_STAGE_EDIT_ROLES = [
     'ADMIN',
     'RECRUITER',
     'TA_MANAGER',
-    'TEAM_LEAD',
 ];
 export const POSTING_CONTROL_ROLES = [
     'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',
-    'TEAM_LEAD',
     'HIRING_MANAGER',
 ];
 export const PORTAL_VISIBILITY_ROLES = [
     'ADMIN',
     'HR_HEAD',
     'TA_MANAGER',
-    'TEAM_LEAD',
 ];
 export const REQUIREMENT_CREATE_ROLES = [
     'ADMIN',
@@ -44,7 +42,7 @@ export function isRequirementHiringManager(auth, requirement) {
 export function assertCanManageRequirementPosting(auth, requirement) {
     if (auth.role === 'DEVELOPER')
         return;
-    if (['ADMIN', 'HR_HEAD', 'TA_MANAGER', 'TEAM_LEAD'].includes(auth.role)) {
+    if (['ADMIN', 'HR_HEAD', 'TA_MANAGER'].includes(auth.role) || hasTaOperation(auth.role, auth.tags)) {
         return;
     }
     if (auth.role === 'HIRING_MANAGER') {
@@ -62,7 +60,7 @@ export function assertCanUpdateHiringStage(auth, requirement) {
         throw new Error('Hiring stage can only be updated for live or on-hold requirements');
     }
     if (!HIRING_STAGE_EDIT_ROLES.includes(auth.role)) {
-        throw new Error('Only admins, recruiters, TA managers, and team leads can update hiring stage');
+        throw new Error('Only admins, recruiters, and TA managers can update hiring stage');
     }
 }
 export function assertCanApproveRequirement(auth, requirement, options = {}) {

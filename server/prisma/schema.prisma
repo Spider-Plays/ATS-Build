@@ -624,6 +624,7 @@ model ChangeRequest {
   closedByName      String?
   closedAt          DateTime?
   history           String    @default("[]")
+  attachments       String    @default("[]")
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
